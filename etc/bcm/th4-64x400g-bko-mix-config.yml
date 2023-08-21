@@ -1,0 +1,619 @@
+#
+# BCM56780 20x400g port configuration.
+#
+# configuration yaml file
+#   device:
+#       <unit>:
+#           <table>:
+#               ?
+#                   <key_fld_1>: <value>
+#                   <key_fld_2>: <value>
+#                   ...
+#                   <key_fld_n>: <value>
+#               :
+#                   <data_fld_1>: <value>
+#                   <data_fld_2>: <value>
+#                   ...
+#                   <data_fld_n>: <value>
+#
+
+---
+device:
+    0:
+        PC_PM_CORE:
+            ?
+                PC_PM_ID: 4
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x74125630
+                TX_LANE_MAP: 0x31470265
+                RX_POLARITY_FLIP: 0x8b
+                TX_POLARITY_FLIP: 0xb8
+            ?
+                PC_PM_ID: 6
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x12743065
+                TX_LANE_MAP: 0x57306412
+                RX_POLARITY_FLIP: 0xd1
+                TX_POLARITY_FLIP: 0xe2
+            ?
+                PC_PM_ID: 8
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x03562147
+                TX_LANE_MAP: 0x57306412
+                RX_POLARITY_FLIP: 0x2e
+                TX_POLARITY_FLIP: 0xe2
+            ?
+                PC_PM_ID: 10
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x65034721
+                TX_LANE_MAP: 0x21470365
+                RX_POLARITY_FLIP: 0xaa
+                TX_POLARITY_FLIP: 0x55
+            ?
+                PC_PM_ID: 11
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x03652147
+                TX_LANE_MAP: 0x47216503
+                RX_POLARITY_FLIP: 0x55
+                TX_POLARITY_FLIP: 0xaa
+            ?
+                PC_PM_ID: 13
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x56034721
+                TX_LANE_MAP: 0x30571264
+                RX_POLARITY_FLIP: 0x74
+                TX_POLARITY_FLIP: 0x47
+            ?
+                PC_PM_ID: 15
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x74126530
+                TX_LANE_MAP: 0x30571264
+                RX_POLARITY_FLIP: 0x8b
+                TX_POLARITY_FLIP: 0x47
+            ?
+                PC_PM_ID: 17
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x12743056
+                TX_LANE_MAP: 0x47316502
+                RX_POLARITY_FLIP: 0xd1
+                TX_POLARITY_FLIP: 0x1d
+            ?
+                PC_PM_ID: 21
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x3012
+                TX_LANE_MAP: 0x2031
+                RX_POLARITY_FLIP: 0x0d
+                TX_POLARITY_FLIP: 0x02
+...
+---
+device:
+    0:
+        DEVICE_CONFIG:
+            # CORE CLOCK FREQUENCY
+            CORE_CLK_FREQ: CLK_1350MHZ
+            # PP CLOCK FREQUENCY
+            PP_CLK_FREQ: CLK_1350MHZ
+            VARIANT: INA_2_5_11
+            #VARIANT: DNA_2_5_11
+...
+---
+
+device:
+    0:
+        PC_PORT_PHYS_MAP:
+            ?
+                # CPU port
+                PORT_ID: 0
+            :
+                PC_PHYS_PORT_ID: 0
+            ?
+                PORT_ID: 1
+            :
+                PC_PHYS_PORT_ID: 1
+            ?
+                PORT_ID: 5
+            :
+                PC_PHYS_PORT_ID: 9
+            ?
+                PORT_ID: 9
+            :
+                PC_PHYS_PORT_ID: 17
+            ?
+                PORT_ID: 13
+            :
+                PC_PHYS_PORT_ID: 25
+            ?
+                PORT_ID: 17
+            :
+                PC_PHYS_PORT_ID: 33
+            ?
+                PORT_ID: 21
+            :
+                PC_PHYS_PORT_ID: 41
+            ?
+                PORT_ID: 25
+            :
+                PC_PHYS_PORT_ID: 49
+            ?
+                PORT_ID: 29
+            :
+                PC_PHYS_PORT_ID: 57
+            ?
+                PORT_ID: 33
+            :
+                PC_PHYS_PORT_ID: 65
+            ?
+                PORT_ID: 37
+            :
+                PC_PHYS_PORT_ID: 73
+            ?
+                PORT_ID: 41
+            :
+                PC_PHYS_PORT_ID: 81
+            ?
+                PORT_ID: 45
+            :
+                PC_PHYS_PORT_ID: 89
+            ?
+                PORT_ID: 49
+            :
+                PC_PHYS_PORT_ID: 97
+            ?
+                PORT_ID: 53
+            :
+                PC_PHYS_PORT_ID: 105
+            ?
+                PORT_ID: 57
+            :
+                PC_PHYS_PORT_ID: 113
+            ?
+                PORT_ID: 61
+            :
+                PC_PHYS_PORT_ID: 121
+            ?
+                PORT_ID: 65
+            :
+                PC_PHYS_PORT_ID: 129
+            ?
+                PORT_ID: 69
+            :
+                PC_PHYS_PORT_ID: 137
+            ?
+                PORT_ID: 73
+            :
+                PC_PHYS_PORT_ID: 145
+            ?
+                PORT_ID: 77
+            :
+                PC_PHYS_PORT_ID: 153
+            ?
+               # management port
+                PORT_ID: 38
+            :
+                PC_PHYS_PORT_ID: 161
+            ?
+                PORT_ID: 78
+            :
+                PC_PHYS_PORT_ID: 162
+            ?
+               # loopback port
+                PORT_ID: 39
+            :
+                PC_PHYS_PORT_ID: 163
+            ?
+                PORT_ID: 79
+            :
+                PC_PHYS_PORT_ID: 164
+...
+---
+device:
+    0:
+        PC_PORT:
+            ?
+                PORT_ID: 0
+            :
+                &port_mode_10g
+                ENABLE: 1
+                SPEED: 10000
+                NUM_LANES: 1
+            ?
+                PORT_ID: 1 
+            :
+                &port_mode_200g
+                ENABLE: 0
+                SPEED: 200000
+                NUM_LANES: 4
+                FEC_MODE: PC_FEC_RS544
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 5 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 200000
+                NUM_LANES: 4
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 9 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 100000
+                NUM_LANES: 4
+                FEC_MODE: PC_FEC_NONE
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 13 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 17 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 21 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 25 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 29 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 33 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 37 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 41 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 45 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 49 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 53 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 57 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 61 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 65 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 69 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 73 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: 77 
+            :
+                &port_mode_400g
+                ENABLE: 0
+                SPEED: 400000
+                NUM_LANES: 8
+                FEC_MODE: PC_FEC_RS544_2XN
+                MAX_FRAME_SIZE: 9416
+            ?
+                PORT_ID: [39,     # loopback port 0 (Pipe 1)
+                          79]     # loopback port 1 (Pipe 3)
+            :
+                &port_mode_10g
+                ENABLE: 1
+                SPEED: 10000
+                NUM_LANES: 1
+            ?
+                PORT_ID: [38,     # Management port 0 (Pipe 1)
+                          78]     # Management port 1 (Pipe 3)
+            :
+                &port_mode_10g_xfi
+                ENABLE: 1
+                SPEED: 10000
+                NUM_LANES: 1
+                MAX_FRAME_SIZE: 9416
+...
+                #            ?
+                #                PORT_ID: [[1, 5],
+                #                          [20, 24],
+                #                          [40, 44],
+                #                          [60, 64]]
+                #            :
+                #                &port_mode_400g
+                #                ENABLE: 0
+                #                SPEED: 400000
+                #                NUM_LANES: 8
+                #                FEC_MODE: PC_FEC_RS544_2XN
+                #                MAX_FRAME_SIZE: 9416
+#
+# BCM56780 20x400g port configuration.
+#
+# configuration yaml file
+#   device:
+#       <unit>:
+#           <table>:
+#               ?
+#                   <key_fld_1>: <value>
+#                   <key_fld_2>: <value>
+#                   ...
+#                   <key_fld_n>: <value>
+#               :
+#                   <data_fld_1>: <value>
+#                   <data_fld_2>: <value>
+#                   ...
+#                   <data_fld_n>: <value>
+#
+---
+device:
+    0:
+        PC_PORT_PHYS_MAP:
+            ?
+                # CPU port
+                PORT_ID: 0
+            :
+                PC_PHYS_PORT_ID: 0
+            ?
+                # Management port
+                PORT_ID: 38
+            :
+                PC_PHYS_PORT_ID: 161
+            ?
+                PORT_ID: 78
+            :
+                PC_PHYS_PORT_ID: 162
+            ?
+                # Loopback port
+                PORT_ID: 39
+            :
+                PC_PHYS_PORT_ID: 163
+            ?
+                PORT_ID: 79
+            :
+                PC_PHYS_PORT_ID: 164
+...
+---
+device:
+    0:
+        PC_PORT:
+            ?
+                PORT_ID: 0
+            :
+                &port_mode_10g
+                ENABLE: 1
+                SPEED: 10000
+                NUM_LANES: 1
+            ?
+                PORT_ID: [39,     # Loopback port 0 (Pipe 1)
+                          79]     # Loopback port 1 (Pipe 3)
+            :
+                &port_mode_10g
+                ENABLE: 1
+                SPEED: 10000
+                NUM_LANES: 1
+            ?
+                PORT_ID: [38,     # Management port 0 (Pipe 1)
+                          78]     # Management port 1 (Pipe 3)
+            :
+                &port_mode_10g_xfi
+                ENABLE: 1
+                SPEED: 10000
+                NUM_LANES: 1
+                MAX_FRAME_SIZE: 9416
+...
+---
+bcm_device:
+    0:
+        global:
+            pktio_mode: 1
+            bcm_tunnel_term_compatible_mode: 1
+            vlan_flooding_l2mc_num_reserved: 0
+            l3_alpm_template: 2
+            l3_alpm2_bnk_threshold: 100
+            l2_hitbit_enable: 0
+            uft_mode: 1
+            l3_enable: 1
+            ipv6_lpm_128b_enable: 1
+            shared_block_mask_section: uc_bc
+            skip_protocol_default_entries: 1
+            flexctr_action_reserved_ipmc_hitbit: 1
+            sai_nbr_bcast_ifp_optimized: 1
+            sai_field_group_auto_prioritize: 1
+            sai_tunnel_support: 2
+            bcm_tunnel_term_compatible_mode: 1
+            l3_ecmp_member_first_lkup_mem_size: 12288
+...
+---
+bcm_device:
+    0:
+        port:
+            "*":
+                encap_mode: IEEE
+...
+---
+device:
+    0:
+        SER_CONFIG:
+            SER_LOG_DEPTH: 10
+            SER_ENABLE: 1
+            MESSAGE_Q_DEPTH: 8
+...
+---
+device:
+    0:
+        FP_CONFIG:
+            FP_ING_OPERMODE: GLOBAL_PIPE_AWARE
+...
+---
+device:
+        0:
+                TM_SCHEDULER_CONFIG:
+                        NUM_MC_Q: NUM_MC_Q_4
+...
+---
+component:
+    trm_resources:
+        max_entries: 32768
+...
+---
+bcm_device:
+    0:
+        # Per pipe flex counter configuration
+        #CTR_EFLEX_CONFIG:
+        #    CTR_ING_EFLEX_OPERMODE_PIPEUNIQUE: 0
+        #    CTR_EGR_EFLEX_OPERMODE_PIPEUNIQUE: 0
+
+        # Per pipe flex state configuration
+        #FLEX_STATE_CONFIG:
+        #    FLEX_STATE_ING_OPERMODE_PIPEUNIQUE: 0
+        #    FLEX_STATE_EGR_OPERMODE_PIPEUNIQUE: 1
+
+        # Lossy vs Lossless mode
+        #TM_THD_CONFIG:
+        #    THRESHOLD_MODE: LOSSLESS
+...

@@ -1,0 +1,8 @@
+/bin/**
+/obj/**
+/**/*.log
+/saictl-skel.tar.xz
+/copy-out
+/test
+/test.tar.xz
+/**/libsai.so*

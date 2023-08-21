@@ -1,0 +1,289 @@
+#
+# BCM56880 16x100g port configuration (4 lane mode)
+#
+# configuration yaml file
+#   device:
+#       <unit>:
+#           <table>:
+#               ?
+#                   <key_fld_1>: <value>
+#                   <key_fld_2>: <value>
+#                   ...
+#                   <key_fld_n>: <value>
+#               :
+#                   <data_fld_1>: <value>
+#                   <data_fld_2>: <value>
+#                   ...
+#                   <data_fld_n>: <value>
+#
+
+---
+bcm_device:
+    0:
+        global:
+            pktio_mode: 1
+            vlan_flooding_l2mc_num_reserved: 0
+            ipv6_lpm_128b_enable: 1
+            shared_block_mask_section: uc_bc
+            skip_protocol_default_entries: 1
+            sai_nbr_bcast_ifp_optimized: 1
+            sai_tunnel_support: 1
+            multi_network_groups: 1
+            l3_alpm_template: 1
+            use_all_splithorizon_groups: 1
+            riot_enable: 1
+            riot_overlay_l3_intf_mem_size: 8192
+            riot_overlay_l3_egress_mem_size: 32768
+            l3_ecmp_levels: 2
+            riot_overlay_ecmp_resilient_hash_size: 16384
+            sai_field_group_auto_prioritize: 1
+            pfc_deadlock_seq_control : 1
+            sai_verify_incoming_chksum: 0
+            ipmc_age_mode: 1
+            flexctr_action_reserved_ipmc_hitbit: 1
+...
+---
+device:
+    0:
+        DEVICE_CONFIG:
+            # CORE CLOCK FREQUENCY
+            CORE_CLK_FREQ: CLK_1350MHZ
+            # PP CLOCK FREQUENCY
+            PP_CLK_FREQ: CLK_1350MHZ
+...
+---
+device:
+    0:
+        PC_PM_CORE:
+            ?
+                PC_PM_ID: 8
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x04152736
+                TX_LANE_MAP: 0x40526173
+                RX_POLARITY_FLIP: 0x00
+                TX_POLARITY_FLIP: 0x89
+            ?
+                PC_PM_ID: 10
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x01674352
+                TX_LANE_MAP: 0x13027654
+                RX_POLARITY_FLIP: 0xff
+                TX_POLARITY_FLIP: 0xfa
+            ?
+                PC_PM_ID: 12
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x46570312
+                TX_LANE_MAP: 0x72530614
+                RX_POLARITY_FLIP: 0xff
+                TX_POLARITY_FLIP: 0xe8
+            ?
+                PC_PM_ID: 14
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x27360514
+                TX_LANE_MAP: 0x20314567
+                RX_POLARITY_FLIP: 0xab
+                TX_POLARITY_FLIP: 0xf7
+            ?
+                PC_PM_ID: 19
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x05143726
+                TX_LANE_MAP: 0x20317456
+                RX_POLARITY_FLIP: 0x05
+                TX_POLARITY_FLIP: 0xab
+            ?
+                PC_PM_ID: 21
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x46021753
+                TX_LANE_MAP: 0x73210654
+                RX_POLARITY_FLIP: 0xcc
+                TX_POLARITY_FLIP: 0xeb
+            ?
+                PC_PM_ID: 23
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x14506723
+                TX_LANE_MAP: 0x03152674
+                RX_POLARITY_FLIP: 0x8c
+                TX_POLARITY_FLIP: 0x0f
+            ?
+                PC_PM_ID: 25
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x25613074
+                TX_LANE_MAP: 0x72405163
+                RX_POLARITY_FLIP: 0x37
+                TX_POLARITY_FLIP: 0xac
+            ?
+                PC_PM_ID: 33
+                CORE_INDEX: 0
+            :
+                RX_LANE_MAP_AUTO: 0
+                TX_LANE_MAP_AUTO: 0
+                RX_POLARITY_FLIP_AUTO: 0
+                TX_POLARITY_FLIP_AUTO: 0
+                RX_LANE_MAP: 0x3012
+                TX_LANE_MAP: 0x2031
+                RX_POLARITY_FLIP: 0x0d
+                TX_POLARITY_FLIP: 0x02
+...
+---
+device:
+    0:
+        PC_PORT_PHYS_MAP:
+            ?
+                # CPU port
+                PORT_ID: 0
+            :
+                PC_PHYS_PORT_ID: 0
+            ?
+                PORT_ID: 26     # Pipe1
+            :
+                PC_PHYS_PORT_ID: 57
+            ?
+                PORT_ID: 27     # Pipe1
+            :
+                PC_PHYS_PORT_ID: 61            
+            ?
+                PORT_ID: 42     # Pipe2
+            :
+                PC_PHYS_PORT_ID: 73
+            ?
+                PORT_ID: 43     # Pipe2
+            :
+                PC_PHYS_PORT_ID: 77            
+            ?
+                PORT_ID: 46     # Pipe2
+            :
+                PC_PHYS_PORT_ID: 89
+            ?
+                PORT_ID: 47     # Pipe2
+            :
+                PC_PHYS_PORT_ID: 93            
+            ?
+                PORT_ID: 62     # Pipe3
+            :
+                PC_PHYS_PORT_ID: 105
+            ?
+                PORT_ID: 63     # Pipe3
+            :
+                PC_PHYS_PORT_ID: 109            
+            ?
+                PORT_ID: 84     # Pipe4
+            :
+                PC_PHYS_PORT_ID: 145
+            ?
+                PORT_ID: 85     # Pipe4
+            :
+                PC_PHYS_PORT_ID: 149            
+            ?
+                PORT_ID: 100    # Pipe5
+            :
+                PC_PHYS_PORT_ID: 161
+            ?
+                PORT_ID: 101    # Pipe5
+            :
+                PC_PHYS_PORT_ID: 165            
+            ?
+                PORT_ID: 104    # Pipe5
+            :
+                PC_PHYS_PORT_ID: 177
+            ?
+                PORT_ID: 105    # Pipe5
+            :
+                PC_PHYS_PORT_ID: 181            
+            ?
+                PORT_ID: 120    # Pipe6
+            :
+                PC_PHYS_PORT_ID: 193
+            ?
+                PORT_ID: 121    # Pipe6
+            :
+                PC_PHYS_PORT_ID: 197            
+...
+---
+device:
+    0:
+        PC_PORT:
+            ?
+                PORT_ID: 0
+            :
+                &port_mode_10g
+                ENABLE: 1
+                SPEED: 10000
+                NUM_LANES: 1
+            ?
+                PORT_ID: [[26, 27],
+                          [42, 43],
+                          [46, 47],
+                          [62, 63],
+                          [84, 85],
+                          [100,101],
+                          [104,105],
+                          [120, 121]]
+            :
+                ENABLE: 1
+                SPEED: 100000
+                NUM_LANES: 4
+                FEC_MODE: PC_FEC_RS544
+                MAX_FRAME_SIZE: 9416
+                LINK_TRAINING: 1
+...
+---
+device:
+    0:
+        # Per pipe flex counter configuration
+        CTR_EFLEX_CONFIG:
+            CTR_ING_EFLEX_OPERMODE_PIPEUNIQUE: 0
+            CTR_EGR_EFLEX_OPERMODE_PIPEUNIQUE: 0
+
+        # Per pipe flex state configuration
+        #FLEX_STATE_CONFIG:
+        #    FLEX_STATE_ING_OPERMODE_PIPEUNIQUE: 0
+        #    FLEX_STATE_EGR_OPERMODE_PIPEUNIQUE: 1
+
+        # Lossy vs Lossless mode
+        TM_THD_CONFIG:
+            THRESHOLD_MODE: LOSSLESS
+
+        # IFP mode
+        FP_CONFIG:
+            FP_ING_OPERMODE: GLOBAL_PIPE_AWARE
+...

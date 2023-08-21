@@ -1,0 +1,179 @@
+{
+   "embedded-apps-location" : "/usr/lib/sai_master",
+   "json-version" : 1,
+   "embedded-apps" : [
+       {
+           "feature-names" : ["IFA2"],
+           "file-name" : "BCM56870_0_ifa2.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "compatible-cancun" : ["06.12.00"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["IFA2"],
+           "file-name" : "BCM56870_1_ifa2.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "compatible-cancun" : ["06.12.00"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["IFA"],
+           "file-name" : "BCM56870_0_ifa.srec",
+           "app-version" : "4.3.12.2",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "compatible-cancun" : ["06.12.00"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["IFA"],
+           "file-name" : "BCM56870_1_ifa.srec",
+           "app-version" : "4.3.12.2",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "compatible-cancun" : ["06.12.00"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["MOD"],
+           "file-name" : "BCM56870_0_mod.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["MOD"],
+           "file-name" : "BCM56870_1_mod.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["MOD"],
+           "file-name" : "BCM56980_0_mod.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56980"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["MOD"],
+           "file-name" : "BCM56980_1_mod.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56980"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["Flowtracker"],
+           "file-name" : "BCM56870_0_ft.srec",
+           "app-version" : "4.3.17.0",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["Flowtracker"],
+           "file-name" : "BCM56870_1_ft.srec",
+           "app-version" : "4.3.17.0",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["Flowtracker"],
+           "file-name" : "BCM56980_0_ft.srec",
+           "app-version" : "4.3.17.0",
+           "compatible-silicon" : ["BCM56980"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["Flowtracker"],
+           "file-name" : "BCM56980_1_ft.srec",
+           "app-version" : "4.3.17.0",
+           "compatible-silicon" : ["BCM56980"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["IFACC"],
+           "file-name" : "ifacc.bin",
+           "app-version" : "4.3.12.3",
+           "compatible-silicon" : ["BCM56870", "BCM56873"],
+           "compatible-cancun" : ["06.12.00"],
+           "m0-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["PTP"],
+           "file-name" : "BCM56850_0_knetsync.srec",
+           "app-version" : "4.3.14.1 Release",
+           "compatible-silicon" : ["BCM56850", "BCM56853"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["PTP"],
+           "file-name" : "BCM56850_1_knetsync.srec",
+           "app-version" : "4.3.14.1 Release",
+           "compatible-silicon" : ["BCM56850", "BCM56853"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["PTP"],
+           "file-name" : "BCM56960_0_knetsync.srec",
+           "app-version" : "4.3.14.1 Release",
+           "compatible-silicon" : ["BCM56960", "BCM56963"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["PTP"],
+           "file-name" : "BCM56960_1_knetsync.srec",
+           "app-version" : "4.3.14.1 Release",
+           "compatible-silicon" : ["BCM56960", "BCM56963"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["BFD"],
+           "file-name" : "BCM56990_bfd.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56990", "BCM56996", "BCM56993", "BCM56992"],
+           "r5-core-affinity" : [0],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["BFD"],
+           "file-name" : "BCM56990_bfd.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56990", "BCM56996", "BCM56993", "BCM56992"],
+           "r5-core-affinity" : [1],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["BFD"],
+           "file-name" : "BCM56990_bfd.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56990", "BCM56996", "BCM56993", "BCM56992"],
+           "r5-core-affinity" : [2],
+           "load-at-init" : 0
+       },
+       {
+           "feature-names" : ["BFD"],
+           "file-name" : "BCM56990_bfd.srec",
+           "app-version" : "4.4.1.0",
+           "compatible-silicon" : ["BCM56990", "BCM56996", "BCM56993", "BCM56992"],
+           "r5-core-affinity" : [3],
+           "load-at-init" : 0
+       }
+   ]
+}
