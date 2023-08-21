@@ -1,0 +1,11 @@
+[package]
+name = "sai"
+version = "0.1.7"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ipnet = "2.8.0"
+log = "0.4.20"
+sai-sys = { version = "0.1.7", path = "../sai-sys" }

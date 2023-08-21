@@ -1,0 +1,2182 @@
+root@sonic:~# lsmod
+Module                  Size  Used by
+veth                   32768  0
+nft_meta_bridge        16384  2
+dummy                  16384  0
+act_police             16384  5
+cls_u32                28672  5
+ip6t_REJECT            16384  1
+nf_reject_ipv6         20480  1 ip6t_REJECT
+ipt_REJECT             16384  1
+nf_reject_ipv4         16384  1 ipt_REJECT
+xt_tcpudp              20480  4
+xt_pkttype             16384  2
+sch_ingress            16384  1
+ebt_vlan               20480  13
+nft_compat             20480  23
+nft_counter            16384  41
+optoe                  24576  0
+nf_conntrack_netlink    53248  0
+xfrm_user              40960  1
+xfrm_algo              16384  1 xfrm_user
+linux_knet_cb          81920  0
+psample                20480  1 linux_knet_cb
+linux_bcm_knet        315392  1 linux_knet_cb
+bridge                262144  2 linux_bcm_knet,nft_meta_bridge
+stp                    16384  1 bridge
+llc                    16384  2 bridge,stp
+linux_user_bde         28672  0
+linux_kernel_bde       81920  2 linux_bcm_knet,linux_user_bde
+at24                   24576  0
+bonding               192512  0
+intel_rapl_msr         20480  0
+intel_rapl_common      28672  1 intel_rapl_msr
+pnd2_edac              24576  0
+x86_pkg_temp_thermal    20480  0
+intel_powerclamp       20480  0
+coretemp               20480  0
+kvm_intel             311296  0
+ramdisk                16384  1
+kvm                   909312  1 kvm_intel
+irqbypass              16384  1 kvm
+crc32_pclmul           16384  0
+ghash_clmulni_intel    16384  0
+aesni_intel           368640  0
+libaes                 16384  1 aesni_intel
+crypto_simd            16384  1 aesni_intel
+cryptd                 24576  2 crypto_simd,ghash_clmulni_intel
+glue_helper            16384  1 aesni_intel
+rapl                   20480  0
+intel_cstate           20480  0
+nft_chain_nat          16384  8
+nf_nat                 57344  1 nft_chain_nat
+nf_conntrack          172032  2 nf_nat,nf_conntrack_netlink
+nf_defrag_ipv6         24576  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+nf_tables             241664  162 nft_meta_bridge,nft_compat,nft_counter,nft_chain_nat
+libcrc32c              16384  3 nf_conntrack,nf_nat,nf_tables
+nfnetlink              16384  5 nft_compat,nf_conntrack_netlink,nf_tables
+i2c_ocores             24576  0
+ipmi_ssif              40960  0
+iTCO_wdt               16384  0
+intel_pmc_bxt          16384  1 iTCO_wdt
+iTCO_vendor_support    16384  1 iTCO_wdt
+sr_mod                 28672  0
+dcdbas                 20480  0
+efi_pstore             16384  0
+cdrom                  73728  1 sr_mod
+pcspkr                 16384  0
+dell_s5212f_fpga_ocores    36864  0
+ee1004                 20480  0
+evdev                  24576  1
+sg                     36864  0
+button                 24576  0
+acpi_ipmi              20480  0
+ipmi_si                73728  2
+ipmi_devintf           20480  2
+ipmi_msghandler       118784  4 ipmi_devintf,ipmi_si,acpi_ipmi,ipmi_ssif
+i2c_mux_pca954x        20480  0
+i2c_mux_gpio           16384  0
+i2c_mux                16384  2 i2c_mux_pca954x,i2c_mux_gpio
+i2c_dev                24576  0
+i2c_isch               20480  0
+efivarfs               16384  1
+ip_tables              28672  2
+x_tables               53248  7 nft_compat,xt_tcpudp,ipt_REJECT,xt_pkttype,ebt_vlan,ip_tables,ip6t_REJECT
+autofs4                53248  2
+uas                    32768  0
+usb_storage            81920  1 uas
+loop                   40960  4
+ext4                  909312  3
+crc16                  16384  1 ext4
+mbcache                16384  1 ext4
+jbd2                  147456  1 ext4
+crc32c_generic         16384  0
+nvme                   49152  0
+nvme_core             126976  1 nvme
+nls_utf8               16384  0
+nls_cp437              20480  0
+nls_ascii              16384  0
+vfat                   20480  0
+fat                    86016  1 vfat
+overlay               143360  22
+squashfs               69632  1
+sd_mod                 61440  2
+t10_pi                 16384  2 sd_mod,nvme_core
+crc_t10dif             20480  1 t10_pi
+crct10dif_generic      16384  0
+mmc_block              53248  0
+crct10dif_pclmul       16384  1
+crct10dif_common       16384  3 crct10dif_generic,crc_t10dif,crct10dif_pclmul
+crc32c_intel           24576  5
+i2c_i801               36864  0
+i2c_smbus              20480  1 i2c_i801
+ahci                   40960  1
+sdhci_pci              69632  0
+cqhci                  32768  1 sdhci_pci
+libahci                45056  1 ahci
+xhci_pci               20480  0
+sdhci                  77824  1 sdhci_pci
+xhci_hcd              307200  1 xhci_pci
+mmc_core              196608  4 sdhci,cqhci,mmc_block,sdhci_pci
+libata                286720  2 libahci,ahci
+usbcore               327680  4 xhci_hcd,usb_storage,xhci_pci,uas
+usb_common             16384  2 xhci_hcd,usbcore
+scsi_mod              262144  6 sd_mod,usb_storage,uas,libata,sg,sr_mod
+i2c_ismt               32768  0
+igb                   258048  0
+i2c_algo_bit           16384  1 igb
+dca                    16384  1 igb
+ptp                    28672  1 igb
+
+
+
+root@sonic:~# mount
+sysfs on /sys type sysfs (rw,relatime)
+proc on /proc type proc (rw,relatime)
+udev on /dev type devtmpfs (rw,nosuid,relatime,size=3803900k,nr_inodes=950975,mode=755)
+devpts on /dev/pts type devpts (rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000)
+tmpfs on /run type tmpfs (rw,nosuid,noexec,relatime,size=764200k,mode=755)
+root-overlay on / type overlay (rw,relatime,lowerdir=/root,upperdir=/root/host/image-4.1.0-Enterprise_Base/rw,workdir=/root/host/image-4.1.0-Enterprise_Base/work)
+/dev/sda3 on /host type ext4 (rw,relatime)
+/dev/sda3 on /var/lib/docker type ext4 (rw,relatime)
+/dev/sda3 on /boot type ext4 (rw,relatime)
+/host/disk-img/var-log.ext4 on /var/log type ext4 (rw,relatime)
+securityfs on /sys/kernel/security type securityfs (rw,nosuid,nodev,noexec,relatime)
+tmpfs on /dev/shm type tmpfs (rw,nosuid,nodev)
+tmpfs on /run/lock type tmpfs (rw,nosuid,nodev,noexec,relatime,size=5120k)
+tmpfs on /sys/fs/cgroup type tmpfs (ro,nosuid,nodev,noexec,mode=755)
+cgroup2 on /sys/fs/cgroup/unified type cgroup2 (rw,nosuid,nodev,noexec,relatime,nsdelegate)
+cgroup on /sys/fs/cgroup/systemd type cgroup (rw,nosuid,nodev,noexec,relatime,xattr,name=systemd)
+pstore on /sys/fs/pstore type pstore (rw,nosuid,nodev,noexec,relatime)
+efivarfs on /sys/firmware/efi/efivars type efivarfs (rw,nosuid,nodev,noexec,relatime)
+none on /sys/fs/bpf type bpf (rw,nosuid,nodev,noexec,relatime,mode=700)
+cgroup on /sys/fs/cgroup/memory type cgroup (rw,nosuid,nodev,noexec,relatime,memory)
+cgroup on /sys/fs/cgroup/cpu,cpuacct type cgroup (rw,nosuid,nodev,noexec,relatime,cpu,cpuacct)
+cgroup on /sys/fs/cgroup/blkio type cgroup (rw,nosuid,nodev,noexec,relatime,blkio)
+cgroup on /sys/fs/cgroup/rdma type cgroup (rw,nosuid,nodev,noexec,relatime,rdma)
+cgroup on /sys/fs/cgroup/hugetlb type cgroup (rw,nosuid,nodev,noexec,relatime,hugetlb)
+cgroup on /sys/fs/cgroup/perf_event type cgroup (rw,nosuid,nodev,noexec,relatime,perf_event)
+cgroup on /sys/fs/cgroup/pids type cgroup (rw,nosuid,nodev,noexec,relatime,pids)
+cgroup on /sys/fs/cgroup/devices type cgroup (rw,nosuid,nodev,noexec,relatime,devices)
+cgroup on /sys/fs/cgroup/freezer type cgroup (rw,nosuid,nodev,noexec,relatime,freezer)
+cgroup on /sys/fs/cgroup/cpuset type cgroup (rw,nosuid,nodev,noexec,relatime,cpuset)
+systemd-1 on /proc/sys/fs/binfmt_misc type autofs (rw,relatime,fd=36,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=11218)
+mqueue on /dev/mqueue type mqueue (rw,relatime)
+hugetlbfs on /dev/hugepages type hugetlbfs (rw,relatime,pagesize=2M)
+debugfs on /sys/kernel/debug type debugfs (rw,relatime)
+tracefs on /sys/kernel/debug/tracing type tracefs (rw,relatime)
+/dev/ramdisk on /var/log/ramfs type ext4 (rw,relatime)
+none on /sys/fs/bpf type bpf (rw,relatime)
+overlay on /var/lib/docker/overlay2/d7c43e09a3dd9dcc6d558514fa7130da59bd2884410e5276f61e62656fb2d5d1/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/SZINLGYL5WOFCAW5S5C324COXW:/var/lib/docker/overlay2/l/H5YISQ5QQNWKP52IUCVSHXE6N2:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/d7c43e09a3dd9dcc6d558514fa7130da59bd2884410e5276f61e62656fb2d5d1/diff,workdir=/var/lib/docker/overlay2/d7c43e09a3dd9dcc6d558514fa7130da59bd2884410e5276f61e62656fb2d5d1/work)
+nsfs on /run/docker/netns/default type nsfs (rw)
+overlay on /var/lib/docker/overlay2/ac83ba479e2ada44911a90170d64c47e0ab61f1838244a40e1179e1a785d5451/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/JWOAF2INBYDF4SJHZ6WQPW2PJZ:/var/lib/docker/overlay2/l/UXTRSUY4QSJIUVYZY2MZQCB5NV:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/ac83ba479e2ada44911a90170d64c47e0ab61f1838244a40e1179e1a785d5451/diff,workdir=/var/lib/docker/overlay2/ac83ba479e2ada44911a90170d64c47e0ab61f1838244a40e1179e1a785d5451/work)
+overlay on /var/lib/docker/overlay2/a5dcbdc504224aee0fd23b47e350fd95acba7d71f0163405dad09223ce819b99/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/6574RQBBYKL44BZHHQ6LTLS7J4:/var/lib/docker/overlay2/l/HOLOIH6DZK2CVX3ISZER7IWFKJ:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/a5dcbdc504224aee0fd23b47e350fd95acba7d71f0163405dad09223ce819b99/diff,workdir=/var/lib/docker/overlay2/a5dcbdc504224aee0fd23b47e350fd95acba7d71f0163405dad09223ce819b99/work)
+overlay on /var/lib/docker/overlay2/772050d5db8353b5a0388a50edf96062cc2d7d9ae1b8589737c1b91cb0cd4bb4/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/V27IQO4T5GEG4BNMWOT75QYWZA:/var/lib/docker/overlay2/l/FWGLHPTQMIGALH2VPJNMAJCCNP:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/772050d5db8353b5a0388a50edf96062cc2d7d9ae1b8589737c1b91cb0cd4bb4/diff,workdir=/var/lib/docker/overlay2/772050d5db8353b5a0388a50edf96062cc2d7d9ae1b8589737c1b91cb0cd4bb4/work)
+overlay on /var/lib/docker/overlay2/81690ceed5d5537a6cb9bca60f6d10d23ecb39776cc66ac31330e7d481494fa2/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/MBSFA2MUVNW52OS7JU2LQ3AG6J:/var/lib/docker/overlay2/l/WUT6YJQNSXAGFDGMZRMKPP36JS:/var/lib/docker/overlay2/l/MD5T3A5RMBGNNPVVJE54LXM6GF:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/81690ceed5d5537a6cb9bca60f6d10d23ecb39776cc66ac31330e7d481494fa2/diff,workdir=/var/lib/docker/overlay2/81690ceed5d5537a6cb9bca60f6d10d23ecb39776cc66ac31330e7d481494fa2/work)
+overlay on /var/lib/docker/overlay2/ba3e3a6313b67ce6a95ca65e74778dc3046ffdca0f54ed0a5e6c8c99ee99491a/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/QSAXYHDKTJ7O3HL47Y5RRE43NP:/var/lib/docker/overlay2/l/NT6UZTLWQUM5HW6RY7SNYKHZQO:/var/lib/docker/overlay2/l/ZNTY4IGHXF6CM5CICAF75IK3PR:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/ba3e3a6313b67ce6a95ca65e74778dc3046ffdca0f54ed0a5e6c8c99ee99491a/diff,workdir=/var/lib/docker/overlay2/ba3e3a6313b67ce6a95ca65e74778dc3046ffdca0f54ed0a5e6c8c99ee99491a/work)
+overlay on /var/lib/docker/overlay2/51219c7450c78670a62dcf2841c01e3383a62ae8f65c5294a9474078ed4ca886/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/7VICYXANW6MOOPSCMYF46MVA6G:/var/lib/docker/overlay2/l/VV4RDPXLMR6UHXPTDGUSK5O6EM:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/51219c7450c78670a62dcf2841c01e3383a62ae8f65c5294a9474078ed4ca886/diff,workdir=/var/lib/docker/overlay2/51219c7450c78670a62dcf2841c01e3383a62ae8f65c5294a9474078ed4ca886/work)
+overlay on /var/lib/docker/overlay2/d046167266f1598094b98d685297b69dd6ca183588ec128eb8b839982bca281a/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/ICE3YQPHDNST3KT65LYPMVX2TO:/var/lib/docker/overlay2/l/RNWZ4PW5O4DJYMCFGPIGMUORIC:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/d046167266f1598094b98d685297b69dd6ca183588ec128eb8b839982bca281a/diff,workdir=/var/lib/docker/overlay2/d046167266f1598094b98d685297b69dd6ca183588ec128eb8b839982bca281a/work)
+overlay on /var/lib/docker/overlay2/26e1eb7011ba52bda8469c9eb24d942e0fc239d02e777a8dcd10465833fce549/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/BAWM2SHDB6SCKMCBQW5NU3UD6W:/var/lib/docker/overlay2/l/HMPW5JZM26ELKTZVKHOAVCVC4N:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/26e1eb7011ba52bda8469c9eb24d942e0fc239d02e777a8dcd10465833fce549/diff,workdir=/var/lib/docker/overlay2/26e1eb7011ba52bda8469c9eb24d942e0fc239d02e777a8dcd10465833fce549/work)
+overlay on /var/lib/docker/overlay2/6f226364b7ee210e2e304b9fecf9e388fb1375ff5ce036f1ddaede79ddd0b7c3/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/WYL52GF5A4WCUNXHXKTHXVFQTY:/var/lib/docker/overlay2/l/GUL6KUZG7VZZZS2UUGGCYPF3NF:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/6f226364b7ee210e2e304b9fecf9e388fb1375ff5ce036f1ddaede79ddd0b7c3/diff,workdir=/var/lib/docker/overlay2/6f226364b7ee210e2e304b9fecf9e388fb1375ff5ce036f1ddaede79ddd0b7c3/work)
+overlay on /var/lib/docker/overlay2/d6b194abb8ef408615ea906d3ae161fd690b21a548d14d72309514bd266d9f89/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/L2SIE5YDIYDLP4E4FZN4JRAXI3:/var/lib/docker/overlay2/l/DABJ4I23GGDQOSX4CGBS4ICOFP:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/d6b194abb8ef408615ea906d3ae161fd690b21a548d14d72309514bd266d9f89/diff,workdir=/var/lib/docker/overlay2/d6b194abb8ef408615ea906d3ae161fd690b21a548d14d72309514bd266d9f89/work)
+overlay on /var/lib/docker/overlay2/9908b21f147df67af79cfa46fb62976d2292f56c1b9eefeabc49c4654f0fd200/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/CGJFMPZZHDEOTKIINAMW4EAIIN:/var/lib/docker/overlay2/l/7UCY4S5ZZLLWUWUOGH7AKPKTLN:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/9908b21f147df67af79cfa46fb62976d2292f56c1b9eefeabc49c4654f0fd200/diff,workdir=/var/lib/docker/overlay2/9908b21f147df67af79cfa46fb62976d2292f56c1b9eefeabc49c4654f0fd200/work)
+overlay on /var/lib/docker/overlay2/4750110509be473e83ebc70654f8c8777efe602f9b30849f948774dd6c3cc8e4/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/26NOZFM7BR77GXTW5TILSEA5PC:/var/lib/docker/overlay2/l/D7AHCJL5FJ2KAPDRGQMMX2WQUS:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/4750110509be473e83ebc70654f8c8777efe602f9b30849f948774dd6c3cc8e4/diff,workdir=/var/lib/docker/overlay2/4750110509be473e83ebc70654f8c8777efe602f9b30849f948774dd6c3cc8e4/work)
+overlay on /var/lib/docker/overlay2/70315face26b1e406d38e1c75ff2edf12e4b0429ef74980a0eb6a98a10aef0ca/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/245WXYLFGOONMXSGWDFCAUSTFC:/var/lib/docker/overlay2/l/WDNS4BPXQNBF33RYY7IMPOMVOG:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/70315face26b1e406d38e1c75ff2edf12e4b0429ef74980a0eb6a98a10aef0ca/diff,workdir=/var/lib/docker/overlay2/70315face26b1e406d38e1c75ff2edf12e4b0429ef74980a0eb6a98a10aef0ca/work)
+overlay on /var/lib/docker/overlay2/2bf440ca227ea028dceaec9d45831b9139e54455a989be2c6fbbae6d35a53769/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/TDGV4OLTXXZHNXM7CSWZN3BXZZ:/var/lib/docker/overlay2/l/BOAVLOYNEWBYNJ4UOPNS5JHK33:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/2bf440ca227ea028dceaec9d45831b9139e54455a989be2c6fbbae6d35a53769/diff,workdir=/var/lib/docker/overlay2/2bf440ca227ea028dceaec9d45831b9139e54455a989be2c6fbbae6d35a53769/work)
+overlay on /var/lib/docker/overlay2/abdd7c5f084fb6563dcf10d5e59c44b213c4a9848d2f3dc43032e11e70743de0/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/DVXBCI34V6HEPBI3YLW255FEHM:/var/lib/docker/overlay2/l/HBWMEDZAIX7ZMMGRWCPAPUF36Y:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/abdd7c5f084fb6563dcf10d5e59c44b213c4a9848d2f3dc43032e11e70743de0/diff,workdir=/var/lib/docker/overlay2/abdd7c5f084fb6563dcf10d5e59c44b213c4a9848d2f3dc43032e11e70743de0/work)
+overlay on /var/lib/docker/overlay2/d6f1ecd0ab9af6b9630dedb03ff7703c865abfc626690e7bd850e6cd69f1c2c5/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/RBK7XUPLYFY2UR3SEW2PFRIKOF:/var/lib/docker/overlay2/l/6UHBXTYN7BV5LRRDPX5VGLTUE6:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/d6f1ecd0ab9af6b9630dedb03ff7703c865abfc626690e7bd850e6cd69f1c2c5/diff,workdir=/var/lib/docker/overlay2/d6f1ecd0ab9af6b9630dedb03ff7703c865abfc626690e7bd850e6cd69f1c2c5/work)
+overlay on /var/lib/docker/overlay2/50ccc5aebc378efefa7c918c3e9ff7ea9a6ad925caccfd5cdd0359c2fcbd769c/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/B7OMKULC44EZCK4JG64L6A6UOV:/var/lib/docker/overlay2/l/HVOMRNCY6QQKVWVEQ4JABYP5ZN:/var/lib/docker/overlay2/l/KFXRC3WQTHWG5ATVLJ3SCP545U:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/50ccc5aebc378efefa7c918c3e9ff7ea9a6ad925caccfd5cdd0359c2fcbd769c/diff,workdir=/var/lib/docker/overlay2/50ccc5aebc378efefa7c918c3e9ff7ea9a6ad925caccfd5cdd0359c2fcbd769c/work)
+overlay on /var/lib/docker/overlay2/8bfd0d82b7ab3825e96fb37aea4edee1dfe8f6c76f4576432a747b391b8e4a49/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/IVQJSHXZQB2TFC2SZN7DJVSNRI:/var/lib/docker/overlay2/l/PQWU5UYWCUWQ3EJN53AU44OKEI:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/8bfd0d82b7ab3825e96fb37aea4edee1dfe8f6c76f4576432a747b391b8e4a49/diff,workdir=/var/lib/docker/overlay2/8bfd0d82b7ab3825e96fb37aea4edee1dfe8f6c76f4576432a747b391b8e4a49/work)
+overlay on /var/lib/docker/overlay2/c1be01475d590f6dc844d61ceba37c300a83fec0f45c7d2768556995da85602e/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/VNRFQJFFOLL7AXK7ZL27DO4CQY:/var/lib/docker/overlay2/l/RCETIRWZXMQ4RQIB4ZLZF4RLDH:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/c1be01475d590f6dc844d61ceba37c300a83fec0f45c7d2768556995da85602e/diff,workdir=/var/lib/docker/overlay2/c1be01475d590f6dc844d61ceba37c300a83fec0f45c7d2768556995da85602e/work)
+overlay on /var/lib/docker/overlay2/4d4950c3153b6479b79192f77d7c79e47a2b8568596f1bcf3e1785c3d23f6e81/merged type overlay (rw,relatime,lowerdir=/var/lib/docker/overlay2/l/M3KSFNDGCWTTIGK67I3MIX6A4E:/var/lib/docker/overlay2/l/VUCZOCGTTXOCNYSVUEUUOFBPX6:/var/lib/docker/overlay2/l/GLGLNKLDDA425C3PBWESFA4QKW:/var/lib/docker/overlay2/l/FDDGQ6KAYUOYMU5QILLJLPEDVG:/var/lib/docker/overlay2/l/HKU6SN4QRMKYPWM24IJLPEOF5R,upperdir=/var/lib/docker/overlay2/4d4950c3153b6479b79192f77d7c79e47a2b8568596f1bcf3e1785c3d23f6e81/diff,workdir=/var/lib/docker/overlay2/4d4950c3153b6479b79192f77d7c79e47a2b8568596f1bcf3e1785c3d23f6e81/work)
+root@sonic:~# 
+
+
+
+
+
+root@sonic:~# cat systemctl 
+UNIT                                                                                                  LOAD   ACTIVE SUB       DESCRIPTION                                                                                     
+proc-sys-fs-binfmt_misc.automount                                                                     loaded active waiting   Arbitrary Executable File Formats File System Automount Point                                   
+sys-devices-pci0000:00-0000:00:0b.0-0000:02:00.0-net-eth0.device                                      loaded active plugged   I210 Gigabit Network Connection                                                                 
+sys-devices-pci0000:00-0000:00:14.0-ata5-host4-target4:0:0-4:0:0:0-block-sda-sda1.device              loaded active plugged   M.2__S42__3IE4 EFI_System                                                                       
+sys-devices-pci0000:00-0000:00:14.0-ata5-host4-target4:0:0-4:0:0:0-block-sda-sda2.device              loaded active plugged   M.2__S42__3IE4 ONIE-BOOT                                                                        
+sys-devices-pci0000:00-0000:00:14.0-ata5-host4-target4:0:0-4:0:0:0-block-sda-sda3.device              loaded active plugged   M.2__S42__3IE4 SONiC-OS                                                                         
+sys-devices-pci0000:00-0000:00:14.0-ata5-host4-target4:0:0-4:0:0:0-block-sda.device                   loaded active plugged   M.2__S42__3IE4                                                                                  
+sys-devices-pci0000:00-0000:00:1a.0-tty-ttyS1.device                                                  loaded active plugged   /sys/devices/pci0000:00/0000:00:1a.0/tty/ttyS1                                                  
+sys-devices-pci0000:00-0000:00:1a.1-tty-ttyS2.device                                                  loaded active plugged   /sys/devices/pci0000:00/0000:00:1a.1/tty/ttyS2                                                  
+sys-devices-pci0000:00-0000:00:1a.2-tty-ttyS3.device                                                  loaded active plugged   /sys/devices/pci0000:00/0000:00:1a.2/tty/ttyS3                                                  
+sys-devices-pci0000:00-0000:00:1c.0-mmc_host-mmc0-mmc0:0001-block-mmcblk0-mmcblk0boot0.device         loaded active plugged   /sys/devices/pci0000:00/0000:00:1c.0/mmc_host/mmc0/mmc0:0001/block/mmcblk0/mmcblk0boot0         
+sys-devices-pci0000:00-0000:00:1c.0-mmc_host-mmc0-mmc0:0001-block-mmcblk0-mmcblk0boot1.device         loaded active plugged   /sys/devices/pci0000:00/0000:00:1c.0/mmc_host/mmc0/mmc0:0001/block/mmcblk0/mmcblk0boot1         
+sys-devices-pci0000:00-0000:00:1c.0-mmc_host-mmc0-mmc0:0001-block-mmcblk0-mmcblk0p1.device            loaded active plugged   /sys/devices/pci0000:00/0000:00:1c.0/mmc_host/mmc0/mmc0:0001/block/mmcblk0/mmcblk0p1            
+sys-devices-pci0000:00-0000:00:1c.0-mmc_host-mmc0-mmc0:0001-block-mmcblk0-mmcblk0p2.device            loaded active plugged   /sys/devices/pci0000:00/0000:00:1c.0/mmc_host/mmc0/mmc0:0001/block/mmcblk0/mmcblk0p2            
+sys-devices-pci0000:00-0000:00:1c.0-mmc_host-mmc0-mmc0:0001-block-mmcblk0.device                      loaded active plugged   /sys/devices/pci0000:00/0000:00:1c.0/mmc_host/mmc0/mmc0:0001/block/mmcblk0                      
+sys-devices-pnp0-00:04-tty-ttyS0.device                                                               loaded active plugged   /sys/devices/pnp0/00:04/tty/ttyS0                                                               
+sys-devices-virtual-block-loop0.device                                                                loaded active plugged   /sys/devices/virtual/block/loop0                                                                
+sys-devices-virtual-block-loop1.device                                                                loaded active plugged   /sys/devices/virtual/block/loop1                                                                
+sys-devices-virtual-block-ramdisk.device                                                              loaded active plugged   /sys/devices/virtual/block/ramdisk                                                              
+sys-devices-virtual-net-bcm0.device                                                                   loaded active plugged   /sys/devices/virtual/net/bcm0                                                                   
+sys-devices-virtual-net-BFDRX.device                                                                  loaded active plugged   /sys/devices/virtual/net/BFDRX                                                                  
+sys-devices-virtual-net-BFDTX.device                                                                  loaded active plugged   /sys/devices/virtual/net/BFDTX                                                                  
+sys-devices-virtual-net-Bridge.device                                                                 loaded active plugged   /sys/devices/virtual/net/Bridge                                                                 
+sys-devices-virtual-net-CPU.device                                                                    loaded active plugged   /sys/devices/virtual/net/CPU                                                                    
+sys-devices-virtual-net-docker0.device                                                                loaded active plugged   /sys/devices/virtual/net/docker0                                                                
+sys-devices-virtual-net-dummy.device                                                                  loaded active plugged   /sys/devices/virtual/net/dummy                                                                  
+sys-devices-virtual-net-Ethernet0.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet0                                                              
+sys-devices-virtual-net-Ethernet1.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet1                                                              
+sys-devices-virtual-net-Ethernet10.device                                                             loaded active plugged   /sys/devices/virtual/net/Ethernet10                                                             
+sys-devices-virtual-net-Ethernet11.device                                                             loaded active plugged   /sys/devices/virtual/net/Ethernet11                                                             
+sys-devices-virtual-net-Ethernet12.device                                                             loaded active plugged   /sys/devices/virtual/net/Ethernet12                                                             
+sys-devices-virtual-net-Ethernet16.device                                                             loaded active plugged   /sys/devices/virtual/net/Ethernet16                                                             
+sys-devices-virtual-net-Ethernet2.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet2                                                              
+sys-devices-virtual-net-Ethernet20.device                                                             loaded active plugged   /sys/devices/virtual/net/Ethernet20                                                             
+sys-devices-virtual-net-Ethernet3.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet3                                                              
+sys-devices-virtual-net-Ethernet4.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet4                                                              
+sys-devices-virtual-net-Ethernet5.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet5                                                              
+sys-devices-virtual-net-Ethernet6.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet6                                                              
+sys-devices-virtual-net-Ethernet7.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet7                                                              
+sys-devices-virtual-net-Ethernet8.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet8                                                              
+sys-devices-virtual-net-Ethernet9.device                                                              loaded active plugged   /sys/devices/virtual/net/Ethernet9                                                              
+sys-devices-virtual-net-pimreg.device                                                                 loaded active plugged   /sys/devices/virtual/net/pimreg                                                                 
+sys-subsystem-net-devices-bcm0.device                                                                 loaded active plugged   /sys/subsystem/net/devices/bcm0                                                                 
+sys-subsystem-net-devices-BFDRX.device                                                                loaded active plugged   /sys/subsystem/net/devices/BFDRX                                                                
+sys-subsystem-net-devices-BFDTX.device                                                                loaded active plugged   /sys/subsystem/net/devices/BFDTX                                                                
+sys-subsystem-net-devices-Bridge.device                                                               loaded active plugged   /sys/subsystem/net/devices/Bridge                                                               
+sys-subsystem-net-devices-CPU.device                                                                  loaded active plugged   /sys/subsystem/net/devices/CPU                                                                  
+sys-subsystem-net-devices-docker0.device                                                              loaded active plugged   /sys/subsystem/net/devices/docker0                                                              
+sys-subsystem-net-devices-dummy.device                                                                loaded active plugged   /sys/subsystem/net/devices/dummy                                                                
+sys-subsystem-net-devices-eth0.device                                                                 loaded active plugged   I210 Gigabit Network Connection                                                                 
+sys-subsystem-net-devices-Ethernet0.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet0                                                            
+sys-subsystem-net-devices-Ethernet1.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet1                                                            
+sys-subsystem-net-devices-Ethernet10.device                                                           loaded active plugged   /sys/subsystem/net/devices/Ethernet10                                                           
+sys-subsystem-net-devices-Ethernet11.device                                                           loaded active plugged   /sys/subsystem/net/devices/Ethernet11                                                           
+sys-subsystem-net-devices-Ethernet12.device                                                           loaded active plugged   /sys/subsystem/net/devices/Ethernet12                                                           
+sys-subsystem-net-devices-Ethernet16.device                                                           loaded active plugged   /sys/subsystem/net/devices/Ethernet16                                                           
+sys-subsystem-net-devices-Ethernet2.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet2                                                            
+sys-subsystem-net-devices-Ethernet20.device                                                           loaded active plugged   /sys/subsystem/net/devices/Ethernet20                                                           
+sys-subsystem-net-devices-Ethernet3.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet3                                                            
+sys-subsystem-net-devices-Ethernet4.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet4                                                            
+sys-subsystem-net-devices-Ethernet5.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet5                                                            
+sys-subsystem-net-devices-Ethernet6.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet6                                                            
+sys-subsystem-net-devices-Ethernet7.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet7                                                            
+sys-subsystem-net-devices-Ethernet8.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet8                                                            
+sys-subsystem-net-devices-Ethernet9.device                                                            loaded active plugged   /sys/subsystem/net/devices/Ethernet9                                                            
+sys-subsystem-net-devices-pimreg.device                                                               loaded active plugged   /sys/subsystem/net/devices/pimreg                                                               
+-.mount                                                                                               loaded active mounted   /                                                                                               
+boot.mount                                                                                            loaded active mounted   /boot                                                                                           
+dev-hugepages.mount                                                                                   loaded active mounted   Huge Pages File System                                                                          
+dev-mqueue.mount                                                                                      loaded active mounted   POSIX Message Queue File System                                                                 
+host.mount                                                                                            loaded active mounted   /host                                                                                           
+run-docker-netns-default.mount                                                                        loaded active mounted   /run/docker/netns/default                                                                       
+sys-kernel-debug-tracing.mount                                                                        loaded active mounted   /sys/kernel/debug/tracing                                                                       
+sys-kernel-debug.mount                                                                                loaded active mounted   Kernel Debug File System                                                                        
+var-lib-docker-overlay2-26e1eb7011ba52bda8469c9eb24d942e0fc239d02e777a8dcd10465833fce549-merged.mount loaded active mounted   /var/lib/docker/overlay2/26e1eb7011ba52bda8469c9eb24d942e0fc239d02e777a8dcd10465833fce549/merged
+var-lib-docker-overlay2-2bf440ca227ea028dceaec9d45831b9139e54455a989be2c6fbbae6d35a53769-merged.mount loaded active mounted   /var/lib/docker/overlay2/2bf440ca227ea028dceaec9d45831b9139e54455a989be2c6fbbae6d35a53769/merged
+var-lib-docker-overlay2-4750110509be473e83ebc70654f8c8777efe602f9b30849f948774dd6c3cc8e4-merged.mount loaded active mounted   /var/lib/docker/overlay2/4750110509be473e83ebc70654f8c8777efe602f9b30849f948774dd6c3cc8e4/merged
+var-lib-docker-overlay2-4d4950c3153b6479b79192f77d7c79e47a2b8568596f1bcf3e1785c3d23f6e81-merged.mount loaded active mounted   /var/lib/docker/overlay2/4d4950c3153b6479b79192f77d7c79e47a2b8568596f1bcf3e1785c3d23f6e81/merged
+var-lib-docker-overlay2-50ccc5aebc378efefa7c918c3e9ff7ea9a6ad925caccfd5cdd0359c2fcbd769c-merged.mount loaded active mounted   /var/lib/docker/overlay2/50ccc5aebc378efefa7c918c3e9ff7ea9a6ad925caccfd5cdd0359c2fcbd769c/merged
+var-lib-docker-overlay2-51219c7450c78670a62dcf2841c01e3383a62ae8f65c5294a9474078ed4ca886-merged.mount loaded active mounted   /var/lib/docker/overlay2/51219c7450c78670a62dcf2841c01e3383a62ae8f65c5294a9474078ed4ca886/merged
+var-lib-docker-overlay2-6f226364b7ee210e2e304b9fecf9e388fb1375ff5ce036f1ddaede79ddd0b7c3-merged.mount loaded active mounted   /var/lib/docker/overlay2/6f226364b7ee210e2e304b9fecf9e388fb1375ff5ce036f1ddaede79ddd0b7c3/merged
+var-lib-docker-overlay2-70315face26b1e406d38e1c75ff2edf12e4b0429ef74980a0eb6a98a10aef0ca-merged.mount loaded active mounted   /var/lib/docker/overlay2/70315face26b1e406d38e1c75ff2edf12e4b0429ef74980a0eb6a98a10aef0ca/merged
+var-lib-docker-overlay2-772050d5db8353b5a0388a50edf96062cc2d7d9ae1b8589737c1b91cb0cd4bb4-merged.mount loaded active mounted   /var/lib/docker/overlay2/772050d5db8353b5a0388a50edf96062cc2d7d9ae1b8589737c1b91cb0cd4bb4/merged
+var-lib-docker-overlay2-81690ceed5d5537a6cb9bca60f6d10d23ecb39776cc66ac31330e7d481494fa2-merged.mount loaded active mounted   /var/lib/docker/overlay2/81690ceed5d5537a6cb9bca60f6d10d23ecb39776cc66ac31330e7d481494fa2/merged
+var-lib-docker-overlay2-8bfd0d82b7ab3825e96fb37aea4edee1dfe8f6c76f4576432a747b391b8e4a49-merged.mount loaded active mounted   /var/lib/docker/overlay2/8bfd0d82b7ab3825e96fb37aea4edee1dfe8f6c76f4576432a747b391b8e4a49/merged
+var-lib-docker-overlay2-9908b21f147df67af79cfa46fb62976d2292f56c1b9eefeabc49c4654f0fd200-merged.mount loaded active mounted   /var/lib/docker/overlay2/9908b21f147df67af79cfa46fb62976d2292f56c1b9eefeabc49c4654f0fd200/merged
+var-lib-docker-overlay2-a5dcbdc504224aee0fd23b47e350fd95acba7d71f0163405dad09223ce819b99-merged.mount loaded active mounted   /var/lib/docker/overlay2/a5dcbdc504224aee0fd23b47e350fd95acba7d71f0163405dad09223ce819b99/merged
+var-lib-docker-overlay2-abdd7c5f084fb6563dcf10d5e59c44b213c4a9848d2f3dc43032e11e70743de0-merged.mount loaded active mounted   /var/lib/docker/overlay2/abdd7c5f084fb6563dcf10d5e59c44b213c4a9848d2f3dc43032e11e70743de0/merged
+var-lib-docker-overlay2-ac83ba479e2ada44911a90170d64c47e0ab61f1838244a40e1179e1a785d5451-merged.mount loaded active mounted   /var/lib/docker/overlay2/ac83ba479e2ada44911a90170d64c47e0ab61f1838244a40e1179e1a785d5451/merged
+var-lib-docker-overlay2-ba3e3a6313b67ce6a95ca65e74778dc3046ffdca0f54ed0a5e6c8c99ee99491a-merged.mount loaded active mounted   /var/lib/docker/overlay2/ba3e3a6313b67ce6a95ca65e74778dc3046ffdca0f54ed0a5e6c8c99ee99491a/merged
+var-lib-docker-overlay2-c1be01475d590f6dc844d61ceba37c300a83fec0f45c7d2768556995da85602e-merged.mount loaded active mounted   /var/lib/docker/overlay2/c1be01475d590f6dc844d61ceba37c300a83fec0f45c7d2768556995da85602e/merged
+var-lib-docker-overlay2-d046167266f1598094b98d685297b69dd6ca183588ec128eb8b839982bca281a-merged.mount loaded active mounted   /var/lib/docker/overlay2/d046167266f1598094b98d685297b69dd6ca183588ec128eb8b839982bca281a/merged
+var-lib-docker-overlay2-d6b194abb8ef408615ea906d3ae161fd690b21a548d14d72309514bd266d9f89-merged.mount loaded active mounted   /var/lib/docker/overlay2/d6b194abb8ef408615ea906d3ae161fd690b21a548d14d72309514bd266d9f89/merged
+var-lib-docker-overlay2-d6f1ecd0ab9af6b9630dedb03ff7703c865abfc626690e7bd850e6cd69f1c2c5-merged.mount loaded active mounted   /var/lib/docker/overlay2/d6f1ecd0ab9af6b9630dedb03ff7703c865abfc626690e7bd850e6cd69f1c2c5/merged
+var-lib-docker-overlay2-d7c43e09a3dd9dcc6d558514fa7130da59bd2884410e5276f61e62656fb2d5d1-merged.mount loaded active mounted   /var/lib/docker/overlay2/d7c43e09a3dd9dcc6d558514fa7130da59bd2884410e5276f61e62656fb2d5d1/merged
+var-lib-docker.mount                                                                                  loaded active mounted   /var/lib/docker                                                                                 
+var-log-ramfs.mount                                                                                   loaded active mounted   /var/log/ramfs                                                                                  
+var-log.mount                                                                                         loaded active mounted   /var/log                                                                                        
+systemd-ask-password-console.path                                                                     loaded active waiting   Dispatch Password Requests to Console Directory Watch                                           
+systemd-ask-password-wall.path                                                                        loaded active waiting   Forward Password Requests to Wall Directory Watch                                               
+init.scope                                                                                            loaded active running   System and Service Manager                                                                      
+apparmor.service                                                                                      loaded active exited    Load AppArmor profiles                                                                          
+bgp.service                                                                                           loaded active running   BGP container                                                                                   
+caclmgrd.service                                                                                      loaded active running   Control Plane ACL configuration daemon                                                          
+ccd.service                                                                                           loaded active running   Consistency Checker daemon                                                                      
+config-chassisdb.service                                                                              loaded active exited    Config chassis_db                                                                               
+config-setup.service                                                                                  loaded active exited    Config initialization and migration service                                                     
+containerd.service                                                                                    loaded active running   containerd container runtime                                                                    
+critical-monitoring.service                                                                           loaded active running   Critical Memory Threshold Monitoring Service                                                    
+cron.service                                                                                          loaded active running   Regular background program processing daemon                                                    
+database.service                                                                                      loaded active running   Database container                                                                              
+db-post-startup.service                                                                               loaded active running   Restart the database dependent services                                                         
+dbus.service                                                                                          loaded active running   D-Bus System Message Bus                                                                        
+determine-reboot-cause.service                                                                        loaded active exited    Reboot cause determination service                                                              
+dhcp_relay.service                                                                                    loaded active running   DHCP relay container                                                                            
+disk-log-rotate-daemon.service                                                                        loaded active running   Auto log rotation infrastructure                                                                
+docker.service                                                                                        loaded active running   Docker Application Container Engine                                                             
+eventd.service                                                                                        loaded active running   Eventd container                                                                                
+getty@tty1.service                                                                                    loaded active running   Getty on tty1                                                                                   
+hamd.service                                                                                          loaded active running   Host Account Management                                                                         
+haveged.service                                                                                       loaded active running   Entropy daemon using the HAVEGE algorithm                                                       
+histogram.service                                                                                     loaded active running   Memory Histogram                                                                                
+hostcfgd.service                                                                                      loaded active running   Host config enforcer daemon                                                                     
+iccpd.service                                                                                         loaded active running   ICCPD container                                                                                 
+in-memory-log-rotate-daemon.service                                                                   loaded active running   In-memory auto log rotation infrastructure                                                      
+in-memory.service                                                                                     loaded active exited    In-memory logging infrastructure                                                                
+interfaces-config.service                                                                             loaded active exited    Update interfaces configuration                                                                 
+kdump-tools.service                                                                                   loaded active exited    Kernel crash dump capture service                                                               
+kexec-load.service                                                                                    loaded active exited    LSB: Load kernel image with kexec                                                               
+kexec.service                                                                                         loaded active exited    LSB: Execute the kexec -e command to reboot system                                              
+kmod-static-nodes.service                                                                             loaded active exited    Create list of required static device nodes for the current kernel                              
+l2mcd.service                                                                                         loaded active running   L2MCD container                                                                                 
+lldp.service                                                                                          loaded active running   LLDP container                                                                                  
+mgmt-framework.service                                                                                loaded active running   Management Framework container                                                                  
+monit.service                                                                                         loaded active running   LSB: service and resource monitoring daemon                                                     
+nat.service                                                                                           loaded active running   NAT container                                                                                   
+netfilter-persistent.service                                                                          loaded active exited    netfilter persistent configuration                                                              
+networking.service                                                                                    loaded active exited    ifupdown2 networking initialization                                                             
+ntp-config.service                                                                                    loaded active exited    Update NTP configuration                                                                        
+ntp-daemon.service                                                                                    loaded active running   LSB: NTP daemon                                                                                 
+ntp.service                                                                                           loaded active exited    Network Time Service                                                                            
+ntpconfd.service                                                                                      loaded active running   NTP configuration daemon                                                                        
+opennsl-modules.service                                                                               loaded active exited    Opennsl kernel modules init                                                                     
+platform-modules-s5212f.service                                                                       loaded active exited    Dell S5212f Platform modules                                                                    
+pmon.service                                                                                          loaded active running   Platform monitor container                                                                      
+portinitdone.service                                                                                  loaded active exited    PortInitDone Status Service                                                                     
+procdockerstatsd.service                                                                              loaded active running   Process and docker CPU/memory utilization data export daemon                                    
+radv.service                                                                                          loaded active running   Router advertiser container                                                                     
+ras-mc-ctl.service                                                                                    loaded active exited    Initialize EDAC v3.0.0 Drivers For Machine Hardware                                             
+rc-local.service                                                                                      loaded active exited    /etc/rc.local Compatibility                                                                     
+resrcmgrd.service                                                                                     loaded active running   Switch resource management daemon                                                               
+rsyslog-config.service                                                                                loaded active running   Update rsyslog configuration                                                                    
+rsyslog.service                                                                                       loaded active running   System Logging Service                                                                          
+serial-getty@ttyS0.service                                                                            loaded active running   Serial Getty on ttyS0                                                                           
+sflow.service                                                                                         loaded active running   sFlow container                                                                                 
+snmp.service                                                                                          loaded active running   SNMP container                                                                                  
+sonic-hostservice.service                                                                             loaded active running   SONiC Host Service                                                                              
+ssh.service                                                                                           loaded active running   OpenBSD Secure Shell server                                                                     
+stp.service                                                                                           loaded active running   STP container                                                                                   
+sudo-ldap.service                                                                                     loaded active exited    LSB: Provide limited super user privileges to specific users                                    
+swss.service                                                                                          loaded active running   switch state service                                                                            
+syncd.service                                                                                         loaded active running   syncd service                                                                                   
+sysfsutils.service                                                                                    loaded active exited    LSB: Set sysfs variables from /etc/sysfs.conf                                                   
+sysmonitor.service                                                                                    loaded active running   Watchdog service for system services                                                            
+systemcoreready.service                                                                               loaded active exited    Watchdog for System Core Ready Status                                                           
+systemd-journal-flush.service                                                                         loaded active exited    Flush Journal to Persistent Storage                                                             
+systemd-journald.service                                                                              loaded active running   Journal Service                                                                                 
+systemd-logind.service                                                                                loaded active running   Login Service                                                                                   
+systemd-modules-load.service                                                                          loaded active exited    Load Kernel Modules                                                                             
+systemd-random-seed.service                                                                           loaded active exited    Load/Save Random Seed                                                                           
+systemd-remount-fs.service                                                                            loaded active exited    Remount Root and Kernel File Systems                                                            
+systemd-sysctl.service                                                                                loaded active exited    Apply Kernel Variables                                                                          
+systemd-sysusers.service                                                                              loaded active exited    Create System Users                                                                             
+systemd-tmpfiles-setup-dev.service                                                                    loaded active exited    Create Static Device Nodes in /dev                                                              
+systemd-tmpfiles-setup.service                                                                        loaded active exited    Create Volatile Files and Directories                                                           
+systemd-udev-trigger.service                                                                          loaded active exited    udev Coldplug all Devices                                                                       
+systemd-udevd.service                                                                                 loaded active running   udev Kernel Device Manager                                                                      
+systemd-update-utmp.service                                                                           loaded active exited    Update UTMP about System Boot/Shutdown                                                          
+systemd-user-sessions.service                                                                         loaded active exited    Permit User Sessions                                                                            
+tam.service                                                                                           loaded active running   TAM container                                                                                   
+teamd.service                                                                                         loaded active running   TEAMD container                                                                                 
+telemetry.service                                                                                     loaded active running   Telemetry container                                                                             
+tpcm@default.service                                                                                  loaded active exited    TPCM for default vrf                                                                            
+udld.service                                                                                          loaded active running   UDLD container                                                                                  
+updategraph.service                                                                                   loaded active exited    Update minigraph and set configuration based on minigraph                                       
+vrrp.service                                                                                          loaded active running   VRRP container                                                                                  
+warmboot-finalizer.service                                                                            loaded active exited    Monitor warm recovery and disable warmboot when done                                            
+watchdog-control.service                                                                              loaded active running   watchdog control service                                                                        
+ztp-config.service                                                                                    loaded active exited    ZTP configuration service                                                                       
+-.slice                                                                                               loaded active active    Root Slice                                                                                      
+system-getty.slice                                                                                    loaded active active    system-getty.slice                                                                              
+system-serial\x2dgetty.slice                                                                          loaded active active    system-serial\x2dgetty.slice                                                                    
+system-tpcm.slice                                                                                     loaded active active    system-tpcm.slice                                                                               
+system.slice                                                                                          loaded active active    System Slice                                                                                    
+user.slice                                                                                            loaded active active    User and Session Slice                                                                          
+dbus.socket                                                                                           loaded active running   D-Bus System Message Bus Socket                                                                 
+docker.socket                                                                                         loaded active running   Docker Socket for the API                                                                       
+syslog.socket                                                                                         loaded active running   Syslog Socket                                                                                   
+systemd-coredump.socket                                                                               loaded active listening Process Core Dump Socket                                                                        
+systemd-initctl.socket                                                                                loaded active listening initctl Compatibility Named Pipe                                                                
+systemd-journald-audit.socket                                                                         loaded active running   Journal Audit Socket                                                                            
+systemd-journald-dev-log.socket                                                                       loaded active running   Journal Socket (/dev/log)                                                                       
+systemd-journald.socket                                                                               loaded active running   Journal Socket                                                                                  
+systemd-udevd-control.socket                                                                          loaded active running   udev Control Socket                                                                             
+systemd-udevd-kernel.socket                                                                           loaded active running   udev Kernel Socket                                                                              
+basic.target                                                                                          loaded active active    Basic System                                                                                    
+cryptsetup.target                                                                                     loaded active active    Local Encrypted Volumes                                                                         
+getty.target                                                                                          loaded active active    Login Prompts                                                                                   
+graphical.target                                                                                      loaded active active    Graphical Interface                                                                             
+local-fs-pre.target                                                                                   loaded active active    Local File Systems (Pre)                                                                        
+local-fs.target                                                                                       loaded active active    Local File Systems                                                                              
+multi-user.target                                                                                     loaded active active    Multi-User System                                                                               
+network-online.target                                                                                 loaded active active    Network is Online                                                                               
+network-pre.target                                                                                    loaded active active    Network (Pre)                                                                                   
+paths.target                                                                                          loaded active active    Paths                                                                                           
+remote-fs.target                                                                                      loaded active active    Remote File Systems                                                                             
+slices.target                                                                                         loaded active active    Slices                                                                                          
+sockets.target                                                                                        loaded active active    Sockets                                                                                         
+sonic.target                                                                                          loaded active active    SONiC services target.                                                                          
+swap.target                                                                                           loaded active active    Swap                                                                                            
+sysinit.target                                                                                        loaded active active    System Initialization                                                                           
+time-sync.target                                                                                      loaded active active    System Time Synchronized                                                                        
+timers.target                                                                                         loaded active active    Timers                                                                                          
+apt-daily-upgrade.timer                                                                               loaded active waiting   Daily apt upgrade and clean activities                                                          
+apt-daily.timer                                                                                       loaded active waiting   Daily apt download activities                                                                   
+fstrim.timer                                                                                          loaded active waiting   Discard unused blocks once a week                                                               
+mgmt-framework.timer                                                                                  loaded active running   Delays management framework container until SONiC has started                                   
+process-reboot-cause.timer                                                                            loaded active elapsed   Delays process-reboot-cause until network is stably connected                                   
+systemd-tmpfiles-clean.timer                                                                          loaded active waiting   Daily Cleanup of Temporary Directories                                                          
+telemetry.timer                                                                                       loaded active running   Delays telemetry container until SONiC has started                                              
+
+LOAD   = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB    = The low-level unit activation state, values depend on unit type.
+
+229 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.
+root@sonic:~# 
+
+
+
+
+
+
+root@sonic:~# cat /etc/sysctl.conf 
+#
+# /etc/sysctl.conf - Configuration file for setting system variables
+# See /etc/sysctl.d/ for additional system variables.
+# See sysctl.conf (5) for information.
+#
+
+#kernel.domainname = example.com
+
+# Uncomment the following to stop low-level messages on console
+#kernel.printk = 3 4 1 3
+
+##############################################################3
+# Functions previously found in netbase
+#
+
+# Uncomment the next two lines to enable Spoof protection (reverse-path filter)
+# Turn on Source Address Verification in all interfaces to
+# prevent some spoofing attacks
+#net.ipv4.conf.default.rp_filter=1
+#net.ipv4.conf.all.rp_filter=1
+
+# Uncomment the next line to enable TCP/IP SYN cookies
+# See http://lwn.net/Articles/277146/
+# Note: This may impact IPv6 TCP sessions too
+#net.ipv4.tcp_syncookies=1
+
+# Uncomment the next line to enable packet forwarding for IPv4
+#net.ipv4.ip_forward=1
+
+# Uncomment the next line to enable packet forwarding for IPv6
+#  Enabling this option disables Stateless Address Autoconfiguration
+#  based on Router Advertisements for this host
+#net.ipv6.conf.all.forwarding=1
+
+
+###################################################################
+# Additional settings - these settings can improve the network
+# security of the host and prevent against some network attacks
+# including spoofing attacks and man in the middle attacks through
+# redirection. Some network environments, however, require that these
+# settings are disabled so review and enable them as needed.
+#
+# Do not accept ICMP redirects (prevent MITM attacks)
+#net.ipv4.conf.all.accept_redirects = 0
+#net.ipv6.conf.all.accept_redirects = 0
+# _or_
+# Accept ICMP redirects only for gateways listed in our default
+# gateway list (enabled by default)
+# net.ipv4.conf.all.secure_redirects = 1
+#
+# Do not send ICMP redirects (we are not a router)
+#net.ipv4.conf.all.send_redirects = 0
+#
+# Do not accept IP source route packets (we are not a router)
+#net.ipv4.conf.all.accept_source_route = 0
+#net.ipv6.conf.all.accept_source_route = 0
+#
+# Log Martian Packets
+#net.ipv4.conf.all.log_martians = 1
+#
+
+###################################################################
+# Magic system request Key
+# 0=disable, 1=enable all, >1 bitmask of sysrq functions
+# See https://www.kernel.org/doc/html/latest/admin-guide/sysrq.html
+# for what other values do
+#kernel.sysrq=438
+
+kernel.softlockup_panic = 1
+kernel.panic = 10
+kernel.sysrq = 1
+vm.panic_on_oom = 0
+kernel.hung_task_timeout_secs = 300
+fs.suid_dumpable = 2
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv4.conf.default.forwarding = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv4.conf.eth0.forwarding = 0
+net.ipv4.conf.default.arp_accept = 0
+net.ipv4.conf.default.arp_announce = 0
+net.ipv4.conf.default.arp_filter = 0
+net.ipv4.conf.default.arp_notify = 0
+net.ipv4.conf.default.arp_ignore = 2
+net.ipv4.conf.eth0.arp_ignore = 0
+net.ipv4.conf.all.arp_accept = 0
+net.ipv4.conf.all.arp_announce = 1
+net.ipv4.conf.all.arp_filter = 0
+net.ipv4.conf.all.arp_notify = 1
+net.ipv4.conf.all.arp_ignore = 1
+net.ipv4.neigh.default.base_reachable_time_ms = 1800000
+net.ipv6.neigh.default.base_reachable_time_ms = 1800000
+net.ipv4.neigh.default.gc_thresh1 = 40000
+net.ipv6.neigh.default.gc_thresh1 = 40000
+net.ipv4.neigh.default.gc_thresh2 = 48000
+net.ipv6.neigh.default.gc_thresh2 = 48000
+net.ipv4.neigh.default.gc_thresh3 = 64000
+net.ipv6.neigh.default.gc_thresh3 = 64000
+net.ipv6.conf.default.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv6.conf.eth0.forwarding = 0
+net.ipv6.conf.default.accept_dad = 0
+net.ipv6.conf.all.accept_dad = 0
+net.ipv6.conf.eth0.accept_dad = 0
+net.ipv6.conf.default.keep_addr_on_down = 1
+net.ipv6.conf.all.keep_addr_on_down = 1
+net.ipv6.conf.eth0.keep_addr_on_down = 1
+net.ipv4.tcp_l3mdev_accept = 1
+net.ipv4.udp_l3mdev_accept = 1
+net.ipv4.igmp_max_memberships = 4096
+net.ipv6.ip_nonlocal_bind = 1
+net.core.netdev_budget = 64
+net.core.netdev_max_backlog = 10000
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.eth0.disable_ipv6 = 0
+net.ipv6.conf.lo.disable_ipv6 = 0
+net.ipv6.conf.docker0.disable_ipv6 = 0
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.core.somaxconn = 512
+net.core.optmem_max = 10000000
+net.ipv6.route.max_size = 12288
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv6.route.skip_notify_on_dev_down = 1
+root@sonic:~# 
+
+
+root@sonic:~# cat /etc/sysctl.d/90-dhcp6-systcl.conf 
+net.ipv6.conf.eth0.accept_ra_defrtr = 1
+net.ipv6.conf.eth0.accept_ra = 1
+
+
+
+
+
+root@sonic:~# cat /etc/sysctl.d/99-sysctl.conf 
+#
+# /etc/sysctl.conf - Configuration file for setting system variables
+# See /etc/sysctl.d/ for additional system variables.
+# See sysctl.conf (5) for information.
+#
+
+#kernel.domainname = example.com
+
+# Uncomment the following to stop low-level messages on console
+#kernel.printk = 3 4 1 3
+
+##############################################################3
+# Functions previously found in netbase
+#
+
+# Uncomment the next two lines to enable Spoof protection (reverse-path filter)
+# Turn on Source Address Verification in all interfaces to
+# prevent some spoofing attacks
+#net.ipv4.conf.default.rp_filter=1
+#net.ipv4.conf.all.rp_filter=1
+
+# Uncomment the next line to enable TCP/IP SYN cookies
+# See http://lwn.net/Articles/277146/
+# Note: This may impact IPv6 TCP sessions too
+#net.ipv4.tcp_syncookies=1
+
+# Uncomment the next line to enable packet forwarding for IPv4
+#net.ipv4.ip_forward=1
+
+# Uncomment the next line to enable packet forwarding for IPv6
+#  Enabling this option disables Stateless Address Autoconfiguration
+#  based on Router Advertisements for this host
+#net.ipv6.conf.all.forwarding=1
+
+
+###################################################################
+# Additional settings - these settings can improve the network
+# security of the host and prevent against some network attacks
+# including spoofing attacks and man in the middle attacks through
+# redirection. Some network environments, however, require that these
+# settings are disabled so review and enable them as needed.
+#
+# Do not accept ICMP redirects (prevent MITM attacks)
+#net.ipv4.conf.all.accept_redirects = 0
+#net.ipv6.conf.all.accept_redirects = 0
+# _or_
+# Accept ICMP redirects only for gateways listed in our default
+# gateway list (enabled by default)
+# net.ipv4.conf.all.secure_redirects = 1
+#
+# Do not send ICMP redirects (we are not a router)
+#net.ipv4.conf.all.send_redirects = 0
+#
+# Do not accept IP source route packets (we are not a router)
+#net.ipv4.conf.all.accept_source_route = 0
+#net.ipv6.conf.all.accept_source_route = 0
+#
+# Log Martian Packets
+#net.ipv4.conf.all.log_martians = 1
+#
+
+###################################################################
+# Magic system request Key
+# 0=disable, 1=enable all, >1 bitmask of sysrq functions
+# See https://www.kernel.org/doc/html/latest/admin-guide/sysrq.html
+# for what other values do
+#kernel.sysrq=438
+
+kernel.softlockup_panic = 1
+kernel.panic = 10
+kernel.sysrq = 1
+vm.panic_on_oom = 0
+kernel.hung_task_timeout_secs = 300
+fs.suid_dumpable = 2
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv4.conf.default.forwarding = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv4.conf.eth0.forwarding = 0
+net.ipv4.conf.default.arp_accept = 0
+net.ipv4.conf.default.arp_announce = 0
+net.ipv4.conf.default.arp_filter = 0
+net.ipv4.conf.default.arp_notify = 0
+net.ipv4.conf.default.arp_ignore = 2
+net.ipv4.conf.eth0.arp_ignore = 0
+net.ipv4.conf.all.arp_accept = 0
+net.ipv4.conf.all.arp_announce = 1
+net.ipv4.conf.all.arp_filter = 0
+net.ipv4.conf.all.arp_notify = 1
+net.ipv4.conf.all.arp_ignore = 1
+net.ipv4.neigh.default.base_reachable_time_ms = 1800000
+net.ipv6.neigh.default.base_reachable_time_ms = 1800000
+net.ipv4.neigh.default.gc_thresh1 = 40000
+net.ipv6.neigh.default.gc_thresh1 = 40000
+net.ipv4.neigh.default.gc_thresh2 = 48000
+net.ipv6.neigh.default.gc_thresh2 = 48000
+net.ipv4.neigh.default.gc_thresh3 = 64000
+net.ipv6.neigh.default.gc_thresh3 = 64000
+net.ipv6.conf.default.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.ipv6.conf.eth0.forwarding = 0
+net.ipv6.conf.default.accept_dad = 0
+net.ipv6.conf.all.accept_dad = 0
+net.ipv6.conf.eth0.accept_dad = 0
+net.ipv6.conf.default.keep_addr_on_down = 1
+net.ipv6.conf.all.keep_addr_on_down = 1
+net.ipv6.conf.eth0.keep_addr_on_down = 1
+net.ipv4.tcp_l3mdev_accept = 1
+net.ipv4.udp_l3mdev_accept = 1
+net.ipv4.igmp_max_memberships = 4096
+net.ipv6.ip_nonlocal_bind = 1
+net.core.netdev_budget = 64
+net.core.netdev_max_backlog = 10000
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.eth0.disable_ipv6 = 0
+net.ipv6.conf.lo.disable_ipv6 = 0
+net.ipv6.conf.docker0.disable_ipv6 = 0
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.core.somaxconn = 512
+net.core.optmem_max = 10000000
+net.ipv6.route.max_size = 12288
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv6.conf.all.accept_redirects = 0
+net.ipv6.conf.default.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv6.route.skip_notify_on_dev_down = 1
+root@sonic:~# 
+
+
+
+
+
+###################################################################
+# Protected links
+#
+# Protects against creating or following links under certain conditions
+# Debian kernels have both set to 1 (restricted) 
+# See https://www.kernel.org/doc/Documentation/sysctl/fs.txt
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
+
+
+
+root@sonic:~# cat /etc/sysctl.d/vmcore-sysctl.conf 
+kernel.panic_on_oops=1
+kernel.panic_on_unrecovered_nmi=1
+kernel.panic_on_io_nmi=1
+kernel.panic_on_stackoverflow=1
+kernel.hung_task_panic=1
+kernel.unknown_nmi_panic=1
+vm.panic_on_oom=1
+kernel.hardlockup_panic=1
+kernel.hardlockup_all_cpu_backtrace=1
+kernel.softlockup_panic=1
+kernel.softlockup_all_cpu_backtrace=1
+root@sonic:~# 
+
+
+
+
+
+
+
+
+
+root@sonic:/etc# cat /etc/rc.local 
+#!/bin/sh -x
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+LOOP_IMAGE_DIR=$(dirname $(cat /proc/cmdline | xargs -n1 | grep loop= | cut -d'=' -f 2-))
+loop_version=$(echo $LOOP_IMAGE_DIR | cut -d'-' -f 2-)
+SONIC_VERSION=$(cat /etc/sonic/sonic_version.yml | grep "build_version" | sed -e "s/build_version: //g;s/'//g")
+if [ "$loop_version" != "" ] && [ "$loop_version" != "${SONIC_VERSION}" ]; then
+    # Fix sonic version string to match with grub configuration
+    sed -i "/^build_version/c build_version: '$loop_version'" /etc/sonic/sonic_version.yml
+    echo "original_version: '${SONIC_VERSION}'" >> /etc/sonic/sonic_version.yml
+    SONIC_VERSION=$loop_version
+fi
+FIRST_BOOT_FILE="/host/image-${SONIC_VERSION}/platform/firsttime"
+SONIC_FIRST_BOOT_SCRIPT="/host/image-${SONIC_VERSION}/first_boot.sh"
+SONIC_BRANDING_OVERRIDE="/host/image-${SONIC_VERSION}/sonic_branding.yml"
+SONIC_BRANDING_FILE="/etc/sonic/sonic_branding.yml"
+RUNTIME_JOURNALD_CONF="/etc/systemd/journald.conf.d/01-journald-storage.conf"
+
+
+RSYSLOG_FILE="/etc/logrotate.d/rsyslog"
+IMEM_INFO_FILE="/etc/logrotate.d/in-memory/00-in-memory-info"
+IMEM_DEBUG_FILE="/etc/logrotate.d/in-memory/00-in-memory-debug"
+IMEM_DISK_INFO_FILE="/etc/logrotate.d/in-memory/01-disk-info"
+IMEM_DISK_DEBUG_FILE="/etc/logrotate.d/in-memory/01-disk-debug"
+IMEM_CONF_FILE="/etc/rsyslog.d/in-memory/00-in-memory.conf"
+APPLOG_CONF_FILE="/etc/rsyslog.d/20-sonic.conf"
+HISTOGRAM_FILE="/etc/logrotate.d/histogram/mem-histogram-rule"
+LOGCLEANUP_FILE="/usr/bin/log-cleanup.sh"
+
+# Move sonic-environment to /etc/sonic
+SONIC_CONFIG_DIR="/host/image-${SONIC_VERSION}/sonic-config"
+SONIC_ENV_FILE=${SONIC_CONFIG_DIR}/sonic-environment
+if [ -d ${SONIC_CONFIG_DIR} -a -f ${SONIC_ENV_FILE} ]; then
+    echo "moving file ${SONIC_ENV_FILE} to /etc/sonic" 1>&2
+    mv ${SONIC_ENV_FILE} /etc/sonic
+fi
+
+# In case the unit is migrating from another NOS, save the logs
+log_migration() {
+    echo $1 >> /host/migration/migration.log
+}
+
+# Import files from another NOS's partition onto SONiC
+nos_migration_import() {
+    [ -f $1 ] && cp $1 $2 || log_migration "ERROR: $1 not found!"
+}
+
+# While migrating form another NOS, we need to preserve the MAC addresses
+# of eth0 (and eventually switchports).
+# Update the eth0 mac and also the EEPROM using ethtool so that subsequent
+# reboots use the NOS's mac.
+# Input : mgmt_interface.cfg file imported from the previous NOS.
+update_mgmt_interface_macaddr() {
+    mgmt_config=$1
+    if [ ! -f "$mgmt_config" ]; then
+        log_migration "ERROR : unable update eth0 MAC : $mgmt_config not found!"
+        return
+    fi
+
+    # Save the previous NOS's mac
+    old_mac=`ip link show eth0 | grep ether | awk '{print $2}'`
+    [ -z "$old_mac" ] && log_migration "Unable to retrieve old mac address !" && return
+
+    # Extract, validate and set the eth0's mac address for the current session
+    new_mac=$(grep "macaddr" $mgmt_config | awk -F'=' '{print $2}')
+    log_migration "Setting eth0 mac as $new_mac."
+    if [ `echo $new_mac | egrep "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$"` ]; then
+        ip link set eth0 down
+        ip link set eth0 address $new_mac
+        ip link set eth0 up
+    else
+        log_migration "ERROR: mac imported from NOS is invalid : $new_mac !"
+        return
+    fi
+
+    # Get the ethtool magic and offset for changing the mac address in the EEPROM
+    ethtool_magic=$(grep "ethtool_magic" $mgmt_config | awk -F'=' '{print $2}')
+    ethtool_offset=$(grep "ethtool_offset" $mgmt_config | awk -F'=' '{print $2}')
+    if [ -z "$ethtool_magic" ] || [ -z "$ethtool_offset" ]; then
+        log_migration "Unable to retrieve ethtool params ($ethtool_magic,$ethtool_offset)"
+        return
+    fi
+
+    log_migration "eth0 mac in EEPROM before update:"
+    ethtool -e eth0 offset $ethtool_offset length 6 >> /host/migration/migration.log
+
+    # Update the mac address in the EEPROM for subsequent reboots
+    # Write only changed octets
+    for i in 1 2 3 4 5 6; do
+        offset=$(($ethtool_offset+$i-1))
+        old_mac_octet="$(echo $old_mac | cut -d":" -f$i)"
+        new_mac_octet="$(echo $new_mac | cut -d":" -f$i)"
+
+        if [ "$old_mac_octet" != "$new_mac_octet" ]; then
+            ethtool -E eth0 magic $ethtool_magic offset $offset value 0x$new_mac_octet
+            if [ $? != 0 ]; then
+                log_migration "ERROR: unable to update eth0 EEPROM!"
+                log_migration "index $i, magic $ethtool_magic offset $offset, value $new_mac_octet"
+                return
+            fi
+        fi
+    done
+
+    log_migration "eth0 mac in EEPROM after update:"
+    ethtool -e eth0 offset $ethtool_offset length 6 >> /host/migration/migration.log
+}
+
+migrate_nos_configuration()
+{
+    rm -rf /host/migration
+    mkdir -p /host/migration
+
+    # Extract the previous NOS's partition that contains the migration artifacts
+    set -- $(cat /proc/cmdline)
+    for x in "$@"; do
+        case "$x" in
+            nos-config-part=*)
+                nos_dev="${x#nos-config-part=}"
+                ;;
+            SONIC_BOOT_TYPE=fast*)
+                sonic_fast_reboot=true
+                ;;
+        esac
+    done
+
+    if [ -n "$nos_dev" ]; then
+        # remove nos-config-part from cmdline
+        sed -r -i.bak "s/nos-config-part=[^[:space:]]+//" /host/grub/grub.cfg
+
+        # Mount the previous NOS's partition
+        NOS_DIR=/mnt/nos_migration
+        MG_GZFILE=$NOS_DIR/minigraph.xml.gz.base64.txt
+        MG_FILE=$NOS_DIR/minigraph.xml
+        ACL_GZFILE=$NOS_DIR/acl.json.gz.base64.txt
+        ACL_FILE=$NOS_DIR/acl.json
+        SNMP_FILE=$NOS_DIR/snmp.yml
+        mkdir -p $NOS_DIR
+
+        mount $nos_dev $NOS_DIR
+        if [ $? != 0 ]; then
+            log_migration "ERROR: cannot mount $nos_dev"
+        else
+
+            # decode & unzip minigraph.xml.gz.base64.txt
+            [ -f $MG_GZFILE ] && /usr/bin/base64 -d $MG_GZFILE | /bin/gunzip > $MG_FILE
+            [ -f $ACL_GZFILE ] && /usr/bin/base64 -d $ACL_GZFILE | /bin/gunzip > $ACL_FILE
+
+            # Copy relevant files
+            nos_migration_import $NOS_DIR/mgmt_interface.cfg /host/migration
+            nos_migration_import $MG_FILE /host/migration
+            nos_migration_import $ACL_FILE /host/migration
+            nos_migration_import $SNMP_FILE /host/migration
+
+            if [ "$sonic_fast_reboot" == true ]; then
+                mkdir -p /host/fast-reboot
+                nos_migration_import $NOS_DIR/arp.json /host/fast-reboot
+                nos_migration_import $NOS_DIR/fdb.json /host/fast-reboot
+                nos_migration_import $NOS_DIR/default_routes.json /host/fast-reboot
+            fi
+
+            umount $NOS_DIR
+            rmdir $NOS_DIR
+        fi
+
+        [ -f /host/migration/mgmt_interface.cfg ] && update_mgmt_interface_macaddr /host/migration/mgmt_interface.cfg
+
+        migration="TRUE"
+    fi
+}
+
+firsttime_exit() {
+    rm -f /sys/fs/pstore/*.enc.z
+    rm -rf $FIRST_BOOT_FILE
+    exit 0
+}
+
+# Given a string of tuples of the form field=value, extract the value for a field
+# In : $string, $field
+# Out: $value
+value_extract() {
+    set -- $string
+    for x in "$@"; do
+        case "$x" in
+            $field=*)
+                value="${x#$field=}"
+        esac
+    done
+}
+
+program_console_speed()
+{
+    speed=$(cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d "," -f2)
+    if [ -z "$speed" ]; then
+        CONSOLE_SPEED=9600
+    else
+        CONSOLE_SPEED=$speed
+    fi
+
+    sed -i "s|\-\-keep\-baud .* %I| $CONSOLE_SPEED %I|g" /lib/systemd/system/serial-getty@.service
+    systemctl daemon-reload
+}
+
+
+check_enable_redisauth()
+{
+    if [ -f /etc/enable_redisauth ]; then
+        REDIS_PATH=/run/redis/auth
+        mkdir -p ${REDIS_PATH}
+        touch ${REDIS_PATH}/passwd
+        chmod -R 0550 ${REDIS_PATH}
+        chown -R admin:admin ${REDIS_PATH}
+        echo -n $(openssl rand -base64 16) > ${REDIS_PATH}/passwd
+    fi
+}
+
+install_logconf()
+{
+    TAIL=$1
+  
+    cp -f ${RSYSLOG_FILE}${TAIL} ${RSYSLOG_FILE}
+    cp -f ${IMEM_INFO_FILE}${TAIL} ${IMEM_INFO_FILE}
+    cp -f ${IMEM_DEBUG_FILE}${TAIL} ${IMEM_DEBUG_FILE}
+    cp -f ${IMEM_DISK_INFO_FILE}${TAIL} ${IMEM_DISK_INFO_FILE}
+    cp -f ${IMEM_DISK_DEBUG_FILE}${TAIL} ${IMEM_DISK_DEBUG_FILE}
+    cp -f ${IMEM_CONF_FILE}${TAIL} ${IMEM_CONF_FILE}
+    cp -f ${APPLOG_CONF_FILE}${TAIL} ${APPLOG_CONF_FILE}
+    cp -f ${HISTOGRAM_FILE}${TAIL} ${HISTOGRAM_FILE}
+    cp -f ${LOGCLEANUP_FILE}${TAIL} ${LOGCLEANUP_FILE}
+    chmod 755 ${LOGCLEANUP_FILE}
+
+    rm -f ${RSYSLOG_FILE}.* ${IMEM_INFO_FILE}.* ${IMEM_DEBUG_FILE}.* ${IMEM_DISK_INFO_FILE}.* ${IMEM_DISK_DEBUG_FILE}.* ${IMEM_CONF_FILE}.* ${APPLOG_CONF_FILE}.* ${HISTOGRAM_FILE}.* ${LOGCLEANUP_FILE}.*
+}
+
+#### Begin Main Body ####
+
+logger "SONiC version ${SONIC_VERSION} starting up..."
+
+# mount the bpf sysfs
+mount -t bpf none /sys/fs/bpf/
+
+#By default, db auth is enabled
+set +x
+touch /etc/enable_redisauth
+check_enable_redisauth
+set -x
+
+# If the machine.conf is absent, it indicates that the unit booted
+# into SONiC from another NOS. Extract the machine.conf from ONIE.
+grub_installation_needed=""
+if [ ! -e /host/machine.conf ]; then
+    onie_dev=$(blkid | grep ONIE-BOOT | head -n 1 | awk '{print $1}' |  sed -e 's/:.*$//')
+    mkdir -p /mnt/onie-boot
+    mount $onie_dev /mnt/onie-boot
+    onie_grub_cfg=/mnt/onie-boot/onie/grub/grub-machine.cfg
+
+    if [ ! -e $onie_grub_cfg ]; then
+        log_migration "$onie_grub_cfg not found"
+    else
+        . ./$onie_grub_cfg
+        grep = $onie_grub_cfg | sed -e 's/onie_//' -e 's/=.*$//' | while read var ; do
+            eval val='$'onie_$var
+            echo "onie_${var}=${val}" >> /host/machine.conf
+        done
+        grub_installation_needed="TRUE"
+    fi
+
+    umount /mnt/onie-boot
+fi
+
+migrate_nos_configuration
+
+. /host/machine.conf
+
+program_console_speed
+
+if [ -f $FIRST_BOOT_FILE ]; then
+
+    echo "First boot detected. Performing first boot tasks..."
+
+    if [ -n "$aboot_platform" ]; then
+        platform=$aboot_platform
+    elif [ -n "$onie_platform" ]; then
+        platform=$onie_platform
+    else
+        echo "Unknown SONiC platform"
+        firsttime_exit
+    fi
+
+    # Try to take old configuration saved during installation
+    # and create a flag in /tmp/ to let updategraph service know
+    if [ -d /host/old_config ]; then
+        mv -f /host/old_config /etc/sonic/
+        rm -rf /etc/sonic/old_config/old_config
+        touch /tmp/pending_config_migration
+    elif [ -f /host/minigraph.xml ]; then
+        mkdir -p /etc/sonic/old_config
+        mv /host/minigraph.xml /etc/sonic/old_config/
+        [ -f /host/acl.json ] && mv /host/acl.json /etc/sonic/old_config/
+        [ -f /host/snmp.yml ] && mv /host/snmp.yml /etc/sonic/old_config/
+        touch /tmp/pending_config_migration
+    elif [ -n "$migration" ] && [ -f /host/migration/minigraph.xml ];  then
+        mkdir -p /etc/sonic/old_config
+        mv /host/migration/minigraph.xml /etc/sonic/old_config/
+        [ -f /host/migration/acl.json ] && mv /host/migration/acl.json /etc/sonic/old_config/
+        [ -f /host/migration/snmp.yml ] && mv /host/migration/snmp.yml /etc/sonic/old_config/
+        touch /tmp/pending_config_migration
+        [ -f /etc/sonic/updategraph.conf ] && sed -i -e "s/enabled=false/enabled=true/g" /etc/sonic/updategraph.conf
+    else
+        touch /tmp/pending_config_initialization
+    fi
+
+    # Notify firstboot to Platform, to use it for reboot-cause
+    touch /tmp/notify_firstboot_to_platform
+
+    # Create /host/reboot-cause/platform/ directory
+    # can be used to track last reboot reason by some platforms
+    if [ ! -d /host/reboot-cause/platform ]; then
+        mkdir -p /host/reboot-cause/platform
+    fi
+
+    if [ ! -e /usr/share/sonic/platform ]; then
+        ln -s /usr/share/sonic/device/$platform /usr/share/sonic/platform
+    fi
+
+    if [ -d /host/image-$SONIC_VERSION/platform/$platform ]; then
+        dpkg -i /host/image-$SONIC_VERSION/platform/$platform/*.deb
+    fi
+
+        # Install the first boot specific packages
+    if [ -d /host/image-$SONIC_VERSION/firstboot ]; then
+        dpkg -i /host/image-$SONIC_VERSION/firstboot/*.deb
+    fi
+
+
+    if [ -f $SONIC_BRANDING_OVERRIDE ]; then
+        yq -y -s '.[0] * .[1]' $SONIC_BRANDING_FILE $SONIC_BRANDING_OVERRIDE > /tmp/branding.yml
+        if [ $? -eq 0 ]; then
+            cp -f /tmp/branding.yml $SONIC_BRANDING_FILE
+        fi
+        rm -f /tmp/branding.yml
+    fi
+
+    sync
+
+    # If the unit booted into SONiC from another NOS's grub,
+    # we now install a grub for SONiC.
+    if [ -n "$onie_platform" ] && [ -n  "$grub_installation_needed" ]; then
+
+        grub_bin=$(ls /host/image-$SONIC_VERSION/platform/x86_64-grub/grub-pc-bin*.deb 2> /dev/null)
+        if [ -z "$grub_bin" ]; then
+            log_migration "Unable to locate grub package !"
+            firsttime_exit
+        fi
+
+        dpkg -i $grub_bin > /dev/null 2>&1
+        if [ $? != 0 ]; then
+            log_migration "Unable to install grub package !"
+            firsttime_exit
+        fi
+
+        # Determine the block device to install grub
+        sonic_dev=$(blkid | grep SONiC-OS | head -n 1 | awk '{print $1}' |  sed -e 's/[0-9]:.*$//')
+        if [ -z "$sonic_dev" ]; then
+            log_migration "Unable to determine sonic partition !"
+            firsttime_exit
+        fi
+
+        grub-install --boot-directory=/host --recheck $sonic_dev 2>/dev/null
+        if [ $? != 0 ]; then
+            log_migration "grub install failed !"
+            firsttime_exit
+        fi
+
+        # The SONiC "raw" build mode has already generated a proto grub.cfg
+        # as part of the migration. Platform specific constants need to be
+        # retrieved from installer.conf (if present) and assigned.
+        . /usr/share/sonic/device/$platform/installer.conf
+
+        if [ ! -z "$CONSOLE_PORT" ]; then
+            field="\-\-port"
+            string=$(grep $field /host/grub.cfg)
+            value_extract $string $field
+            console_port=$value
+            if [ ! -z "$console_port" ] && [ "$console_port" != "$CONSOLE_PORT" ]; then
+                sed -i -e "s/\-\-port=$console_port/\-\-port=$CONSOLE_PORT/g" /host/grub.cfg
+            fi
+            log_migration "grub.cfg console port=$console_port & installer.conf CONSOLE_PORT=$CONSOLE_PORT"
+        fi
+
+        if [ ! -z "$CONSOLE_DEV" ]; then
+            field="console"
+            string=$(grep $field /host/grub.cfg)
+            value_extract $string $field
+            console_dev_name=$(echo $value | sed -e "s/^.*=//" -e "s/,.*//")
+            console_dev="${console_dev_name#ttyS}"
+            if [ "$console_dev" != "$CONSOLE_DEV" ]; then
+                sed -i -e "s/console=ttyS$console_dev/console=ttyS$CONSOLE_DEV/g" /host/grub.cfg
+            fi
+            log_migration "grub.cfg console dev=$console_dev & installer.conf CONSOLE_DEV=$CONSOLE_DEV"
+        fi
+
+        if [ ! -z "$VAR_LOG_SIZE" ]; then
+            field="var_log_size"
+            string=$(grep $field /host/grub.cfg)
+            value_extract $string $field
+            var_log_size=$value
+            if [ ! -z "$var_log_size" ] && [ "$var_log_size" != "$VAR_LOG_SIZE" ]; then
+                sed -i -e "s/var_log_size=$var_log_size/var_log_size=$VAR_LOG_SIZE/g" /host/grub.cfg
+            fi
+            log_migration "grub.cfg var_log_size=$var_log_size & installer.conf VAR_LOG_SIZE=$VAR_LOG_SIZE"
+        fi
+
+        # Set the root based on the label
+        sonic_root=$(blkid | grep SONiC-OS | head -n 1 | awk '{print $1}' |  sed -e 's/:.*$//')
+        sonic_root=$(echo "$sonic_root" | sed 's/\//\\\//g')
+        sed -i -e "s/%%SONIC_ROOT%%/$sonic_root/g" /host/grub.cfg
+
+        # Add the Diag and ONIE entries
+        mount $onie_dev /mnt/onie-boot
+        . /mnt/onie-boot/onie/grub.d/50_onie_grub >> /host/grub.cfg
+        umount /mnt/onie-boot
+
+        # Initialize the SONiC's grub config
+        mv /host/grub.cfg /host/grub/grub.cfg
+    fi
+    
+    sed -i 's/^UMASK.*/UMASK 027/g' /etc/login.defs
+
+    # Re-init platform specific config json
+    INIT_CFG=/etc/sonic/init_cfg.json
+    PLAT_INIT_CFG=/usr/share/sonic/device/$platform/init_cfg.json
+    TMP_INIT_CFG=$(mktemp)
+    chmod 644 $TMP_INIT_CFG
+    if [ -e $INIT_CFG ] && [ -e $PLAT_INIT_CFG ]; then
+        echo "Applying platform specific initial configuration"
+        jq -rs 'reduce .[] as $item ({}; . * $item)' $INIT_CFG $PLAT_INIT_CFG > $TMP_INIT_CFG
+        if [ $? -eq 0 ]; then
+            mv $TMP_INIT_CFG $INIT_CFG
+        fi
+    fi
+
+    # Kdump tools configuration
+    sed -i -e "s/__PLATFORM__/$platform/g" /etc/default/kdump-tools
+
+    if [ -e $SONIC_FIRST_BOOT_SCRIPT ]; then
+        chmod +x $SONIC_FIRST_BOOT_SCRIPT
+        $SONIC_FIRST_BOOT_SCRIPT
+    fi
+
+    # Create dir where following scripts put their output files
+    mkdir -p /var/platform
+
+    # Kdump tools configuration
+    sed -i -e "s/__PLATFORM__/$platform/g" /etc/default/kdump-tools
+
+        VARLOG_SIZE=$(df --block-size=1M |grep -E "/var/log$" | awk '{print $2}')
+    # journald configuration based on the system's /var/log/ size
+    if [ ! -e $RUNTIME_JOURNALD_CONF ]; then
+        if [ ! -z $VARLOG_SIZE ]; then
+            # By default these values are 10% of the /var/log size
+            sys_max_use=$(($VARLOG_SIZE/10))
+            run_max_use=$(($VARLOG_SIZE/10))
+        else
+            # some error in finding the VARLOG_SIZE
+            sys_max_use=256
+            run_max_use=356
+        fi
+        touch $RUNTIME_JOURNALD_CONF && chmod 644 $RUNTIME_JOURNALD_CONF
+        cat <<-EOF > $RUNTIME_JOURNALD_CONF
+[Journal]
+SystemMaxUse=${sys_max_use}M
+RuntimeMaxUse=${run_max_use}M
+EOF
+        systemctl restart systemd-journald
+    fi
+
+        #Configure the rsyslog, in-memory log & histogram log files count based on log partition size
+        if [ ! -z ${VARLOG_SIZE} ]; then
+        if [ ${VARLOG_SIZE} -lt 1024 ]; then
+            install_logconf ".low"
+        else
+            install_logconf ".high"
+            fi
+    else
+        logger "ERR: Unable to fetch log partition size, set log conf to default low"
+        install_logconf ".low"
+    fi
+    
+    rm -rf $FIRST_BOOT_FILE
+fi
+
+# Copy the fsck log into syslog
+if [ -f /var/log/fsck.log.gz ]; then
+    gunzip -d -c /var/log/fsck.log.gz | logger -t "FSCK"
+    rm -f /var/log/fsck.log.gz
+fi
+
+# create image tables on state db
+/usr/bin/python3 /usr/local/bin/image_tables_init.py &
+
+# Clean-up stale journal files
+set +x
+cat /host/image-*/rw/etc/machine-id > /tmp/machine_list
+for m_id in $(ls -1 /var/log/journal/); do
+    if [ ! -z $m_id ]; then
+        if ! grep -q $m_id /tmp/machine_list; then
+            rm -rf /var/log/journal/$m_id
+        fi
+    fi
+done
+rm -f /tmp/machine_list
+
+
+# Remove any pstore files which couldn't be decompressed
+# This can happen when switching between different versions
+# kernel which use different compression alogorithms to
+# store data in pstore.
+rm -f /sys/fs/pstore/*.enc.z
+set -x
+
+exit 0
+
+
+
+
+root@sonic:/etc# cat /etc/modules-load.d/s5212f-modules.conf 
+# /etc/modules: kernel modules to load at boot time.
+#
+# This file contains the names of kernel modules that should be loaded
+# at boot time, one per line. Lines beginning with "#" are ignored.
+
+i2c-i801
+i2c-isch
+i2c-ismt
+i2c-dev
+i2c-mux
+i2c-smbus
+
+i2c-mux-gpio
+i2c-mux-pca954x
+
+ipmi_devintf
+ipmi_si
+dell_s5212f_fpga_ocores
+i2c_ocores
+
+
+
+
+
+
+
+root@sonic:/etc# ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:9e brd ff:ff:ff:ff:ff:ff
+3: bcm0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 02:10:18:08:d8:65 brd ff:ff:ff:ff:ff:ff
+    alias bcm0
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default 
+    link/ether 02:42:c6:54:ce:2f brd ff:ff:ff:ff:ff:ff
+5: Bridge: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9216 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff
+    alias Bridge
+6: dummy: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master Bridge state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff
+    alias dummy
+7: BFDRX@BFDTX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether b6:8c:ab:27:f9:a1 brd ff:ff:ff:ff:ff:ff
+    prog/xdp id 27 tag 8a664c0d51f86d41 jited 
+8: BFDTX@BFDRX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 7a:7e:e0:ae:11:41 brd ff:ff:ff:ff:ff:ff
+    prog/xdp id 24 tag 8a664c0d51f86d41 jited 
+9: pimreg@NONE: <NOARP,UP,LOWER_UP> mtu 1472 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/pimreg 
+10: CPU: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias CPU
+11: Ethernet0: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet0
+12: Ethernet1: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet1
+13: Ethernet2: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet2
+14: Ethernet3: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet3
+15: Ethernet4: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet4
+16: Ethernet5: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet5
+17: Ethernet6: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet6
+18: Ethernet7: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet7
+19: Ethernet8: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet8
+20: Ethernet9: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet9
+21: Ethernet10: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet10
+22: Ethernet11: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet11
+23: Ethernet12: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet12
+24: Ethernet16: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet16
+25: Ethernet20: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+    alias Ethernet20
+root@sonic:/etc# ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether 1c:72:1d:ec:44:9e brd ff:ff:ff:ff:ff:ff
+    inet 192.168.88.158/24 brd 192.168.88.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fdbd:5c4:690::d4f/128 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 2001:470:1:b99::d4f/128 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fdbd:5c4:690:0:1e72:1dff:feec:449e/64 scope global dynamic mngtmpaddr 
+       valid_lft forever preferred_lft forever
+    inet6 2001:470:1:b99:1e72:1dff:feec:449e/64 scope global dynamic mngtmpaddr 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::1e72:1dff:feec:449e/64 scope link flags 4000 
+       valid_lft forever preferred_lft forever
+3: bcm0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 1000
+    link/ether 02:10:18:08:d8:65 brd ff:ff:ff:ff:ff:ff
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default 
+    link/ether 02:42:c6:54:ce:2f brd ff:ff:ff:ff:ff:ff
+    inet 240.127.1.1/24 brd 240.127.1.255 scope global docker0
+       valid_lft forever preferred_lft forever
+    inet6 fd00::1/80 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::1/64 scope link 
+       valid_lft forever preferred_lft forever
+5: Bridge: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9216 qdisc noqueue state UP group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff
+6: dummy: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master Bridge state UNKNOWN group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff
+7: BFDRX@BFDTX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric/id:27 qdisc noqueue state UP group default qlen 1000
+    link/ether b6:8c:ab:27:f9:a1 brd ff:ff:ff:ff:ff:ff
+8: BFDTX@BFDRX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric/id:24 qdisc noqueue state UP group default qlen 1000
+    link/ether 7a:7e:e0:ae:11:41 brd ff:ff:ff:ff:ff:ff
+9: pimreg@NONE: <NOARP,UP,LOWER_UP> mtu 1472 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/pimreg 
+10: CPU: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+11: Ethernet0: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+12: Ethernet1: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+13: Ethernet2: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+14: Ethernet3: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+15: Ethernet4: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+16: Ethernet5: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+17: Ethernet6: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+18: Ethernet7: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+19: Ethernet8: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+20: Ethernet9: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+21: Ethernet10: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+22: Ethernet11: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+23: Ethernet12: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+24: Ethernet16: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+25: Ethernet20: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff
+root@sonic:/etc# ip -d link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00 promiscuity 0 minmtu 0 maxmtu 0 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:9e brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9216 addrgenmode eui64 numtxqueues 8 numrxqueues 8 gso_max_size 65536 gso_max_segs 65535 
+3: bcm0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 02:10:18:08:d8:65 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias bcm0
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default 
+    link/ether 02:42:c6:54:ce:2f brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    bridge forward_delay 1500 hello_time 200 max_age 2000 ageing_time 30000 stp_state 0 priority 32768 vlan_filtering 0 vlan_protocol 802.1Q bridge_id 8000.2:42:c6:54:ce:2f designated_root 8000.2:42:c6:54:ce:2f root_port 0 root_path_cost 0 topology_change 0 topology_change_detected 0 hello_timer    0.00 tcn_timer    0.00 topology_change_timer    0.00 gc_timer   94.14 vlan_default_pvid 1 vlan_stats_enabled 0 vlan_stats_per_port 0 group_fwd_mask 0 group_address 01:80:c2:00:00:00 mcast_snooping 1 mcast_router 1 mcast_query_use_ifaddr 0 mcast_querier 0 mcast_hash_elasticity 16 mcast_hash_max 4096 mcast_last_member_count 2 mcast_startup_query_count 2 mcast_last_member_interval 100 mcast_membership_interval 26000 mcast_querier_interval 25500 mcast_query_interval 12500 mcast_query_response_interval 1000 mcast_startup_query_interval 3124 mcast_stats_enabled 0 mcast_igmp_version 2 mcast_mld_version 1 nf_call_iptables 0 nf_call_ip6tables 0 nf_call_arptables 0 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+5: Bridge: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9216 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    bridge forward_delay 1500 hello_time 200 max_age 2000 ageing_time 30000 stp_state 0 priority 32768 vlan_filtering 1 vlan_protocol 802.1Q bridge_id 8000.c6:6f:c4:40:bd:f designated_root 8000.c6:6f:c4:40:bd:f root_port 0 root_path_cost 0 topology_change 0 topology_change_detected 0 hello_timer    0.00 tcn_timer    0.00 topology_change_timer    0.00 gc_timer  176.06 vlan_default_pvid 1 vlan_stats_enabled 0 vlan_stats_per_port 0 group_fwd_mask 0 group_address 01:80:c2:00:00:00 mcast_snooping 1 mcast_router 1 mcast_query_use_ifaddr 0 mcast_querier 0 mcast_hash_elasticity 16 mcast_hash_max 4096 mcast_last_member_count 2 mcast_startup_query_count 2 mcast_last_member_interval 100 mcast_membership_interval 26000 mcast_querier_interval 25500 mcast_query_interval 12500 mcast_query_response_interval 1000 mcast_startup_query_interval 3124 mcast_stats_enabled 0 mcast_igmp_version 2 mcast_mld_version 1 nf_call_iptables 0 nf_call_ip6tables 0 nf_call_arptables 0 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Bridge
+6: dummy: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master Bridge state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff promiscuity 1 minmtu 0 maxmtu 0 
+    dummy 
+    bridge_slave state forwarding priority 4 cost 100 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.c6:6f:c4:40:bd:f designated_root 8000.c6:6f:c4:40:bd:f hold_timer    0.00 message_age_timer    0.00 forward_delay_timer    0.00 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias dummy
+7: BFDRX@BFDTX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether b6:8c:ab:27:f9:a1 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    veth addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    prog/xdp id 27 tag 8a664c0d51f86d41 jited 
+8: BFDTX@BFDRX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 7a:7e:e0:ae:11:41 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    veth addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    prog/xdp id 24 tag 8a664c0d51f86d41 jited 
+9: pimreg@NONE: <NOARP,UP,LOWER_UP> mtu 1472 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/pimreg  promiscuity 0 minmtu 0 maxmtu 0 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+10: CPU: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias CPU
+11: Ethernet0: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet0
+12: Ethernet1: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet1
+13: Ethernet2: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet2
+14: Ethernet3: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet3
+15: Ethernet4: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet4
+16: Ethernet5: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet5
+17: Ethernet6: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet6
+18: Ethernet7: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet7
+19: Ethernet8: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet8
+20: Ethernet9: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet9
+21: Ethernet10: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet10
+22: Ethernet11: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet11
+23: Ethernet12: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet12
+24: Ethernet16: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet16
+25: Ethernet20: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet20
+root@sonic:/etc# ip -d addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00 promiscuity 0 minmtu 0 maxmtu 0 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether 1c:72:1d:ec:44:9e brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9216 numtxqueues 8 numrxqueues 8 gso_max_size 65536 gso_max_segs 65535 
+    inet 192.168.88.158/24 brd 192.168.88.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fdbd:5c4:690::d4f/128 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 2001:470:1:b99::d4f/128 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fdbd:5c4:690:0:1e72:1dff:feec:449e/64 scope global dynamic mngtmpaddr 
+       valid_lft forever preferred_lft forever
+    inet6 2001:470:1:b99:1e72:1dff:feec:449e/64 scope global dynamic mngtmpaddr 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::1e72:1dff:feec:449e/64 scope link flags 4000 
+       valid_lft forever preferred_lft forever
+3: bcm0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 1000
+    link/ether 02:10:18:08:d8:65 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias bcm0
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default 
+    link/ether 02:42:c6:54:ce:2f brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    bridge forward_delay 1500 hello_time 200 max_age 2000 ageing_time 30000 stp_state 0 priority 32768 vlan_filtering 0 vlan_protocol 802.1Q bridge_id 8000.2:42:c6:54:ce:2f designated_root 8000.2:42:c6:54:ce:2f root_port 0 root_path_cost 0 topology_change 0 topology_change_detected 0 hello_timer    0.00 tcn_timer    0.00 topology_change_timer    0.00 gc_timer   91.15 vlan_default_pvid 1 vlan_stats_enabled 0 vlan_stats_per_port 0 group_fwd_mask 0 group_address 01:80:c2:00:00:00 mcast_snooping 1 mcast_router 1 mcast_query_use_ifaddr 0 mcast_querier 0 mcast_hash_elasticity 16 mcast_hash_max 4096 mcast_last_member_count 2 mcast_startup_query_count 2 mcast_last_member_interval 100 mcast_membership_interval 26000 mcast_querier_interval 25500 mcast_query_interval 12500 mcast_query_response_interval 1000 mcast_startup_query_interval 3124 mcast_stats_enabled 0 mcast_igmp_version 2 mcast_mld_version 1 nf_call_iptables 0 nf_call_ip6tables 0 nf_call_arptables 0 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    inet 240.127.1.1/24 brd 240.127.1.255 scope global docker0
+       valid_lft forever preferred_lft forever
+    inet6 fd00::1/80 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::1/64 scope link 
+       valid_lft forever preferred_lft forever
+5: Bridge: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9216 qdisc noqueue state UP group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    bridge forward_delay 1500 hello_time 200 max_age 2000 ageing_time 30000 stp_state 0 priority 32768 vlan_filtering 1 vlan_protocol 802.1Q bridge_id 8000.c6:6f:c4:40:bd:f designated_root 8000.c6:6f:c4:40:bd:f root_port 0 root_path_cost 0 topology_change 0 topology_change_detected 0 hello_timer    0.00 tcn_timer    0.00 topology_change_timer    0.00 gc_timer  173.07 vlan_default_pvid 1 vlan_stats_enabled 0 vlan_stats_per_port 0 group_fwd_mask 0 group_address 01:80:c2:00:00:00 mcast_snooping 1 mcast_router 1 mcast_query_use_ifaddr 0 mcast_querier 0 mcast_hash_elasticity 16 mcast_hash_max 4096 mcast_last_member_count 2 mcast_startup_query_count 2 mcast_last_member_interval 100 mcast_membership_interval 26000 mcast_querier_interval 25500 mcast_query_interval 12500 mcast_query_response_interval 1000 mcast_startup_query_interval 3124 mcast_stats_enabled 0 mcast_igmp_version 2 mcast_mld_version 1 nf_call_iptables 0 nf_call_ip6tables 0 nf_call_arptables 0 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Bridge
+6: dummy: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master Bridge state UNKNOWN group default qlen 1000
+    link/ether c6:6f:c4:40:bd:0f brd ff:ff:ff:ff:ff:ff promiscuity 1 minmtu 0 maxmtu 0 
+    dummy 
+    bridge_slave state forwarding priority 4 cost 100 hairpin off guard off root_block off fastleave off learning on flood on port_id 0x8001 port_no 0x1 designated_port 32769 designated_cost 0 designated_bridge 8000.c6:6f:c4:40:bd:f designated_root 8000.c6:6f:c4:40:bd:f hold_timer    0.00 message_age_timer    0.00 forward_delay_timer    0.00 topology_change_ack 0 config_pending 0 proxy_arp off proxy_arp_wifi off mcast_router 1 mcast_fast_leave off mcast_flood on mcast_to_unicast off neigh_suppress off group_fwd_mask 0 group_fwd_mask_str 0x0 vlan_tunnel off isolated off numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias dummy
+7: BFDRX@BFDTX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric/id:27 qdisc noqueue state UP group default qlen 1000
+    link/ether b6:8c:ab:27:f9:a1 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    veth numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    prog/xdp id 27 tag 8a664c0d51f86d41 jited 
+8: BFDTX@BFDRX: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdpgeneric/id:24 qdisc noqueue state UP group default qlen 1000
+    link/ether 7a:7e:e0:ae:11:41 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 65535 
+    veth numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    prog/xdp id 24 tag 8a664c0d51f86d41 jited 
+9: pimreg@NONE: <NOARP,UP,LOWER_UP> mtu 1472 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/pimreg  promiscuity 0 minmtu 0 maxmtu 0 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+10: CPU: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias CPU
+11: Ethernet0: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet0
+12: Ethernet1: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet1
+13: Ethernet2: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet2
+14: Ethernet3: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet3
+15: Ethernet4: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet4
+16: Ethernet5: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet5
+17: Ethernet6: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet6
+18: Ethernet7: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet7
+19: Ethernet8: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet8
+20: Ethernet9: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet9
+21: Ethernet10: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet10
+22: Ethernet11: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet11
+23: Ethernet12: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet12
+24: Ethernet16: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet16
+25: Ethernet20: <BROADCAST,MULTICAST> mtu 9100 qdisc noop state DOWN group default qlen 1000
+    link/ether 1c:72:1d:ec:44:a0 brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 68 maxmtu 9238 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535 
+    alias Ethernet20
+root@sonic:/etc# 
+
+
+
+
+
+
+
+
+
+
+root@sonic:/etc# cat rcS.d/S01opennsl-modules 
+#!/bin/bash
+# This script load/unload opennsl kernel modules
+
+### BEGIN INIT INFO
+# Provides:          load-opennsl-modules
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Load OpenNSL kernel modules
+### END INIT INFO
+
+KNET_BASEDEV_NAME=bcm0
+KNET_CPUDEV_NAME=CPU
+PTP_SUPPORTED_PLT=`lspci | grep Broadcom | grep 'BCM5696' || lspci | grep Broadcom | grep -e 'b85' -e 'b87'`
+
+function create_devices()
+{
+    if [ $is_ltsw_chip -eq 1 ]; then
+       rm -f /dev/linux_ngbde
+       rm -f /dev/linux_ngknet
+       rm -f /dev/linux_ngknetcb
+       rm -r /dev/linux-knet-pcap-rx
+       rm -r /dev/linux-knet-pcap-tx
+       rm -r /dev/linux-knet-pcap-drop
+
+       mknod /dev/linux_ngbde    c 120 0
+       mknod /dev/linux_ngknet   c 121 0
+       mknod /dev/linux_ngknetcb  c 122 0
+       mknod /dev/linux-knet-pcap-rx   c 280 0
+       mknod /dev/linux-knet-pcap-tx   c 281 0
+       mknod /dev/linux-knet-pcap-drop   c 282 0
+
+    else
+       rm -f /dev/linux-knet-cb
+       rm -f /dev/linux-bcm-knet
+       rm -f /dev/linux-bcm-bde
+       rm -f /dev/linux-kernel-bde
+       rm -r /dev/linux-knet-pcap-rx
+       rm -r /dev/linux-knet-pcap-tx
+       rm -r /dev/linux-knet-pcap-drop
+
+       mknod /dev/linux-knet-cb    c 121 0
+       mknod /dev/linux-bcm-knet   c 122 0
+       mknod /dev/linux-bcm-bde    c 126 0
+       mknod /dev/linux-kernel-bde c 127 0
+       mknod /dev/linux-knet-pcap-rx   c 280 0
+       mknod /dev/linux-knet-pcap-tx   c 281 0
+       mknod /dev/linux-knet-pcap-drop   c 282 0
+    fi
+}
+
+# linux-kernel-bde debug=4    ==> Verbose level debug
+#              dma_debug=1    ==> Enable DMA debug
+# linux-bcm-knet debug=0x5020 ==> Enable KNET Warning(0x1000),
+#                                 Events(0x20) and Instance(0x4000)
+#                                 level logs
+function load_kernel_modules()
+{
+    onie_platfrom=`grep onie_platform /host/machine.conf`
+    export $onie_platfrom
+
+    KBDE_USEMSI=0
+    if [ -f /usr/share/sonic/device/$onie_platform/opennsl-modules.conf ]; then
+        source /usr/share/sonic/device/$onie_platform/opennsl-modules.conf
+    fi
+
+    # Rx rate in PPS
+    KNETRX_RATE=30000
+    PLATFORM_COPP_RX_RATE_CONFIG=/etc/sonic/copp_rx_rate
+    if [ -f $PLATFORM_COPP_RX_RATE_CONFIG ]; then
+        rate=$(<$PLATFORM_COPP_RX_RATE_CONFIG)
+        if [[ $rate =~ ^[0-9]+$ ]]; then
+            if (( $rate >= 100 && $rate <= 100000 )); then
+                KNETRX_RATE=$rate
+            fi
+        fi
+    fi
+
+    KNET_CPUDEV_PARAM="cpu_dev_name=$KNET_CPUDEV_NAME"
+    if [ $is_ltsw_chip -eq 1 ]; then
+      modprobe linux_ngbde
+      modprobe linux_ngknet rx_buffer_size=9238 page_buffer_mode=0 txq_nb_desc=1024 debug=0x1800 # link changes and pkt drops
+      modprobe psample
+      modprobe linux_ngknetcb
+    else
+      modprobe linux-kernel-bde usemsi=$KBDE_USEMSI dmasize=32M maxpayload=128 debug=4 dma_debug=1
+      modprobe linux-user-bde
+      modprobe linux-bcm-knet use_rx_skb=1 rx_buffer_size=9238 debug=0x305020 use_napi=1 base_dev_name=$KNET_BASEDEV_NAME rx_rate=$KNETRX_RATE,$KNETRX_RATE,$KNETRX_RATE,$KNETRX_RATE,$KNETRX_RATE,$KNETRX_RATE,$KNETRX_RATE rx_drop_threshold=7000 rx_resume_threshold=5000 rx_drop_qs_enable=0x4FFFFF max_tx_dcbs=1024 $KNET_CPUDEV_PARAM
+      modprobe psample
+      modprobe linux-knet-cb
+      if [ ! -z "$PTP_SUPPORTED_PLT" ]; then
+          modprobe linux-bcm-ptp-clock
+      fi
+
+      # Bring up knet basedev to enable NAPI
+      while [[ -z $(ip link show $KNET_BASEDEV_NAME) ]]; do
+          echo "Waiting for knet basedevice $KNET_BASEDEV_NAME ..."
+          sleep 1
+      done
+      ip link set dev $KNET_BASEDEV_NAME up
+    fi
+}
+
+function remove_kernel_modules()
+{
+    if [ -f /usr/share/sonic/device/$onie_platform/opennsl-modules.conf ]; then
+        source /usr/share/sonic/device/$onie_platform/opennsl-modules.conf
+    fi
+
+    if [ ! -z "$PTP_SUPPORTED_PLT" ]; then
+        rmmod linux-bcm-ptp-clock
+    fi
+
+    # Disable NAPI
+    if [[ -z $(ip link show $KNET_BASEDEV_NAME) ]]
+    then
+        ip link set dev $KNET_BASEDEV_NAME down
+        sleep 5
+    fi
+
+    if [[ $is_ltsw_chip -eq 1 ]]; then
+        rmmod linux_ngknetcb
+        rmmod psample
+        rmmod linux_ngknet
+        rmmod linux_ngbde
+    else
+        rmmod linux-knet-cb
+        sleep 1
+        rmmod psample
+        rmmod linux-bcm-knet
+        rmmod linux-user-bde
+        rmmod linux-kernel-bde
+    fi
+}
+
+function load_platform_env()
+{
+    . /host/machine.conf
+
+    if [ -n "$aboot_platform" ]; then
+        platform=$aboot_platform
+    elif [ -n "$onie_platform" ]; then
+        platform=$onie_platform
+    else
+        platform="unknown"
+    fi
+
+    # Set the default configuration for s_ltsw_chip parameter
+    is_ltsw_chip=0
+
+    # Source the platform env file
+    env_file="/usr/share/sonic/device/$platform/platform_env.conf"
+    source $env_file
+}
+
+case "$1" in
+start)
+    echo -n "Load OpenNSL kernel modules... "
+
+    load_platform_env
+    create_devices
+    load_kernel_modules
+
+    echo "done."
+    ;;
+
+stop)
+    echo -n "Unload OpenNSL kernel modules... "
+
+    load_platform_env
+    remove_kernel_modules
+
+    echo "done."
+    ;;
+
+force-reload|restart)
+    echo "Not supported"
+    ;;
+
+*)
+    echo "Usage: /etc/init.d/opennsl-modules.init {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0
+
+
+
+
+root@sonic:/etc# cat rcS.d/S01
+S01apparmor                 S01platform-modules-s5212f
+S01hwclock.sh               S01procps
+S01kmod                     S01screen-cleanup
+S01netfilter-persistent     S01udev
+S01networking               S01x11-common
+S01opennsl-modules          
+root@sonic:/etc# cat rcS.d/S01platform-modules-s5212f 
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          setup-board
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Setup Z9264f board.
+### END INIT INFO
+
+case "$1" in
+start)
+    echo -n "Setting up board... "
+
+    # /usr/local/bin/iom_power_on.sh
+    /usr/local/bin/s5212f_platform.sh init
+
+    echo "done."
+    ;;
+
+stop)
+    /usr/local/bin/s5212f_platform.sh deinit
+    echo "done."
+
+    ;;
+
+force-reload|restart)
+    echo "Not supported"
+    ;;
+
+*)
+    echo "Usage: /etc/init.d/platform-modules-s5212f.init {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0
+
+
+
+
+root@sonic:/etc# cat  /usr/local/bin/s5212f_platform.sh
+#!/bin/bash
+
+init_devnum() {
+    found=0
+    for devnum in 0 1; do
+        devname=`cat /sys/bus/i2c/devices/i2c-${devnum}/name`
+        # iSMT adapter can be at either dffd0000 or dfff0000
+        if [[ $devname == 'SMBus iSMT adapter at '* ]]; then
+            found=1
+            break
+        fi
+    done
+
+    [ $found -eq 0 ] && echo "cannot find iSMT" && exit 1
+}
+
+# Attach/Detach syseeprom on CPU board
+sys_eeprom() {
+    case $1 in
+        "new_device")    echo 24c16 0x50 > /sys/bus/i2c/devices/i2c-${devnum}/$1
+                         ;;
+        "delete_device") echo 0x50 > /sys/bus/i2c/devices/i2c-${devnum}/$1
+                         ;;
+        *)               echo "s5212f_platform: sys_eeprom : invalid command !"
+                         ;;
+    esac
+}
+
+#Attach/Detach the MUX connecting all QSFPs
+switch_board_qsfp_mux() {
+    case $1 in
+        "new_device")
+                      for ((i=603;i<=604;i++));
+                      do
+                          sleep 0.1
+                          echo "Attaching PCA9548 @ 0x74"
+                          echo pca9548 0x74 > /sys/bus/i2c/devices/i2c-$i/$1
+                      done
+                      sleep 1
+                      for ((i=603;i<=604;i++));
+                      do
+                          if [ ! -d /sys/bus/i2c/devices/i2c-$i/$i-0074/channel-0 ]; then
+                                logger -p syslog.err "*******H/W Error : i2c mux $i failed to populate******"
+                          fi
+                      done
+
+
+                      ;;
+        "delete_device")
+                      for ((i=603;i<=604;i++));
+                      do
+                          echo "Detaching PCA9548 @ 0x74"
+                          echo 0x74 > /sys/bus/i2c/devices/i2c-$i/$1
+                      done
+
+                      ;;
+        *)            echo "s5212f_platform: switch_board_qsfp_mux: invalid command !"
+                      ;;
+    esac
+    sleep 2
+}
+
+#Attach/Detach 64 instances of EEPROM driver QSFP ports
+#eeprom can dump data using below command
+switch_board_qsfp() {
+        case $1 in
+        "new_device")
+                        for ((i=14;i<=16;i++));
+                        do
+                            echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-$i/$1
+                        done
+                        ;;
+ 
+        "delete_device")
+                        for ((i=14;i<=16;i++));
+                        do
+                            echo 0x50 > /sys/bus/i2c/devices/i2c-$i/$1
+                        done
+                        ;;
+
+        *)              echo "s5212f_platform: switch_board_qsfp: invalid command !"
+                        ;;
+    esac
+}
+
+#Attach/Detach 2 instances of EEPROM driver SFP+ ports. Use optoe2 (dual address devices)
+#eeprom can dump data using below command
+switch_board_sfp() {
+    case $1 in
+        "new_device")
+            for ((i=2;i<=13;i++));
+            do
+                echo optoe2 0x50 > /sys/bus/i2c/devices/i2c-$i/$1
+            done
+            ;;
+
+        "delete_device")
+            for ((i=2;i<=13;i++));
+            do
+                echo 0x50 > /sys/bus/i2c/devices/i2c-$i/$1
+            done
+            ;;
+
+        "media_down")
+            for ((i=2;i<=13;i++));
+            do
+                # Tx disable for 10G BaseT copper optics
+                eeprom=/sys/bus/i2c/devices/i2c-$i/$i-0050/eeprom
+                # Gen2 or Gen3 copper optics
+                # Check for F10 encoding (starts with '0f10' or 'df10') at offset 96 and 7 byte size
+                # and then compare the 'product id' but skip other part of F10 string
+                f10_encoding=`hexdump -n7 -s96 $eeprom -e'7/1 "%02x"' 2>&1`
+                if [[ $f10_encoding =~ ^[0d]f10....28....|^[0d]f10....29.... ]]; then
+                    cmd="\x01\x00\x09\x00\x01\x02"
+                    echo -n -e $cmd | dd bs=1 count=6 of=$eeprom seek=506 obs=1 status=none
+                    port[$i-1]=1
+                fi
+            done
+            ;;
+
+        *)              echo "s5212f_platform: switch_board_sfp: invalid command !"
+            ;;
+    esac
+}
+
+#Modsel 3 ports to applicable QSFP type modules
+#This enables the adapter to respond for i2c commands
+switch_board_modsel() {
+        resource="/sys/bus/pci/devices/0000:03:00.0/resource0"
+        for ((i=1;i<=15;i++));
+        do
+                port_addr=$(( 16384 + ((i - 1) * 16)))
+                hex=$( printf "0x%x" $port_addr )
+                if [ ${port[$i]} ]
+                then
+                    val=0x11
+                else
+                    val=0x10
+                fi
+                python /usr/bin/pcisysfs.py --set --offset $hex --val $val --res $resource  > /dev/null 2>&1
+        done
+}
+
+#This enables the led control for CPU and default states 
+switch_board_led_default() {
+        resource="/sys/bus/pci/devices/0000:03:00.0/resource0"
+        python /usr/bin/pcisysfs.py --set --offset 0x24 --val 0x194 --res $resource  > /dev/null 2>&1
+}
+
+# Readout firmware version of the system and
+# store in /var/log/firmware_versions
+platform_firmware_versions() {
+       FIRMWARE_VERSION_FILE=/var/log/firmware_versions
+       rm -rf ${FIRMWARE_VERSION_FILE}
+       echo "BIOS: `dmidecode -s system-version `" > $FIRMWARE_VERSION_FILE
+       ## Get FPGA version
+       r=`/usr/bin/pcisysfs.py  --get --offset 0x00 --res /sys/bus/pci/devices/0000\:03\:00.0/resource0 | sed  '1d; s/.*\(....\)$/\1/; s/\(..\{1\}\)/\1./'`
+       r_min=$(echo $r | sed 's/.*\(..\)$/0x\1/')
+       r_maj=$(echo $r | sed 's/^\(..\).*/0x\1/')
+       echo "FPGA: $((r_maj)).$((r_min))" >> $FIRMWARE_VERSION_FILE
+
+       ## Get BMC Firmware Revision
+       r=`ipmitool mc info | awk '/Firmware Revision/ { print $NF }'`
+       echo "BMC: $r" >> $FIRMWARE_VERSION_FILE
+
+       #System CPLD 0x31 on i2c bus 601 ( physical FPGA I2C-2)
+       r_min=`/usr/sbin/i2cget -y 601 0x31 0x0 | sed ' s/.*\(0x..\)$/\1/'`
+       r_maj=`/usr/sbin/i2cget -y 601 0x31 0x1 | sed ' s/.*\(0x..\)$/\1/'`
+       echo "System CPLD: $((r_maj)).$((r_min))" >> $FIRMWARE_VERSION_FILE
+
+       #Secondary CPLD 1 0x30 on i2c bus 600 ( physical FPGA I2C-1)
+       r_min=`/usr/sbin/i2cget -y 600 0x30 0x0 | sed ' s/.*\(0x..\)$/\1/'`
+       r_maj=`/usr/sbin/i2cget -y 600 0x30 0x1 | sed ' s/.*\(0x..\)$/\1/'`
+       echo "Secondary CPLD 1: $((r_maj)).$((r_min))" >> $FIRMWARE_VERSION_FILE
+}
+
+install_python_api_package() {
+    device="/usr/share/sonic/device"
+    platform=$(/usr/local/bin/sonic-cfggen -H -v DEVICE_METADATA.localhost.platform)
+
+    pip3 install $device/$platform/sonic_platform-1.0-py3-none-any.whl
+}
+
+remove_python_api_package() {
+    rv=$(pip3 show sonic-platform > /dev/null 2>/dev/null)
+    if [ $? -eq 0 ]; then
+        rv=$(pip3 uninstall -y sonic-platform > /dev/null 2>/dev/null)
+    fi
+}
+
+get_reboot_cause() {
+    REBOOT_REASON_FILE="/host/reboot-cause/platform/reboot_reason"
+    resource="/sys/bus/pci/devices/0000:03:00.0/resource0"
+
+    mkdir -p $(dirname $REBOOT_REASON_FILE)
+
+    # Handle First Boot into software version with reboot cause determination support
+    if [[ ! -e $REBOOT_REASON_FILE ]]; then
+        echo "0" > $REBOOT_REASON_FILE
+    else
+        /usr/bin/pcisysfs.py --get --offset 0x18 --res $resource | sed '1d; s/.*:\(.*\)$/\1/;' > $REBOOT_REASON_FILE
+    fi
+    /usr/bin/pcisysfs.py --set --val 0x0 --offset 0x18 --res $resource
+}
+
+init_devnum
+
+if [ "$1" == "init" ]; then
+    modprobe i2c-dev
+    modprobe i2c-mux-pca954x
+    modprobe ipmi_devintf
+    modprobe ipmi_si kipmid_max_busy_us=1000
+    modprobe i2c_ocores
+    time modprobe dell_s5212f_fpga_ocores 2>&1 > /tmp/dell-loading-time.log
+    sys_eeprom "new_device"
+    get_reboot_cause
+    switch_board_qsfp_mux "new_device"
+    switch_board_qsfp "new_device"
+    switch_board_sfp "new_device"
+    switch_board_sfp "media_down"
+    switch_board_modsel
+    switch_board_led_default
+    install_python_api_package
+    platform_firmware_versions
+    echo -2 > /sys/bus/i2c/drivers/pca954x/603-0074/idle_state
+    echo -2 > /sys/bus/i2c/drivers/pca954x/604-0074/idle_state
+elif [ "$1" == "deinit" ]; then
+    sys_eeprom "delete_device"
+    switch_board_qsfp "delete_device"
+    switch_board_sfp "media_down"
+    switch_board_sfp "delete_device"
+    switch_board_qsfp_mux "delete_device"
+
+    modprobe -r i2c-mux-pca954x
+    modprobe -r i2c-dev
+    remove_python_api_package
+    modprobe -r ipmi_devintf
+    modprobe -r ipmi_si
+elif [ "$1" == "media_down" ]; then
+    switch_board_sfp $1
+else
+    echo "s5212f_platform : Invalid option !"
+fi
+root@sonic:/etc# 
+
+
+
+root@sonic:/etc# cat rcS.d/S01procps 
+#! /bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides:          procps
+# Required-Start:    mountkernfs $local_fs
+# Required-Stop:
+# Should-Start:      udev module-init-tools
+# X-Start-Before:    $network
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: Configure kernel parameters at boottime
+# Description:  Loads kernel parameters that are specified in /etc/sysctl.conf
+### END INIT INFO
+#
+# written by Elrond <Elrond@Wunder-Nett.org>
+
+DESC="Setting kernel variables"
+DAEMON=/sbin/sysctl
+PIDFILE=none
+
+# Comment this out for sysctl to print every item changed
+QUIET_SYSCTL="-q"
+
+do_start_cmd() {
+        STATUS=0
+        $DAEMON $QUIET_SYSCTL --system || STATUS=$?
+        return $STATUS
+}
+
+do_stop() { return 0; }
+do_status() { return 0; }
+root@sonic:/etc# 

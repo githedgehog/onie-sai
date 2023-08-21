@@ -1,0 +1,131 @@
+root@S5232-01:~# show interface status
+  Interface            Lanes    Speed    MTU    FEC    Alias    Vlan    Oper    Admin    Type    Asym PFC
+-----------  ---------------  -------  -----  -----  -------  ------  ------  -------  ------  ----------
+  Ethernet0          1,2,3,4     100G   9100   none   Eth1/1  routed    down       up  QSFP28         N/A
+  Ethernet4          5,6,7,8     100G   9100   none   Eth1/2  routed    down       up     N/A         N/A
+  Ethernet8       9,10,11,12     100G   9100   none   Eth1/3  routed    down     down     N/A         N/A
+ Ethernet12      13,14,15,16     100G   9100   none   Eth1/4  routed    down     down     N/A         N/A
+ Ethernet16      17,18,19,20     100G   9100   none   Eth1/5  routed    down     down     N/A         N/A
+ Ethernet20      21,22,23,24     100G   9100   none   Eth1/6  routed    down     down     N/A         N/A
+ Ethernet24      25,26,27,28     100G   9100   none   Eth1/7  routed    down     down     N/A         N/A
+ Ethernet28      29,30,31,32     100G   9100   none   Eth1/8  routed    down     down     N/A         N/A
+ Ethernet32      33,34,35,36     100G   9100   none   Eth1/9  routed    down     down     N/A         N/A
+ Ethernet36      37,38,39,40     100G   9100   none  Eth1/10  routed    down     down     N/A         N/A
+ Ethernet40      41,42,43,44     100G   9100   none  Eth1/11  routed    down     down     N/A         N/A
+ Ethernet44      45,46,47,48     100G   9100   none  Eth1/12  routed    down     down     N/A         N/A
+ Ethernet48      49,50,51,52     100G   9100   none  Eth1/13  routed    down     down     N/A         N/A
+ Ethernet52      53,54,55,56     100G   9100   none  Eth1/14  routed    down     down     N/A         N/A
+ Ethernet56      57,58,59,60     100G   9100   none  Eth1/15  routed    down     down     N/A         N/A
+ Ethernet60      61,62,63,64     100G   9100   none  Eth1/16  routed    down     down     N/A         N/A
+ Ethernet64      65,66,67,68     100G   9100   none  Eth1/17  routed    down     down     N/A         N/A
+ Ethernet68      69,70,71,72     100G   9100   none  Eth1/18  routed    down     down     N/A         N/A
+ Ethernet72      73,74,75,76     100G   9100   none  Eth1/19  routed    down     down     N/A         N/A
+ Ethernet76      77,78,79,80     100G   9100   none  Eth1/20  routed    down     down     N/A         N/A
+ Ethernet80      81,82,83,84     100G   9100   none  Eth1/21  routed    down     down     N/A         N/A
+ Ethernet84      85,86,87,88     100G   9100   none  Eth1/22  routed    down     down     N/A         N/A
+ Ethernet88      89,90,91,92     100G   9100   none  Eth1/23  routed    down     down     N/A         N/A
+ Ethernet92      93,94,95,96     100G   9100   none  Eth1/24  routed    down     down     N/A         N/A
+ Ethernet96     97,98,99,100     100G   9100   none  Eth1/25  routed    down     down     N/A         N/A
+Ethernet100  101,102,103,104     100G   9100   none  Eth1/26  routed    down     down     N/A         N/A
+Ethernet104  105,106,107,108     100G   9100   none  Eth1/27  routed    down     down     N/A         N/A
+Ethernet108  109,110,111,112     100G   9100   none  Eth1/28  routed    down     down     N/A         N/A
+Ethernet112  113,114,115,116     100G   9100   none  Eth1/29  routed    down     down     N/A         N/A
+Ethernet116  117,118,119,120     100G   9100   none  Eth1/30  routed    down     down     N/A         N/A
+Ethernet120  121,122,123,124     100G   9100   none  Eth1/31  routed    down       up     N/A         N/A
+Ethernet124  125,126,127,128     100G   9100   none  Eth1/32  routed    down       up     N/A         N/A
+Ethernet128              129      10G   9100   none  Eth1/33  routed      up       up   SFP28         N/A
+Ethernet129              128      10G   9100   none  Eth1/34  routed    down       up     N/A         N/A
+root@S5232-01:~# bcmshell
+-bash: bcmshell: command not found
+root@S5232-01:~# bcm
+bcmcmd  bcmsh   
+root@S5232-01:~# bcm
+bcmcmd  bcmsh   
+root@S5232-01:~# bcmsh 
+Press Enter to show prompt.
+Press Ctrl+C to exit.
+NOTICE: Only one bcmsh or bcmcmd can connect to the shell at same time.
+
+
+
+drivshell>ps
+ps
+                 ena/        speed/ link auto    STP                  lrn  inter   max   cut   loop        
+           port  link  Lns   duplex scan neg?   state   pause  discrd ops   face frame  thru?  back   encap
+       ce0(  1)  down   4  100G  FD   SW  No   Forward          None    F    CR4  9122    No          IEEE
+       ce1(  5)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce2(  9)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce3( 13)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce4( 17)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce5( 21)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce6( 25)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce7( 29)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce8( 33)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       ce9( 37)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce10( 41)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce11( 45)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce12( 49)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce13( 53)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce14( 57)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce15( 61)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce16( 67)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce17( 71)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce18( 75)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce19( 79)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce20( 83)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce21( 87)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce22( 91)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce23( 95)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce24( 99)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce25(103)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce26(107)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce27(111)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce28(115)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce29(119)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce30(123)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+      ce31(127)  !ena   4  100G  FD   SW  No   Forward          None    F  CAUI4  9122    No          IEEE
+       xe0( 66)  up     1   10G  FD   SW  No   Forward          None    F    XFI  9122    No          IEEE
+       xe1(130)  !ena   1   10G  FD   SW  No   Forward          None    F    XFI  9122    No          IEEE
+
+
+drivshell>l3 ip6host show
+l3 ip6host show
+Unit 0, free IPv6 table entries: 24563
+Entry VRF IP address                                   Mac Address        INTF MOD PORT     CLASS HIT     H/W Index
+1     0    fe80:0000:0000:0000:d277:ceff:fe2b:8ca3     00:00:00:00:00:00 132825    0     0         1 y      8916 
+      (LOCAL ROUTE)
+2     2    fe80:0000:0000:0000:d277:ceff:fe2b:8ca3     00:00:00:00:00:00 132825    0     0         1 n      12016
+      (LOCAL ROUTE)
+3     0    2001:0011:0000:0000:0000:0000:0000:0001     00:00:00:00:00:00 132825    0     0         1 n      12304
+      (LOCAL ROUTE)
+4     0    2001:0010:0000:0000:0000:0000:0000:0001     00:00:00:00:00:00 132825    0     0         1 n      12376
+      (LOCAL ROUTE)
+5     1    fe80:0000:0000:0000:d277:ceff:fe2b:8ca3     00:00:00:00:00:00 132825    0     0         1 n      16264
+      (LOCAL ROUTE)
+
+drivshell>l3 ip6route show
+l3 ip6route show
+Unit 0, Total Number of IPv6 entries: 32768 (IPv6/64 0, IPv6/128 32768)
+Max number of ECMP paths 128
+Free IPv6 entries available: 10230 (IPv6/64 0, IPv6/128 10230)
+#     VRF     Net addr                                     Next Hop Mac        INTF MODID PORT PRIO CLASS HIT VLAN
+16385 0        2001:0010:0000:0000:0000:0000:0000:0000/64  00:00:00:00:00:00 132825    0     0     0    2 n
+16385 0        2001:0011:0000:0000:0000:0000:0000:0000/64  00:00:00:00:00:00 132825    0     0     0    2 n
+16384 0        fe80:0000:0000:0000:0000:0000:0000:0000/10  00:00:00:00:00:00 132825    0     0     0    2 y
+16393 1        fe80:0000:0000:0000:0000:0000:0000:0000/64  00:00:00:00:00:00 132825    0     0     0    2 y
+16392 1        fe80:0000:0000:0000:0000:0000:0000:0000/10  00:00:00:00:00:00 132825    0     0     0    2 y
+16393 1        ff00:0000:0000:0000:0000:0000:0000:0000/8  00:00:00:00:00:00 132825    0     0     0    2 y
+16400 2        fe80:0000:0000:0000:0000:0000:0000:0000/10  00:00:00:00:00:00 132825    0     0     0    2 n
+2048  0        0000:0000:0000:0000:0000:0000:0000:0000/0  00:00:00:00:00:00 132824    0     0     0    0 y
+2049  1        0000:0000:0000:0000:0000:0000:0000:0000/0  00:00:00:00:00:00 132824    0     0     0    0 y
+2050  2        0000:0000:0000:0000:0000:0000:0000:0000/0  00:00:00:00:00:00 132824    0     0     0    0 n
+
+
+16393 1        fe80:0000:0000:0000:0000:0000:0000:0000/64  00:00:00:00:00:00 132825    0     0     0    2 y
+16392 1        fe80:0000:0000:0000:0000:0000:0000:0000/10  00:00:00:00:00:00 132825    0     0     0    2 y
+16393 1        ff00:0000:0000:0000:0000:0000:0000:0000/8  00:00:00:00:00:00 132825    0     0     0    2 y
+2049  1        0000:0000:0000:0000:0000:0000:0000:0000/0  00:00:00:00:00:00 132824    0     0     0    0 y
+
+32    0        fe80:0000:0000:0000:0000:0000:0000:0000/10  00:00:00:00:00:00 100003    0     0     0    2 n
+33    0        ff00:0000:0000:0000:0000:0000:0000:0000/8  00:00:00:00:00:00 100003    0     0     0    2 n
+2     0        0000:0000:0000:0000:0000:0000:0000:0000/0  00:00:00:00:00:00 100002    0     0     0    0 n

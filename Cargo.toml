@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "sai-sys",
+    "sai",
+    "xcvr-sys",
+    "xcvr",
+    "xcvr-cel-seastone2",
+    "xcvr-dell-s5200",
+    "xcvr-pddf",
+    "xcvrctl",
+    "onie-sai-rpc",
+    "onie-sai",
+    "onie-sai-common",
+    "onie-said",
+    "onie-saictl",
+    "onie-lldp",
+]
