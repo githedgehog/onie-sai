@@ -54,7 +54,7 @@ CXXFLAGS += -Wcast-align=strict
 CXXFLAGS += -Xlinker --no-as-needed
 
 CPPFLAGS := -Iinclude -Iinclude/sai -Iinclude/sai/experimental
-CFLAGS   := -Wall -Werror -fPIC -pipe -Xlinker --no-as-needed
+CFLAGS   := -g -Wall -Werror -Wno-error=unused-function -fPIC -pipe -Xlinker --no-as-needed
 LDFLAGS  := -Llib
 LDLIBS   := -lsai
 

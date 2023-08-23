@@ -3,26 +3,36 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/types.h>
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include <sai.h>
 #include <saimetadata.h>
 #include <s5212.h>
-#ifdef __cplusplus
-}
-#endif
 
+static volatile sig_atomic_t stop;
 
 static const char* profile_get_value(_In_ sai_switch_profile_id_t profile_id, _In_ const char *variable);
 static int profile_get_next_value(_In_ sai_switch_profile_id_t profile_id, _Out_ const char **variable, _Out_ const char **value);
+static int register_callbacks(sai_apis_t *apis, sai_object_id_t sw_id);
+static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id);
 static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id);
+
+static void switch_state_change_cb(_In_ sai_object_id_t switch_id, _In_ sai_switch_oper_status_t switch_oper_status);
+static void switch_shutdown_request_cb(_In_ sai_object_id_t switch_id);
+static void fdb_event_cb(_In_ uint32_t count, _In_ const sai_fdb_event_notification_data_t *data);
+static void nat_event_cb(_In_ uint32_t count, _In_ const sai_nat_event_notification_data_t *data);
+static void port_state_change_cb(_In_ uint32_t count, _In_ const sai_port_oper_status_notification_t *data);
+static void queue_pfc_deadlock_cb(_In_ uint32_t count, _In_ const sai_queue_deadlock_notification_data_t *data);
+static void bfd_session_state_change_cb(_In_ uint32_t count, _In_ const sai_bfd_session_state_notification_t *data);
 
 static const sai_service_method_table_t smt = {
     .profile_get_value = profile_get_value,
     .profile_get_next_value = profile_get_next_value,
 };
+
+static void main_signal_handler(int signum) {
+    stop = 1;
+}
 
 int main(int argc, char *argv[]) {
     sai_status_t st;
@@ -67,7 +77,8 @@ int main(int argc, char *argv[]) {
     // }
 
     // create switch
-    sai_mac_t default_mac_addr = {1,2,3,4,5,6};
+    // 1c:72:1d:ec:44:a0
+    sai_mac_t default_mac_addr = {0x1c, 0x72, 0x1d, 0xec, 0x44, 0xa0};
     sai_object_id_t sw_id;
     sai_attribute_t sw_create_attr[2];
     sw_create_attr[0].id = SAI_SWITCH_ATTR_INIT_SWITCH;
@@ -91,10 +102,33 @@ int main(int argc, char *argv[]) {
     printf("saictl: create_switch success\n");
 
     //////// start dump some data
-    printf("saictl: STARTING DUMP DATA\n");
-    dump_startup_data(0, &apis, sw_id);
-    printf("saictl: END DUMP DATA\n");
+    // printf("saictl: STARTING DUMP DATA\n");
+    // dump_startup_data(0, &apis, sw_id);
+    // printf("saictl: END DUMP DATA\n");
     //////// end dump some data
+
+    //////// register callbacks
+    int ret = register_callbacks(&apis, sw_id);
+    if (ret < 0) {
+        printf("saictl: registering callbacks failed\n");
+    }
+
+    //////// start creating stuff
+    ret = add_host_intfs(&apis, sw_id);
+    if (ret < 0) {
+        printf("saictl: creating stuff failed: %d\n", ret);
+        stop = 1;
+    }
+    //////// end creating stuff
+
+    // wait for signal before we shut down
+    signal(SIGINT, main_signal_handler);
+    signal(SIGTERM, main_signal_handler);
+    printf("saictl: waiting on SIGINT or SIGTERM\n");
+    while (!stop)
+        pause();
+    
+    printf("saictl: shutting down...\n");
 
     // remove switch
 
@@ -159,6 +193,212 @@ static int profile_get_next_value(_In_ sai_switch_profile_id_t profile_id, _Out_
     return 0;
 }
 
+#define DEFAULT_HOSTIF_TX_QUEUE 7
+
+static int register_callbacks(sai_apis_t *apis, sai_object_id_t sw_id) {
+    sai_attribute_t attrs[] = {
+        {
+            .id = SAI_SWITCH_ATTR_SWITCH_STATE_CHANGE_NOTIFY, 
+            .value.ptr = switch_state_change_cb,
+        },
+        {
+            .id = SAI_SWITCH_ATTR_SHUTDOWN_REQUEST_NOTIFY, 
+            .value.ptr = switch_shutdown_request_cb,
+        },
+        {
+            .id = SAI_SWITCH_ATTR_FDB_EVENT_NOTIFY, 
+            .value.ptr = fdb_event_cb,
+        },
+        {
+            .id = SAI_SWITCH_ATTR_NAT_EVENT_NOTIFY, 
+            .value.ptr = nat_event_cb,
+        },
+        {
+            .id = SAI_SWITCH_ATTR_PORT_STATE_CHANGE_NOTIFY, 
+            .value.ptr = port_state_change_cb,
+        },
+        {
+            .id = SAI_SWITCH_ATTR_QUEUE_PFC_DEADLOCK_NOTIFY, 
+            .value.ptr = queue_pfc_deadlock_cb,
+        },
+        {
+            .id = SAI_SWITCH_ATTR_BFD_SESSION_STATE_CHANGE_NOTIFY,
+            .value.ptr = bfd_session_state_change_cb,
+        }
+    };
+
+    int ret = 1;
+    sai_status_t st;
+    for (int i = 0; i < 7; i++) {
+        sai_attribute_t attr = attrs[i];
+        st = apis->switch_api->set_switch_attribute(sw_id, &attr);
+        if (st != SAI_STATUS_SUCCESS) {
+            char err[64];
+            sai_serialize_status(err, st);
+            printf("saictl: failed to set callback[%d]: %s\n", i, err);
+            ret = -1;
+        }
+    }
+    return ret;
+}
+
+static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id) {
+    sai_status_t st;
+    char err[128];
+
+    // check if this switch supports queues
+    sai_attr_capability_t queue_cap;
+    bool has_queues = false;
+    st = sai_query_attribute_capability(sw_id, SAI_OBJECT_TYPE_HOSTIF, SAI_HOSTIF_ATTR_QUEUE, &queue_cap);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to query queue capability of switch: %s\n", err);
+    } else {
+        // ths is how SONiC checks the capabilities, always through the set capability
+        has_queues = queue_cap.set_implemented;
+    }
+
+    // get the port list from the switch
+    sai_object_id_t port_list[128];
+    sai_attribute_t attr_port_list;
+    attr_port_list.id = SAI_SWITCH_ATTR_PORT_LIST;
+    attr_port_list.value.objlist.count = 128;
+    attr_port_list.value.objlist.list = port_list;
+
+    st = apis->switch_api->get_switch_attribute(sw_id, 1, &attr_port_list);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to get port list from switch: %s\n", err);
+        return -1;
+    }
+
+    // now iterate over the ports
+    for (int i = 0; i < attr_port_list.value.objlist.count; i++) {
+        // get the port ID from the list
+        sai_object_id_t port_id = attr_port_list.value.objlist.list[i];
+
+        // prep an interface name
+        char ifname[SAI_HOSTIF_NAME_SIZE] = {0};
+        snprintf(ifname, SAI_HOSTIF_NAME_SIZE, "Ethernet%d", i);
+
+        // build attribute list
+        int attrs_count = 3; // potentially 4
+        sai_attribute_t attrs[4] = {
+            {
+                .id = SAI_HOSTIF_ATTR_TYPE,
+                .value.s32 = SAI_HOSTIF_TYPE_NETDEV,
+            },
+            {
+                .id = SAI_HOSTIF_ATTR_OBJ_ID,
+                .value.oid = port_id,
+            },
+            {
+                .id = SAI_HOSTIF_ATTR_NAME,
+            }
+        };
+        strncpy(attrs[2].value.chardata, ifname, SAI_HOSTIF_NAME_SIZE);
+        if (has_queues) {
+            attrs[3].id = SAI_HOSTIF_ATTR_QUEUE;
+            attrs[3].value.u32 = DEFAULT_HOSTIF_TX_QUEUE;
+            attrs_count++;
+        }
+
+        // now create the host interface
+        sai_object_id_t hostif_id;
+        st = apis->hostif_api->create_hostif(&hostif_id, sw_id, attrs_count, attrs);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to create host interface for %s: %s\n", ifname, err);
+            return -1;
+        }
+
+        char port_str[64];
+        sai_serialize_object_id(port_str, port_id);
+        char hostif_id_str[64];
+        sai_serialize_object_id(hostif_id_str, hostif_id);
+        printf("saictl: created host interface %s -> %s for port ID %s\n", hostif_id_str, ifname, port_str);
+
+        // set the speed to 10G if possible
+        sai_attribute_t attr_supported_speed;
+        uint32_t supported_speed_list[16];
+        attr_supported_speed.id = SAI_PORT_ATTR_SUPPORTED_SPEED;
+        attr_supported_speed.value.u32list.count = 16;
+        attr_supported_speed.value.u32list.list = supported_speed_list;
+        
+        st = apis->port_api->get_port_attribute(port_id, 1, &attr_supported_speed);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to query port %s for supported speeds: %s\n", port_str, err);
+        } else {
+            bool has_speed = false;
+            for (int j = 0; j < attr_supported_speed.value.u32list.count; j++) {
+                uint32_t speed = attr_supported_speed.value.u32list.list[j];
+                if (speed == 10000) {
+                    has_speed = true;
+                    break;
+                }
+            }
+            if (!has_speed) {
+                printf("saictl: port %s does not support 10000 speed\n", port_str);
+            } else {
+                sai_attribute_t attr_speed;
+                attr_speed.id = SAI_PORT_ATTR_SPEED;
+                attr_speed.value.u32 = 10000;
+                st = apis->port_api->set_port_attribute(port_id, &attr_speed);
+                if (st != SAI_STATUS_SUCCESS) {
+                    sai_serialize_status(err, st);
+                    printf("saictl: failed to set speed for port %s to 10000: %s\n", port_str, err);
+                } else {
+                    printf("saictl: successfully set speed for port %s to 10000\n", port_str);
+                }
+            }
+        }
+
+        // bring host interface up
+        sai_attribute_t attr_oper_status;
+        attr_oper_status.id = SAI_HOSTIF_ATTR_OPER_STATUS;
+        attr_oper_status.value.booldata = true;
+        st = apis->hostif_api->set_hostif_attribute(hostif_id, &attr_oper_status);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to bring host interface up for %s: %s\n", ifname, err);
+        } else {
+            printf("saictl: successfully brought host interface for %s\n", ifname);
+        }
+    }
+
+    return 0;
+}
+
+static void switch_state_change_cb(_In_ sai_object_id_t switch_id, _In_ sai_switch_oper_status_t switch_oper_status) {
+    printf("saictl: switch_state_change_cb\n");
+    return;
+}
+static void switch_shutdown_request_cb(_In_ sai_object_id_t switch_id) {
+    printf("saictl: switch_shutdown_request_cb\n");
+    return;
+}
+static void fdb_event_cb(_In_ uint32_t count, _In_ const sai_fdb_event_notification_data_t *data) {
+    printf("saictl: fdb_event_cb\n");
+    return;
+}
+static void nat_event_cb(_In_ uint32_t count, _In_ const sai_nat_event_notification_data_t *data) {
+    printf("saictl: nat_event_cb\n");
+    return;
+}
+static void port_state_change_cb(_In_ uint32_t count, _In_ const sai_port_oper_status_notification_t *data) {
+    printf("saictl: port_state_change_cb\n");
+    return;
+}
+static void queue_pfc_deadlock_cb(_In_ uint32_t count, _In_ const sai_queue_deadlock_notification_data_t *data) {
+    printf("saictl: queue_pfc_deadlock_cb\n");
+    return;
+}
+static void bfd_session_state_change_cb(_In_ uint32_t count, _In_ const sai_bfd_session_state_notification_t *data) {
+    printf("saictl: bfd_session_state_change_cb\n");
+    return;
+}
+
 #define MAX_ELEMENTS 1024
 
 typedef struct {
@@ -215,7 +455,7 @@ static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id) {
     char ot_str[128] = {0};
     sai_serialize_object_type(ot_str, ot);
 
-    printf("saictl[%d]: dumping data for %s -> %s\n", rec, ot_str, id_str);
+    // printf("saictl[%d]: dumping data for %s -> %s\n", rec, ot_str, id_str);
 
     const sai_object_type_info_t *info = sai_metadata_all_object_type_infos[ot];
 
@@ -246,16 +486,24 @@ static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id) {
             continue;
         }
 
+        if (md->objecttype == SAI_OBJECT_TYPE_QUEUE) {
+            continue;
+        }
+
         sai_attribute_t attr;
         attr.id = md->attrid;
 
+        // if (md->attrid == SAI_QUEUE_ATTR_PFC_DLR_PACKET_ACTION) {
+        //     continue;
+        // }
+        // printf("%*s%s %s                                                                        \n", rec, "", md->attridname, id_str);
         if (md->attrvaluetype == SAI_ATTR_VALUE_TYPE_OBJECT_ID) {
             if (md->objecttype == SAI_OBJECT_TYPE_STP && md->attrid == SAI_STP_ATTR_BRIDGE_ID) {
                 // printf("saictl: skipping %s since it causes crash\n", md->attridname);
                 continue;
             }
 
-            // printf("saictl[%d]: getting %s for %s\n", rec, md->attridname, id_str);
+            
 
             sai_object_meta_key_t mk = { .objecttype = ot, .objectkey = { .key = { .object_id = id } } };
             sai_status_t status = info->get(&mk, 1, &attr);
@@ -269,7 +517,7 @@ static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id) {
             if (md->defaultvaluetype == SAI_DEFAULT_VALUE_TYPE_CONST && attr.value.oid != SAI_NULL_OBJECT_ID) {
                 char attr_val_oid_str[128];
                 sai_serialize_object_id(attr_val_oid_str, attr.value.oid);
-                printf("saictl: const null, but got value %s on %s\n", attr_val_oid_str, md->attridname);
+                // printf("saictl: const null, but got value %s on %s\n", attr_val_oid_str, md->attridname);
             }
 
             if (!md->allownullobjectid && attr.value.oid == SAI_NULL_OBJECT_ID) {
@@ -278,13 +526,17 @@ static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id) {
 
             char val_str[128];
             sai_serialize_attribute_value(val_str, md, &attr.value);
-            printf("%*ssaictl[%d]: result on %s: %s: %s\n", rec, "", rec, id_str, md->attridname, val_str);
+            printf("%*ssaictl[%d]: result on %s->%s: %s: %s\n", rec, "", rec, ot_str, id_str, md->attridname, val_str);
 
             dump_startup_data(rec+1, apis, attr.value.oid); // recursion
         } else if (md->attrvaluetype == SAI_ATTR_VALUE_TYPE_OBJECT_LIST) {
             // printf("saictl: getting %s for %s\n", md->attridname, id_str);
 
             sai_object_id_t list[MAX_ELEMENTS];
+            
+            // sai_object_id_t ser_list[MAX_ELEMENTS];
+            // sai_attribute_t ser_attr;
+            
 
             attr.value.objlist.count = MAX_ELEMENTS;
             attr.value.objlist.list = list;
@@ -303,24 +555,28 @@ static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id) {
                 printf("saictl: default is empty list, but got count %u on %s\n", attr.value.objlist.count, md->attridname);
             }
 
+            // ser_attr.id = md->attrid;
+            // ser_attr.value.objlist.count = attr.value.objlist.count;
+            // ser_attr.value.objlist.list = ser_list;
             for (uint32_t i = 0; i < attr.value.objlist.count; i++)
             {
+                // ser_attr.value.objlist.list[i] = attr.value.objlist.list[i];
                 char entry_id_str[128] = {0};
                 sai_serialize_object_id(entry_id_str, attr.value.objlist.list[i]);
-                printf("%*ssaictl[%d]: entry[%d/%d] for %s %s %s\n", rec, "", rec, i, attr.value.objlist.count, id_str, md->attridname, entry_id_str);
+                printf("%*ssaictl[%d]: result on %s->%s[%d/%d]: %s: %s\n", rec, "", rec, ot_str, id_str, i+1, attr.value.objlist.count, md->attridname, entry_id_str);
             }
 
-            char val_str[128];
-            sai_serialize_attribute_value(val_str, md, &attr.value);
+            // char val_str[128];
+            // sai_serialize_attribute_value(val_str, md, &ser_attr.value);
             // discovered[id][md->attridname] = sai_serialize_attr_value(*md, attr);
             // printf("saictl[%d]: list count %s: %u\n", rec, md->attridname, attr.value.objlist.count);
-            printf("%*ssaictl[%d]: result on %s: %s: %s\n", rec, "", rec, id_str, md->attridname, val_str);
+            // printf("%*ssaictl[%d]: result on %s: %s: %s\n", rec, "", rec, id_str, md->attridname, val_str);
 
             for (uint32_t i = 0; i < attr.value.objlist.count; i++)
             {
                 char entry_id_str[128] = {0};
                 sai_serialize_object_id(entry_id_str, attr.value.objlist.list[i]);
-                printf("%*ssaictl[%d]: recursing for %s %s %s\n", rec, "", rec, id_str, md->attridname, entry_id_str);
+                // printf("%*ssaictl[%d]: recursing for %s %s %s\n", rec, "", rec, id_str, md->attridname, entry_id_str);
                 dump_startup_data(rec+1, apis, attr.value.objlist.list[i]); // recursion
             }
         } else {
@@ -388,7 +644,7 @@ static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id) {
                 char val_str[128];
                 sai_serialize_attribute_value(val_str, md, &attr.value);
                 // discovered[id][md->attridname] = sai_serialize_attr_value(*md, attr);
-                printf("%*ssaictl[%d]: result on %s: %s: %s\n", rec, "", rec, id_str, md->attridname, val_str);
+                printf("%*ssaictl[%d]: result on %s->%s: %s: %s\n", rec, "", rec, ot_str, id_str, md->attridname, val_str);
             } else { ;
                 // char str[128];
                 // sai_serialize_status(str, status);
