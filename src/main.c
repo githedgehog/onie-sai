@@ -247,16 +247,16 @@ static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id) {
     char err[128];
 
     // check if this switch supports queues
-    sai_attr_capability_t queue_cap;
-    bool has_queues = false;
-    st = sai_query_attribute_capability(sw_id, SAI_OBJECT_TYPE_HOSTIF, SAI_HOSTIF_ATTR_QUEUE, &queue_cap);
-    if (st != SAI_STATUS_SUCCESS) {
-        sai_serialize_status(err, st);
-        printf("saictl: failed to query queue capability of switch: %s\n", err);
-    } else {
-        // ths is how SONiC checks the capabilities, always through the set capability
-        has_queues = queue_cap.set_implemented;
-    }
+    // sai_attr_capability_t queue_cap;
+    bool has_queues = true;
+    // st = sai_query_attribute_capability(sw_id, SAI_OBJECT_TYPE_HOSTIF, SAI_HOSTIF_ATTR_QUEUE, &queue_cap);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to query queue capability of switch: %s\n", err);
+    // } else {
+    //     // ths is how SONiC checks the capabilities, always through the set capability
+    //     has_queues = queue_cap.set_implemented;
+    // }
 
     // get the port list from the switch
     sai_object_id_t port_list[128];
@@ -354,6 +354,30 @@ static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id) {
             }
         }
 
+        // set interface type
+        sai_attribute_t attr_intf_type;
+        attr_intf_type.id = SAI_PORT_ATTR_INTERFACE_TYPE;
+        attr_intf_type.value.s32 = SAI_PORT_INTERFACE_TYPE_SFI;
+        st = apis->port_api->set_port_attribute(port_id, &attr_intf_type);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to set port type of port %s to SFI: %s\n", port_str, err);
+        } else {
+            printf("saictl: successfully set port type of port %s to SFIn", port_str);
+        }
+
+        // set admin state
+        sai_attribute_t attr_admin_state;
+        attr_admin_state.id = SAI_PORT_ATTR_ADMIN_STATE;
+        attr_admin_state.value.booldata = true;
+        st = apis->port_api->set_port_attribute(port_id, &attr_admin_state);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to set admin state of port %s to true: %s\n", port_str, err);
+        } else {
+            printf("saictl: successfully set admin state of port %s to true\n", port_str);
+        }
+
         // bring host interface up
         sai_attribute_t attr_oper_status;
         attr_oper_status.id = SAI_HOSTIF_ATTR_OPER_STATUS;
@@ -366,6 +390,70 @@ static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id) {
             printf("saictl: successfully brought host interface for %s\n", ifname);
         }
     }
+
+    // get
+    // SAI_PORT_ATTR_ADMIN_STATE
+    // SAI_PORT_ATTR_SPEED
+    // SAI_PORT_ATTR_OPER_SPEED
+    // SAI_PORT_ATTR_OPER_STATUS
+    for (int i = 0; i < attr_port_list.value.objlist.count; i++) {
+        // get the port ID from the list
+        sai_object_id_t port_id = attr_port_list.value.objlist.list[i];
+        char port_str[64];
+        sai_serialize_object_id(port_str, port_id);
+
+        // admin state
+        sai_attribute_t attr_admin_state = {
+            .id = SAI_PORT_ATTR_ADMIN_STATE,
+        };
+        st = apis->port_api->get_port_attribute(port_id, 1, &attr_admin_state);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to query admin state of port %s: %s\n", port_str, err);
+        } else {
+            printf("saictl: successfully queried admin state of port %s: %d\n", port_str, attr_admin_state.value.booldata);
+        }
+
+        // speed
+        sai_attribute_t attr_speed = {
+            .id = SAI_PORT_ATTR_SPEED,
+        };
+        st = apis->port_api->get_port_attribute(port_id, 1, &attr_speed);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to query speed of port %s: %s\n", port_str, err);
+        } else {
+            printf("saictl: successfully queried speed of port %s: %d\n", port_str, attr_speed.value.u32);
+        }
+
+        // oper speed
+        sai_attribute_t attr_oper_speed = {
+            .id = SAI_PORT_ATTR_OPER_SPEED,
+        };
+        st = apis->port_api->get_port_attribute(port_id, 1, &attr_oper_speed);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to query oper speed of port %s: %s\n", port_str, err);
+        } else {
+            printf("saictl: successfully queried oper speed of port %s: %d\n", port_str, attr_oper_speed.value.u32);
+        }
+
+        // oper status
+        sai_attribute_t attr_oper_status = {
+            .id = SAI_PORT_ATTR_OPER_STATUS,
+        };
+        st = apis->port_api->get_port_attribute(port_id, 1, &attr_oper_status);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to query oper status of port %s: %s\n", port_str, err);
+        } else {
+            printf("saictl: successfully queried oper status of port %s: %d\n", port_str, attr_oper_status.value.s32);
+        }
+    }
+
+    // set 
+    // SAI_PORT_ATTR_PKT_TX_ENABLE
+    // SAI_PORT_ATTR_ADMIN_STATE
 
     return 0;
 }
