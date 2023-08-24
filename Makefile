@@ -3,7 +3,7 @@ OBJ_DIR := obj
 BIN_DIR := bin
 
 EXE := $(BIN_DIR)/saictl
-SRC := $(wildcard $(SRC_DIR)/*.c)
+SRC := $(wildcard $(SRC_DIR)/main.c)
 OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
 CXXFLAGS ?=
@@ -64,6 +64,11 @@ all: $(EXE)
 
 $(EXE): $(OBJ) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+sfp-port: $(BIN_DIR)/sfp-port
+
+$(BIN_DIR)/sfp-port:
+	$(CC) $(CFLAGS) src/port_main.c -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
