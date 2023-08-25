@@ -14,7 +14,10 @@ static volatile sig_atomic_t stop;
 static const char* profile_get_value(_In_ sai_switch_profile_id_t profile_id, _In_ const char *variable);
 static int profile_get_next_value(_In_ sai_switch_profile_id_t profile_id, _Out_ const char **variable, _Out_ const char **value);
 static int register_callbacks(sai_apis_t *apis, sai_object_id_t sw_id);
-static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id);
+static int remove_default_vlan_members(sai_apis_t *apis, sai_object_id_t sw_id);
+static int remove_default_bridge_ports(sai_apis_t *apis, sai_object_id_t sw_id);
+static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids);
+static int remove_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t hifs_ids_count);
 static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id);
 
 static void switch_state_change_cb(_In_ sai_object_id_t switch_id, _In_ sai_switch_oper_status_t switch_oper_status);
@@ -113,12 +116,24 @@ int main(int argc, char *argv[]) {
         printf("saictl: registering callbacks failed\n");
     }
 
+    ret = remove_default_vlan_members(&apis, sw_id);
+    if (ret < 0) {
+        printf("saictl: removing default VLAN members failed: %d\n", ret);
+    }
+
+    ret = remove_default_bridge_ports(&apis, sw_id);
+    if (ret < 0) {
+        printf("saictl: removing default bridge ports failed: %d\n", ret);
+    }
+
     //////// start creating stuff
-    ret = add_host_intfs(&apis, sw_id);
+    sai_object_id_t hifs_ids[20];
+    ret = add_host_intfs(&apis, sw_id, hifs_ids);
     if (ret < 0) {
         printf("saictl: creating stuff failed: %d\n", ret);
         stop = 1;
     }
+    size_t hifs_ids_count = ret;
     //////// end creating stuff
 
     // wait for signal before we shut down
@@ -129,6 +144,13 @@ int main(int argc, char *argv[]) {
         pause();
     
     printf("saictl: shutting down...\n");
+
+    //////// start remove stuff
+    ret = remove_host_intfs(&apis, sw_id, hifs_ids, hifs_ids_count);
+    if (ret < 0) {
+        printf("saictl: removing stuff failed: %d\n", ret);
+    }
+    //////// end remove stuff
 
     // remove switch
 
@@ -242,13 +264,185 @@ static int register_callbacks(sai_apis_t *apis, sai_object_id_t sw_id) {
     return ret;
 }
 
-static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id) {
+static int remove_default_vlan_members(sai_apis_t *apis, sai_object_id_t sw_id) {
     sai_status_t st;
     char err[128];
 
+    sai_attribute_t attr_default_vlan;
+    attr_default_vlan.id = SAI_SWITCH_ATTR_DEFAULT_VLAN_ID;
+
+    st = apis->switch_api->get_switch_attribute(sw_id, 1, &attr_default_vlan);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to get default VLAN: %s\n", err);
+        return -1;
+    }
+
+    sai_object_id_t default_vlan_id = attr_default_vlan.value.oid;
+    char default_vlan_id_str[32];
+    sai_serialize_object_id(default_vlan_id_str, default_vlan_id);
+    printf("saictl: successfully retrieved default VLAN ID: %s\n", default_vlan_id_str);
+
+    // get vlan members
+    sai_object_id_t vlan_members[128];
+    sai_attribute_t attr_vlan_members;
+    attr_vlan_members.id = SAI_VLAN_ATTR_MEMBER_LIST;
+    attr_vlan_members.value.objlist.count = 128;
+    attr_vlan_members.value.objlist.list = vlan_members;
+
+    st = apis->vlan_api->get_vlan_attribute(default_vlan_id, 1, &attr_vlan_members);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to get default VLAN %s member list: %s\n", default_vlan_id_str, err);
+        return -1;
+    }
+
+    // now iterate over them and remove them
+    int ret = 0;
+    for (int i = 0; i < attr_vlan_members.value.objlist.count; i++) {
+        sai_object_id_t vlan_member_id = attr_vlan_members.value.objlist.list[i];
+        char vlan_member_id_str[32];
+        sai_serialize_object_id(vlan_member_id_str, vlan_member_id);
+        st = apis->vlan_api->remove_vlan_member(vlan_member_id);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictL: failed to remove VLAN member %s from VLAN %s: %s\n", vlan_member_id_str, default_vlan_id_str, err);
+            ret = -1;
+            continue;
+        }
+        printf("saictl: successfully removed VLAN member %s from VLAN %s\n", vlan_member_id_str, default_vlan_id_str);
+    }
+    return ret;
+}
+
+static int remove_default_bridge_ports(sai_apis_t *apis, sai_object_id_t sw_id) {
+    sai_status_t st;
+    char err[128];
+
+    sai_attribute_t attr_default_bridge_id;
+    attr_default_bridge_id.id = SAI_SWITCH_ATTR_DEFAULT_1Q_BRIDGE_ID;
+
+    st = apis->switch_api->get_switch_attribute(sw_id, 1, &attr_default_bridge_id);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to get default bridge ID: %s\n", err);
+        return -1;
+    }
+
+    sai_object_id_t default_bridge_id = attr_default_bridge_id.value.oid;
+    char default_bridge_id_str[32];
+    sai_serialize_object_id(default_bridge_id_str, default_bridge_id);
+    printf("saictl: successfully retrieved default bridge ID: %s\n", default_bridge_id_str);
+
+    sai_object_id_t bridge_port_list[128];
+    sai_attribute_t attr_bridge_port_list;
+    attr_bridge_port_list.id = SAI_BRIDGE_ATTR_PORT_LIST;
+    attr_bridge_port_list.value.objlist.count = 128;
+    attr_bridge_port_list.value.objlist.list = bridge_port_list;
+
+    st = apis->bridge_api->get_bridge_attribute(default_bridge_id, 1, &attr_bridge_port_list);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to get bridge %s port list: %s\n", default_bridge_id_str, err);
+        return -1;
+    }
+
+    // now iterate over them and remove them
+    int ret = 0;
+    for (int i =0; i < attr_bridge_port_list.value.objlist.count; i++) {
+        sai_object_id_t bridge_port = attr_bridge_port_list.value.objlist.list[i];
+        char bridge_port_str[32];
+        sai_serialize_object_id(bridge_port_str, bridge_port);
+
+        // check if this is a 
+        sai_attribute_t attr_bridge_port_type;
+        attr_bridge_port_type.id = SAI_BRIDGE_PORT_ATTR_TYPE;
+        attr_bridge_port_type.value.s32 = SAI_NULL_OBJECT_ID;
+        st = apis->bridge_api->get_bridge_port_attribute(bridge_port, 1, &attr_bridge_port_type);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to get bridge port type for bridge port %s: %s\n", bridge_port_str, err);
+            ret = -1;
+            continue;
+        }
+
+        if (attr_bridge_port_type.value.s32 != SAI_BRIDGE_PORT_TYPE_PORT) {
+            printf("saictl: not removing bridge port %s from bridge %s as it is not of type SAI_BRIDGE_PORT_TYPE_PORT\n", bridge_port_str, default_bridge_id_str);
+            continue;
+        }
+
+        st = apis->bridge_api->remove_bridge_port(bridge_port);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to remove bridge port %s from bridge %s: %s\n", bridge_port_str, default_bridge_id_str, err);
+            ret = -1;
+            continue;
+        }
+        printf("saictl: successfully removed bridge port %s from bridge %s\n", bridge_port_str, default_bridge_id_str);
+    }
+    return ret;
+}
+
+static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids) {
+    sai_status_t st;
+    char err[128];
+    size_t hifs_id_count = 0;
+
+    // get the CPU port first
+    sai_attribute_t attr_cpu_port;
+    attr_cpu_port.id = SAI_SWITCH_ATTR_CPU_PORT;
+    st = apis->switch_api->get_switch_attribute(sw_id, 1, &attr_cpu_port);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to get CPU port from switch: %s\n", err);
+        return -1;
+    }
+
+    // create host intf for CPU port (not sure why this is necessary - if at all - but SONiC does that)
+    sai_attribute_t attrs_cpu_hif[] = {
+        {
+            .id = SAI_HOSTIF_ATTR_NAME,
+        },
+        {
+            .id = SAI_HOSTIF_ATTR_TYPE,
+            .value.s32 = SAI_HOSTIF_TYPE_NETDEV,
+        },
+        {
+            .id = SAI_HOSTIF_ATTR_OBJ_ID,
+            .value.oid = attr_cpu_port.value.oid,
+        },
+        {
+            .id = SAI_HOSTIF_ATTR_OPER_STATUS,
+            .value.booldata = true,
+        },
+    };
+    strncpy(attrs_cpu_hif[0].value.chardata, "CPU\0", 4);
+
+    sai_object_id_t cpu_hifs_id;
+    st = apis->hostif_api->create_hostif(&cpu_hifs_id, sw_id, 4, attrs_cpu_hif);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to create host interface for CPU: %s\n", err);
+        return -1;
+    }
+    hifs_ids[hifs_id_count] = cpu_hifs_id;
+    hifs_id_count++;
+
+    // set admin state
+    sai_attribute_t attr_cpu_admin_state;
+    attr_cpu_admin_state.id = SAI_PORT_ATTR_ADMIN_STATE;
+    attr_cpu_admin_state.value.booldata = true;
+    st = apis->port_api->set_port_attribute(attr_cpu_port.value.oid, &attr_cpu_admin_state);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to set admin state of CPU port to true: %s\n", err);
+    } else {
+        printf("saictl: successfully set admin state of CPU port to true\n");
+    }
+
     // check if this switch supports queues
     // sai_attr_capability_t queue_cap;
-    bool has_queues = true;
+    bool has_queues = false;
     // st = sai_query_attribute_capability(sw_id, SAI_OBJECT_TYPE_HOSTIF, SAI_HOSTIF_ATTR_QUEUE, &queue_cap);
     // if (st != SAI_STATUS_SUCCESS) {
     //     sai_serialize_status(err, st);
@@ -309,8 +503,10 @@ static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id) {
         if (st != SAI_STATUS_SUCCESS) {
             sai_serialize_status(err, st);
             printf("saictl: failed to create host interface for %s: %s\n", ifname, err);
-            return -1;
+            continue;
         }
+        hifs_ids[hifs_id_count] = hostif_id;
+        hifs_id_count++;
 
         char port_str[64];
         sai_serialize_object_id(port_str, port_id);
@@ -455,7 +651,28 @@ static int add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id) {
     // SAI_PORT_ATTR_PKT_TX_ENABLE
     // SAI_PORT_ATTR_ADMIN_STATE
 
-    return 0;
+    return hifs_id_count;
+}
+
+static int remove_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t hifs_ids_count) {
+    sai_status_t st;
+    char err[128];
+    int ret = 0;
+
+    for (int i = 0; i < hifs_ids_count; i++) {
+        sai_object_id_t hifs_id = hifs_ids[i];
+        char hifs_id_str[64];
+        sai_serialize_object_id(hifs_id_str, hifs_id);
+        st = apis->hostif_api->remove_hostif(hifs_id);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to remove host interface %s: %s\n", hifs_id_str, err);
+            ret = -1;
+            continue;
+        }
+        printf("saictl: successfully removed host interface %s\n", hifs_id_str);
+    }
+    return ret;
 }
 
 static void switch_state_change_cb(_In_ sai_object_id_t switch_id, _In_ sai_switch_oper_status_t switch_oper_status) {
