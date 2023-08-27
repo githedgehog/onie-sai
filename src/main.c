@@ -20,7 +20,7 @@ static int profile_get_next_value(_In_ sai_switch_profile_id_t profile_id, _Out_
 static int register_callbacks(sai_apis_t *apis, sai_object_id_t sw_id);
 static int remove_default_vlan_members(sai_apis_t *apis, sai_object_id_t sw_id);
 static int remove_default_bridge_ports(sai_apis_t *apis, sai_object_id_t sw_id);
-static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count);
+static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count, sai_object_id_t *counter_ids);
 static int remove_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t hifs_ids_count);
 static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id);
 
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
         // return EXIT_FAILURE;
     }
     for (int i=1; i < SAI_API_MAX; i++) {
-        st = sai_log_set((sai_api_t)i, SAI_LOG_LEVEL_INFO);
+        st = sai_log_set((sai_api_t)i, SAI_LOG_LEVEL_DEBUG);
         if (st != SAI_STATUS_SUCCESS) {
             printf("saictl: sai_log_set(0x%x) error: 0x%x\n", i, st);
         }
@@ -131,21 +131,82 @@ int main(int argc, char *argv[]) {
     }
 
     //////// start creating stuff
+    // sai_object_id_t dc1_id;
+    // // int32_t dc1_list[] = { SAI_IN_DROP_REASON_L2_ANY };
+    // sai_attribute_t attr_dc1[] = {
+    //     {
+    //         .id = SAI_DEBUG_COUNTER_ATTR_TYPE,
+    //         .value.s32 = SAI_DEBUG_COUNTER_TYPE_PORT_IN_DROP_REASONS,
+    //     }
+    //     // {
+    //     //     .id = SAI_DEBUG_COUNTER_ATTR_IN_DROP_REASON_LIST,
+    //     //     .value.s32list.count = 1,
+    //     //     .value.s32list.list = dc1_list,
+    //     // }
+    // };
+    // st = apis.debug_counter_api->create_debug_counter(&dc1_id, sw_id, 1, attr_dc1);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     char str[128];
+    //     sai_serialize_status(str, st);
+    //     printf("saictl: failed to create debug counter: %s\n", str);
+    //     return EXIT_FAILURE;
+    // }
+
     size_t hifs_ids_count = 0;
     sai_object_id_t hifs_ids[20];
-    ret = add_host_intfs(&apis, sw_id, hifs_ids, &hifs_ids_count);
+    sai_object_id_t counter_ids[3] = {0};
+    // sai_stat_id_t stat_ids[] = { SAI_COUNTER_STAT_PACKETS, SAI_COUNTER_STAT_BYTES };
+    ret = add_host_intfs(&apis, sw_id, hifs_ids, &hifs_ids_count, counter_ids);
     if (ret < 0) {
         printf("saictl: creating stuff failed: %d\n", ret);
         stop = 1;
     }
     //////// end creating stuff
 
+    sai_attribute_t attr_shell;
+    attr_shell.id = SAI_SWITCH_ATTR_SWITCH_SHELL_ENABLE;
+    attr_shell.value.booldata = true;
+
+    st = apis.switch_api->set_switch_attribute(sw_id, &attr_shell);
+    if (st != SAI_STATUS_SUCCESS) {
+        char str[128];
+        sai_serialize_status(str, st);
+        printf("saictl: switch shell failed: %s\n", str);
+        stop = 1;
+    }
+
     // wait for signal before we shut down
     signal(SIGINT, main_signal_handler);
     signal(SIGTERM, main_signal_handler);
     printf("saictl: waiting on SIGINT or SIGTERM\n");
-    while (!stop)
-        pause();
+    while (!stop) {
+        sleep(5);
+        // sai_object_id_t id2me, arpreq, arpresp;
+        // id2me = counter_ids[0];
+        // arpreq = counter_ids[1];
+        // arpresp = counter_ids[2];
+        // if (id2me != 0) {
+        //     uint64_t c[2];
+        //     st = apis.counter_api->get_counter_stats(id2me, 2, stat_ids, c);
+        //     if (st == SAI_STATUS_SUCCESS) {
+        //         printf("saictl: counter id2me: packets %lu bytes %lu\n", c[0], c[1]);
+        //     }
+        // }
+        // if (arpreq != 0) {
+        //     uint64_t c[2];
+        //     st = apis.counter_api->get_counter_stats(arpreq, 2, stat_ids, c);
+        //     if (st == SAI_STATUS_SUCCESS) {
+        //         printf("saictl: counter arpreq: packets %lu bytes %lu\n", c[0], c[1]);
+        //     }
+        // }
+        // if (arpresp != 0) {
+        //     uint64_t c[2];
+        //     st = apis.counter_api->get_counter_stats(arpresp, 2, stat_ids, c);
+        //     if (st == SAI_STATUS_SUCCESS) {
+        //         printf("saictl: counter arpreq: packets %lu bytes %lu\n", c[0], c[1]);
+        //     }
+        // }
+    }
     
     printf("saictl: shutting down...\n");
 
@@ -411,7 +472,7 @@ static int remove_default_bridge_ports(sai_apis_t *apis, sai_object_id_t sw_id) 
     return ret;
 }
 
-static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count) {
+static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count, sai_object_id_t *counter_ids) {
     sai_status_t st;
     char err[128];
 
@@ -428,13 +489,37 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
     }
     sai_object_id_t default_trap_group_id = attr_default_trap_group.value.oid;
 
+    // create counters for traps
+    // NOTE: counters are not implemented in the Broadcom SAI
+    // sai_object_id_t counter_ip2me_id, counter_arpreq_id, counter_arpresp_id;
+    // st = apis->counter_api->create_counter(&counter_ip2me_id, sw_id, 0, NULL);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to create ip2me counter: %s\n", err);
+    //     return -1;
+    // }
+    // counter_ids[0] = counter_ip2me_id;
+    // st = apis->counter_api->create_counter(&counter_arpreq_id, sw_id, 0, NULL);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to create arpreq counter: %s\n", err);
+    //     return -1;
+    // }
+    // counter_ids[1] = counter_arpreq_id;
+    // st = apis->counter_api->create_counter(&counter_arpresp_id, sw_id, 0, NULL);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to create arpresp counter: %s\n", err);
+    //     return -1;
+    // }
+    // counter_ids[2] = counter_arpresp_id;
+
     // create trap
     // SAI_HOSTIF_TRAP_TYPE_IP2ME
     sai_attribute_t attr_trap_ip2me[] = {
         {
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE,
             .value.s32 = SAI_HOSTIF_TRAP_TYPE_IP2ME,
-            // .value.s32 = SAI_HOSTIF_TRAP_TYPE_ARP_RESPONSE,
         },
         {
             .id = SAI_HOSTIF_TRAP_ATTR_PACKET_ACTION,
@@ -444,6 +529,10 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
             .value.oid = default_trap_group_id,
         }
+        // {
+        //     .id = SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
+        //     .value.oid = counter_ip2me_id,
+        // }
     };
     sai_object_id_t trap_ip2me_id;
     st = apis->hostif_api->create_hostif_trap(&trap_ip2me_id, sw_id, 3, attr_trap_ip2me);
@@ -466,6 +555,10 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
             .value.oid = default_trap_group_id,
         }
+        // {
+        //     .id = SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
+        //     .value.oid = counter_arpreq_id,
+        // }
     };
     sai_object_id_t trap_arpreq_id;
     st = apis->hostif_api->create_hostif_trap(&trap_arpreq_id, sw_id, 3, attr_trap_arpreq);
@@ -488,6 +581,10 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
             .value.oid = default_trap_group_id,
         }
+        // {
+        //     .id = SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
+        //     .value.oid = counter_arpresp_id,
+        // }
     };
     sai_object_id_t trap_arpresp_id;
     st = apis->hostif_api->create_hostif_trap(&trap_arpresp_id, sw_id, 3, attr_trap_arpresp);
@@ -569,6 +666,36 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
     } else {
         printf("saictl: successfully set admin state of CPU port to true\n");
     }
+
+    // SAI_HOSTIF_TYPE_GENETLINK
+    sai_attribute_t attrs_nl_hif[] = {
+        {
+            .id = SAI_HOSTIF_ATTR_NAME,
+        },
+        {
+            .id = SAI_HOSTIF_ATTR_GENETLINK_MCGRP_NAME,
+        },
+        {
+            .id = SAI_HOSTIF_ATTR_TYPE,
+            .value.s32 = SAI_HOSTIF_TYPE_GENETLINK,
+        },
+        {
+            .id = SAI_HOSTIF_ATTR_OPER_STATUS,
+            .value.booldata = true,
+        },
+    };
+    strncpy(attrs_nl_hif[0].value.chardata, "psample\0", 8);
+    strncpy(attrs_nl_hif[1].value.chardata, "packets\0", 8);
+
+    sai_object_id_t nl_hifs_id;
+    st = apis->hostif_api->create_hostif(&nl_hifs_id, sw_id, 4, attrs_nl_hif);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to create host interface for psample: %s\n", err);
+        return -1;
+    }
+    hifs_ids[*hifs_ids_count] = nl_hifs_id;
+    *hifs_ids_count = *hifs_ids_count + 1;
 
     // create default route
     sai_attribute_t attr_default_router;
@@ -789,19 +916,25 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         sai_attribute_t attr_table_entry_arpreq[] = {
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_TRAP_ID,
             },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
-                .value.oid = port_id,
-            },
+            // {
+            //     .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+            //     .value.oid = port_id,
+            // },
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
                 .value.oid = trap_arpreq_id,
             },
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_GENETLINK,
+            },
+            {
+                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF,
+                .value.oid = nl_hifs_id,
             }
         };
         st = apis->hostif_api->create_hostif_table_entry(&table_entry_arpreq_id, sw_id, 4, attr_table_entry_arpreq);
@@ -816,19 +949,25 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         sai_attribute_t attr_table_entry_arpresp[] = {
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_TRAP_ID,
             },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
-                .value.oid = port_id,
-            },
+            // {
+            //     .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+            //     .value.oid = port_id,
+            // },
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
                 .value.oid = trap_arpresp_id,
             },
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_GENETLINK,
+            },
+            {
+                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF,
+                .value.oid = nl_hifs_id,
             }
         };
         st = apis->hostif_api->create_hostif_table_entry(&table_entry_arpresp_id, sw_id, 4, attr_table_entry_arpresp);
@@ -843,19 +982,25 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         sai_attribute_t attr_table_entry[] = {
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_TRAP_ID,
             },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
-                .value.oid = port_id,
-            },
+            // {
+            //     .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+            //     .value.oid = port_id,
+            // },
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
                 .value.oid = trap_ip2me_id,
             },
             {
                 .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_GENETLINK,
+            },
+            {
+                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF,
+                .value.oid = nl_hifs_id,
             }
         };
         st = apis->hostif_api->create_hostif_table_entry(&table_entry_id, sw_id, 4, attr_table_entry);
