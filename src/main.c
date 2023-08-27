@@ -20,7 +20,7 @@ static int profile_get_next_value(_In_ sai_switch_profile_id_t profile_id, _Out_
 static int register_callbacks(sai_apis_t *apis, sai_object_id_t sw_id);
 static int remove_default_vlan_members(sai_apis_t *apis, sai_object_id_t sw_id);
 static int remove_default_bridge_ports(sai_apis_t *apis, sai_object_id_t sw_id);
-static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count, sai_object_id_t *counter_ids);
+static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count);
 static int remove_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t hifs_ids_count);
 static void dump_startup_data(int rec, sai_apis_t *apis, sai_object_id_t id);
 
@@ -69,22 +69,14 @@ int main(int argc, char *argv[]) {
         // return EXIT_FAILURE;
     }
     for (int i=1; i < SAI_API_MAX; i++) {
-        st = sai_log_set((sai_api_t)i, SAI_LOG_LEVEL_DEBUG);
+        st = sai_log_set((sai_api_t)i, SAI_LOG_LEVEL_INFO);
         if (st != SAI_STATUS_SUCCESS) {
             printf("saictl: sai_log_set(0x%x) error: 0x%x\n", i, st);
         }
     }
-    st = sai_log_set(SAI_API_SWITCH, SAI_LOG_LEVEL_DEBUG);
-    if (st != SAI_STATUS_SUCCESS) {
-        printf("saictl: sai_log_set debug (0x%x) error: 0x%x\n", SAI_API_SWITCH, st);
-    }
-    st = sai_log_set(SAI_API_PORT, SAI_LOG_LEVEL_DEBUG);
-    if (st != SAI_STATUS_SUCCESS) {
-        printf("saictl: sai_log_set debug (0x%x) error: 0x%x\n", SAI_API_PORT, st);
-    }
 
     // create switch
-    // 1c:72:1d:ec:44:a0
+    // MAC as per SONiC: 1c:72:1d:ec:44:a0
     sai_mac_t default_mac_addr = {0x1c, 0x72, 0x1d, 0xec, 0x44, 0xa0};
     sai_object_id_t sw_id;
     sai_attribute_t sw_create_attr[2];
@@ -131,42 +123,20 @@ int main(int argc, char *argv[]) {
     }
 
     //////// start creating stuff
-    // sai_object_id_t dc1_id;
-    // // int32_t dc1_list[] = { SAI_IN_DROP_REASON_L2_ANY };
-    // sai_attribute_t attr_dc1[] = {
-    //     {
-    //         .id = SAI_DEBUG_COUNTER_ATTR_TYPE,
-    //         .value.s32 = SAI_DEBUG_COUNTER_TYPE_PORT_IN_DROP_REASONS,
-    //     }
-    //     // {
-    //     //     .id = SAI_DEBUG_COUNTER_ATTR_IN_DROP_REASON_LIST,
-    //     //     .value.s32list.count = 1,
-    //     //     .value.s32list.list = dc1_list,
-    //     // }
-    // };
-    // st = apis.debug_counter_api->create_debug_counter(&dc1_id, sw_id, 1, attr_dc1);
-    // if (st != SAI_STATUS_SUCCESS) {
-    //     char str[128];
-    //     sai_serialize_status(str, st);
-    //     printf("saictl: failed to create debug counter: %s\n", str);
-    //     return EXIT_FAILURE;
-    // }
-
     size_t hifs_ids_count = 0;
     sai_object_id_t hifs_ids[20];
-    sai_object_id_t counter_ids[3] = {0};
-    // sai_stat_id_t stat_ids[] = { SAI_COUNTER_STAT_PACKETS, SAI_COUNTER_STAT_BYTES };
-    ret = add_host_intfs(&apis, sw_id, hifs_ids, &hifs_ids_count, counter_ids);
+    ret = add_host_intfs(&apis, sw_id, hifs_ids, &hifs_ids_count);
     if (ret < 0) {
         printf("saictl: creating stuff failed: %d\n", ret);
         stop = 1;
     }
     //////// end creating stuff
 
+    // this enables Broadcom's "drivshell"
+    // the call to `set_switch_attribute` is blocking in this case
     sai_attribute_t attr_shell;
     attr_shell.id = SAI_SWITCH_ATTR_SWITCH_SHELL_ENABLE;
     attr_shell.value.booldata = true;
-
     st = apis.switch_api->set_switch_attribute(sw_id, &attr_shell);
     if (st != SAI_STATUS_SUCCESS) {
         char str[128];
@@ -181,31 +151,6 @@ int main(int argc, char *argv[]) {
     printf("saictl: waiting on SIGINT or SIGTERM\n");
     while (!stop) {
         sleep(5);
-        // sai_object_id_t id2me, arpreq, arpresp;
-        // id2me = counter_ids[0];
-        // arpreq = counter_ids[1];
-        // arpresp = counter_ids[2];
-        // if (id2me != 0) {
-        //     uint64_t c[2];
-        //     st = apis.counter_api->get_counter_stats(id2me, 2, stat_ids, c);
-        //     if (st == SAI_STATUS_SUCCESS) {
-        //         printf("saictl: counter id2me: packets %lu bytes %lu\n", c[0], c[1]);
-        //     }
-        // }
-        // if (arpreq != 0) {
-        //     uint64_t c[2];
-        //     st = apis.counter_api->get_counter_stats(arpreq, 2, stat_ids, c);
-        //     if (st == SAI_STATUS_SUCCESS) {
-        //         printf("saictl: counter arpreq: packets %lu bytes %lu\n", c[0], c[1]);
-        //     }
-        // }
-        // if (arpresp != 0) {
-        //     uint64_t c[2];
-        //     st = apis.counter_api->get_counter_stats(arpresp, 2, stat_ids, c);
-        //     if (st == SAI_STATUS_SUCCESS) {
-        //         printf("saictl: counter arpreq: packets %lu bytes %lu\n", c[0], c[1]);
-        //     }
-        // }
     }
     
     printf("saictl: shutting down...\n");
@@ -472,9 +417,34 @@ static int remove_default_bridge_ports(sai_apis_t *apis, sai_object_id_t sw_id) 
     return ret;
 }
 
-static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count, sai_object_id_t *counter_ids) {
+static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object_id_t *hifs_ids, size_t *hifs_ids_count) {
     sai_status_t st;
     char err[128];
+
+    // // get default vlan
+    // sai_attribute_t attr_default_vlan;
+    // attr_default_vlan.id = SAI_SWITCH_ATTR_DEFAULT_VLAN_ID;
+    // st = apis->switch_api->get_switch_attribute(sw_id, 1, &attr_default_vlan);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to get default VLAN: %s\n", err);
+    //     return -1;
+    // }
+    // uint16_t default_vlan_id = attr_default_vlan.value.u16;
+
+    // // get default bridge
+    // sai_attribute_t attr_default_bridge_id;
+    // attr_default_bridge_id.id = SAI_SWITCH_ATTR_DEFAULT_1Q_BRIDGE_ID;
+    // st = apis->switch_api->get_switch_attribute(sw_id, 1, &attr_default_bridge_id);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to get default bridge ID: %s\n", err);
+    //     return -1;
+    // }
+    // sai_object_id_t default_bridge_id = attr_default_bridge_id.value.oid;
+    // char default_bridge_id_str[32];
+    // sai_serialize_object_id(default_bridge_id_str, default_bridge_id);
+    // printf("saictl: default bridge ID is %s\n", default_bridge_id_str);
 
     // get default trap group
     sai_attribute_t attr_default_trap_group;
@@ -489,33 +459,7 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
     }
     sai_object_id_t default_trap_group_id = attr_default_trap_group.value.oid;
 
-    // create counters for traps
-    // NOTE: counters are not implemented in the Broadcom SAI
-    // sai_object_id_t counter_ip2me_id, counter_arpreq_id, counter_arpresp_id;
-    // st = apis->counter_api->create_counter(&counter_ip2me_id, sw_id, 0, NULL);
-    // if (st != SAI_STATUS_SUCCESS) {
-    //     sai_serialize_status(err, st);
-    //     printf("saictl: failed to create ip2me counter: %s\n", err);
-    //     return -1;
-    // }
-    // counter_ids[0] = counter_ip2me_id;
-    // st = apis->counter_api->create_counter(&counter_arpreq_id, sw_id, 0, NULL);
-    // if (st != SAI_STATUS_SUCCESS) {
-    //     sai_serialize_status(err, st);
-    //     printf("saictl: failed to create arpreq counter: %s\n", err);
-    //     return -1;
-    // }
-    // counter_ids[1] = counter_arpreq_id;
-    // st = apis->counter_api->create_counter(&counter_arpresp_id, sw_id, 0, NULL);
-    // if (st != SAI_STATUS_SUCCESS) {
-    //     sai_serialize_status(err, st);
-    //     printf("saictl: failed to create arpresp counter: %s\n", err);
-    //     return -1;
-    // }
-    // counter_ids[2] = counter_arpresp_id;
-
-    // create trap
-    // SAI_HOSTIF_TRAP_TYPE_IP2ME
+    // create traps: ip2me, arp request and arp response
     sai_attribute_t attr_trap_ip2me[] = {
         {
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE,
@@ -529,10 +473,6 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
             .value.oid = default_trap_group_id,
         }
-        // {
-        //     .id = SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
-        //     .value.oid = counter_ip2me_id,
-        // }
     };
     sai_object_id_t trap_ip2me_id;
     st = apis->hostif_api->create_hostif_trap(&trap_ip2me_id, sw_id, 3, attr_trap_ip2me);
@@ -549,16 +489,12 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         },
         {
             .id = SAI_HOSTIF_TRAP_ATTR_PACKET_ACTION,
-            .value.s32 = SAI_PACKET_ACTION_TRAP,
+            .value.s32 = SAI_PACKET_ACTION_COPY,
         },
         {
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
             .value.oid = default_trap_group_id,
         }
-        // {
-        //     .id = SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
-        //     .value.oid = counter_arpreq_id,
-        // }
     };
     sai_object_id_t trap_arpreq_id;
     st = apis->hostif_api->create_hostif_trap(&trap_arpreq_id, sw_id, 3, attr_trap_arpreq);
@@ -575,16 +511,12 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         },
         {
             .id = SAI_HOSTIF_TRAP_ATTR_PACKET_ACTION,
-            .value.s32 = SAI_PACKET_ACTION_TRAP,
+            .value.s32 = SAI_PACKET_ACTION_COPY,
         },
         {
             .id = SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
             .value.oid = default_trap_group_id,
         }
-        // {
-        //     .id = SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
-        //     .value.oid = counter_arpresp_id,
-        // }
     };
     sai_object_id_t trap_arpresp_id;
     st = apis->hostif_api->create_hostif_trap(&trap_arpresp_id, sw_id, 3, attr_trap_arpresp);
@@ -594,7 +526,7 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         return -1;
     }
 
-    // create default host interface table entry
+    // create default host interface table entry like SONiC
     sai_object_id_t default_hostif_table_id;
     sai_attribute_t attrs_default_hostif_table[] = {
         {
@@ -624,6 +556,30 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         return -1;
     }
     sai_object_id_t cpu_port_id = attr_cpu_port.value.oid;
+
+    // // desperately try to create a bridge port for the CPU port
+    // sai_object_id_t cpu_bridge_port_id;
+    // sai_attribute_t attr_cpu_bridge_port[] = {
+    //     {
+    //         .id = SAI_BRIDGE_PORT_ATTR_TYPE,
+    //         .value.s32 = SAI_BRIDGE_PORT_TYPE_PORT,
+    //     },
+    //     {
+    //         .id = SAI_BRIDGE_PORT_ATTR_PORT_ID,
+    //         .value.oid = cpu_port_id,
+    //     },
+    //     {
+    //         .id = SAI_BRIDGE_PORT_ATTR_BRIDGE_ID,
+    //         .value.oid = default_bridge_id,
+    //     }
+    // };
+    // st = apis->bridge_api->create_bridge_port(&cpu_bridge_port_id, sw_id, 3, attr_cpu_bridge_port);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to create bridge port for CPU port: %s\n", err);
+    // } else {
+    //     printf("saictl: successfully created bridge port for CPU port\n");
+    // }
 
     // create host intf for CPU port (not sure why this is necessary - if at all - but SONiC does that)
     sai_attribute_t attrs_cpu_hif[] = {
@@ -655,19 +611,31 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
     hifs_ids[*hifs_ids_count] = cpu_hifs_id;
     *hifs_ids_count = *hifs_ids_count + 1;
 
-    // set admin state
-    sai_attribute_t attr_cpu_admin_state;
-    attr_cpu_admin_state.id = SAI_PORT_ATTR_ADMIN_STATE;
-    attr_cpu_admin_state.value.booldata = true;
-    st = apis->port_api->set_port_attribute(cpu_port_id, &attr_cpu_admin_state);
-    if (st != SAI_STATUS_SUCCESS) {
-        sai_serialize_status(err, st);
-        printf("saictl: failed to set admin state of CPU port to true: %s\n", err);
-    } else {
-        printf("saictl: successfully set admin state of CPU port to true\n");
-    }
+    // // set admin state
+    // sai_attribute_t attr_cpu_admin_state;
+    // attr_cpu_admin_state.id = SAI_PORT_ATTR_ADMIN_STATE;
+    // attr_cpu_admin_state.value.booldata = true;
+    // st = apis->port_api->set_port_attribute(cpu_port_id, &attr_cpu_admin_state);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to set admin state of CPU port to true: %s\n", err);
+    // } else {
+    //     printf("saictl: successfully set admin state of CPU port to true\n");
+    // }
 
-    // SAI_HOSTIF_TYPE_GENETLINK
+    // // set default vlan
+    // sai_attribute_t attr_cpu_vlan;
+    // attr_cpu_vlan.id = SAI_PORT_ATTR_PORT_VLAN_ID;
+    // attr_cpu_vlan.value.u16 = default_vlan_id;
+    // st = apis->port_api->set_port_attribute(cpu_port_id, &attr_cpu_vlan);
+    // if (st != SAI_STATUS_SUCCESS) {
+    //     sai_serialize_status(err, st);
+    //     printf("saictl: failed to set default vlan of CPU port: %s\n", err);
+    // } else {
+    //     printf("saictl: successfully set default vlan of CPU port\n");
+    // }
+
+    // create generic netlink interface like SONiC for sflow
     sai_attribute_t attrs_nl_hif[] = {
         {
             .id = SAI_HOSTIF_ATTR_NAME,
@@ -697,7 +665,7 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
     hifs_ids[*hifs_ids_count] = nl_hifs_id;
     *hifs_ids_count = *hifs_ids_count + 1;
 
-    // create default route
+    // get default virtual router
     sai_attribute_t attr_default_router;
     attr_default_router.id = SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID;
     attr_default_router.value.oid = SAI_NULL_OBJECT_ID;
@@ -712,6 +680,31 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
     sai_serialize_object_id(default_virtual_router_id_str, default_virtual_router_id);
     printf("saictl: received default virtual router ID: %s\n", default_virtual_router_id_str);
 
+    // create a loopback router interface
+    sai_attribute_t attr_rif_lo[] = {
+        {
+            .id = SAI_ROUTER_INTERFACE_ATTR_TYPE,
+            .value.s32 = SAI_ROUTER_INTERFACE_TYPE_LOOPBACK,
+        },
+        {
+            .id = SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID,
+            .value.oid = default_virtual_router_id,
+        },
+        {
+            .id = SAI_ROUTER_INTERFACE_ATTR_MTU,
+            .value.u32 = 9100,
+        }
+    };
+    sai_object_id_t rif_lo_id;
+    st = apis->router_interface_api->create_router_interface(&rif_lo_id, sw_id, 3, attr_rif_lo);
+    if (st != SAI_STATUS_SUCCESS) {
+        sai_serialize_status(err, st);
+        printf("saictl: failed to create loopback router interface: %s\n", err);
+        return -1;
+    }
+    printf("saictl: successfully created loopback router interface\n");
+
+    // create default route entry (must be the first)
     sai_route_entry_t default_route_entry = {
         .switch_id = sw_id,
         .vr_id = default_virtual_router_id,
@@ -765,18 +758,6 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
     sai_serialize_route_entry(route_entry_str, &route_entry);
     printf("saictl: successfully added route %s\n", route_entry_str);
 
-    // check if this switch supports queues
-    // sai_attr_capability_t queue_cap;
-    bool has_queues = false;
-    // st = sai_query_attribute_capability(sw_id, SAI_OBJECT_TYPE_HOSTIF, SAI_HOSTIF_ATTR_QUEUE, &queue_cap);
-    // if (st != SAI_STATUS_SUCCESS) {
-    //     sai_serialize_status(err, st);
-    //     printf("saictl: failed to query queue capability of switch: %s\n", err);
-    // } else {
-    //     // ths is how SONiC checks the capabilities, always through the set capability
-    //     has_queues = queue_cap.set_implemented;
-    // }
-
     // get the port list from the switch
     sai_object_id_t port_list[128];
     sai_attribute_t attr_port_list;
@@ -801,7 +782,6 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
         snprintf(ifname, SAI_HOSTIF_NAME_SIZE, "Ethernet%d", i);
 
         // build attribute list
-        int attrs_count = 3; // potentially 4
         sai_attribute_t attrs[4] = {
             {
                 .id = SAI_HOSTIF_ATTR_TYPE,
@@ -816,15 +796,10 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             }
         };
         strncpy(attrs[2].value.chardata, ifname, SAI_HOSTIF_NAME_SIZE);
-        if (has_queues) {
-            attrs[3].id = SAI_HOSTIF_ATTR_QUEUE;
-            attrs[3].value.u32 = DEFAULT_HOSTIF_TX_QUEUE;
-            attrs_count++;
-        }
 
         // now create the host interface
         sai_object_id_t hostif_id;
-        st = apis->hostif_api->create_hostif(&hostif_id, sw_id, attrs_count, attrs);
+        st = apis->hostif_api->create_hostif(&hostif_id, sw_id, 3, attrs);
         if (st != SAI_STATUS_SUCCESS) {
             sai_serialize_status(err, st);
             printf("saictl: failed to create host interface for %s: %s\n", ifname, err);
@@ -887,6 +862,18 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             printf("saictl: successfully set port type of port %s to SFI\n", port_str);
         }
 
+        // // set default vlan
+        // sai_attribute_t attr_vlan;
+        // attr_vlan.id = SAI_PORT_ATTR_PORT_VLAN_ID;
+        // attr_vlan.value.u16 = default_vlan_id;
+        // st = apis->port_api->set_port_attribute(port_id, &attr_vlan);
+        // if (st != SAI_STATUS_SUCCESS) {
+        //     sai_serialize_status(err, st);
+        //     printf("saictl: failed to set default vlan of port %s: %s\n", port_str, err);
+        // } else {
+        //     printf("saictl: successfully set default vlan of port %s\n", port_str);
+        // }
+
         // set admin state
         sai_attribute_t attr_admin_state;
         attr_admin_state.id = SAI_PORT_ATTR_ADMIN_STATE;
@@ -911,105 +898,129 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             printf("saictl: successfully brought host interface for %s\n", ifname);
         }
 
-        // add host interface table entry
-        sai_object_id_t table_entry_arpreq_id;
-        sai_attribute_t attr_table_entry_arpreq[] = {
+        // create router interface
+        sai_mac_t default_mac_addr = {0x1c, 0x72, 0x1d, 0xec, 0x44, 0xa0};
+        sai_attribute_t attr_rif[] = {
             {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
-                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_TRAP_ID,
-            },
-            // {
-            //     .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
-            //     .value.oid = port_id,
-            // },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
-                .value.oid = trap_arpreq_id,
+                .id = SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS,
             },
             {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
-                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_GENETLINK,
+                .id = SAI_ROUTER_INTERFACE_ATTR_TYPE,
+                .value.s32 = SAI_ROUTER_INTERFACE_TYPE_PORT,
             },
             {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF,
-                .value.oid = nl_hifs_id,
+                .id = SAI_ROUTER_INTERFACE_ATTR_PORT_ID,
+                .value.oid = port_id,
+            },
+            {
+                .id = SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID,
+                .value.oid = default_virtual_router_id,
+            },
+            {
+                .id = SAI_ROUTER_INTERFACE_ATTR_MTU,
+                .value.u32 = 9100,
+            },
+            {
+                .id = SAI_ROUTER_INTERFACE_ATTR_NAT_ZONE_ID,
+                .value.u8 = 0,
             }
         };
-        st = apis->hostif_api->create_hostif_table_entry(&table_entry_arpreq_id, sw_id, 4, attr_table_entry_arpreq);
+        attr_rif[0].value.mac[0] = default_mac_addr[0];
+        attr_rif[0].value.mac[1] = default_mac_addr[1];
+        attr_rif[0].value.mac[2] = default_mac_addr[2];
+        attr_rif[0].value.mac[3] = default_mac_addr[3];
+        attr_rif[0].value.mac[4] = default_mac_addr[4];
+        attr_rif[0].value.mac[5] = default_mac_addr[5];
+        sai_object_id_t rif_id;
+        st = apis->router_interface_api->create_router_interface(&rif_id, sw_id, 6, attr_rif);
         if (st != SAI_STATUS_SUCCESS) {
             sai_serialize_status(err, st);
-            printf("saictl: failed to create host interface table entry for ARP requests for %s: %s\n", ifname, err);
+            printf("saictl: failed to create router interface for %s: %s\n", ifname, err);
         } else {
-            printf("saictl: successfully created host interface table entry for ARP requests for %s\n", ifname);
+            printf("saictl: successfully created router interface for %s\n", ifname);
         }
 
-        sai_object_id_t table_entry_arpresp_id;
-        sai_attribute_t attr_table_entry_arpresp[] = {
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
-                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_TRAP_ID,
-            },
-            // {
-            //     .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
-            //     .value.oid = port_id,
-            // },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
-                .value.oid = trap_arpresp_id,
-            },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
-                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_GENETLINK,
-            },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF,
-                .value.oid = nl_hifs_id,
-            }
-        };
-        st = apis->hostif_api->create_hostif_table_entry(&table_entry_arpresp_id, sw_id, 4, attr_table_entry_arpresp);
-        if (st != SAI_STATUS_SUCCESS) {
-            sai_serialize_status(err, st);
-            printf("saictl: failed to create host interface table entry for ARP responses for %s: %s\n", ifname, err);
-        } else {
-            printf("saictl: successfully created host interface table entry for ARP responses for %s\n", ifname);
-        }
+        // // add host interface table entry
+        // sai_object_id_t table_entry_arpreq_id;
+        // sai_attribute_t attr_table_entry_arpreq[] = {
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
+        //         .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+        //         .value.oid = port_id,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
+        //         .value.oid = trap_arpreq_id,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
+        //         .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+        //     }
+        // };
+        // st = apis->hostif_api->create_hostif_table_entry(&table_entry_arpreq_id, sw_id, 4, attr_table_entry_arpreq);
+        // if (st != SAI_STATUS_SUCCESS) {
+        //     sai_serialize_status(err, st);
+        //     printf("saictl: failed to create host interface table entry for ARP requests for %s: %s\n", ifname, err);
+        // } else {
+        //     printf("saictl: successfully created host interface table entry for ARP requests for %s\n", ifname);
+        // }
 
-        sai_object_id_t table_entry_id;
-        sai_attribute_t attr_table_entry[] = {
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
-                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_TRAP_ID,
-            },
-            // {
-            //     .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
-            //     .value.oid = port_id,
-            // },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
-                .value.oid = trap_ip2me_id,
-            },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
-                // .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
-                .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_GENETLINK,
-            },
-            {
-                .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF,
-                .value.oid = nl_hifs_id,
-            }
-        };
-        st = apis->hostif_api->create_hostif_table_entry(&table_entry_id, sw_id, 4, attr_table_entry);
-        if (st != SAI_STATUS_SUCCESS) {
-            sai_serialize_status(err, st);
-            printf("saictl: failed to create host interface table entry for IP2ME for %s: %s\n", ifname, err);
-        } else {
-            printf("saictl: successfully created host interface table entry for IP2ME for %s\n", ifname);
-        }
+        // sai_object_id_t table_entry_arpresp_id;
+        // sai_attribute_t attr_table_entry_arpresp[] = {
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
+        //         .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+        //         .value.oid = port_id,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
+        //         .value.oid = trap_arpresp_id,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
+        //         .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+        //     }
+        // };
+        // st = apis->hostif_api->create_hostif_table_entry(&table_entry_arpresp_id, sw_id, 4, attr_table_entry_arpresp);
+        // if (st != SAI_STATUS_SUCCESS) {
+        //     sai_serialize_status(err, st);
+        //     printf("saictl: failed to create host interface table entry for ARP responses for %s: %s\n", ifname, err);
+        // } else {
+        //     printf("saictl: successfully created host interface table entry for ARP responses for %s\n", ifname);
+        // }
+
+        // sai_object_id_t table_entry_id;
+        // sai_attribute_t attr_table_entry[] = {
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
+        //         .value.s32 = SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+        //         .value.oid = port_id,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
+        //         .value.oid = trap_ip2me_id,
+        //     },
+        //     {
+        //         .id = SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
+        //         .value.s32 = SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT,
+        //     }
+        // };
+        // st = apis->hostif_api->create_hostif_table_entry(&table_entry_id, sw_id, 4, attr_table_entry);
+        // if (st != SAI_STATUS_SUCCESS) {
+        //     sai_serialize_status(err, st);
+        //     printf("saictl: failed to create host interface table entry for IP2ME for %s: %s\n", ifname, err);
+        // } else {
+        //     printf("saictl: successfully created host interface table entry for IP2ME for %s\n", ifname);
+        // }
     }
 
     // get

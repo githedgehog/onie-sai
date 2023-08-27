@@ -5,5 +5,7 @@
 /copy-out
 /test
 /whl
+/asic_state
 /test.tar.xz
 /**/libsai.so*
+/.vscode
