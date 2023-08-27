@@ -4,5 +4,6 @@
 /saictl-skel.tar.xz
 /copy-out
 /test
+/whl
 /test.tar.xz
 /**/libsai.so*
