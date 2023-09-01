@@ -13,6 +13,7 @@
 static volatile sig_atomic_t stop;
 
 static sai_ip4_t myip();
+// static sai_ip4_t myip2();
 static sai_ip4_t mymask();
 
 static const char* profile_get_value(_In_ sai_switch_profile_id_t profile_id, _In_ const char *variable);
@@ -192,6 +193,18 @@ static sai_ip4_t myip() {
     //uint32_t ipAsUInt32 = ntohl(ipv4Addr.s_addr);
     return ipv4Addr.s_addr;
 }
+
+// static sai_ip4_t myip2() {
+//     struct in_addr ipv4Addr;
+//     if (inet_pton(AF_INET, "10.10.11.1", &ipv4Addr) <= 0) {
+//         printf("saictl: ERROR invalid IP address\n");
+//         return 0;
+//     }
+
+//     // SAI expects network byte order here
+//     //uint32_t ipAsUInt32 = ntohl(ipv4Addr.s_addr);
+//     return ipv4Addr.s_addr;
+// }
 
 static sai_ip4_t mymask() {
     struct in_addr ipv4Addr;
@@ -850,17 +863,17 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             }
         }
 
-        // set interface type
-        sai_attribute_t attr_intf_type;
-        attr_intf_type.id = SAI_PORT_ATTR_INTERFACE_TYPE;
-        attr_intf_type.value.s32 = SAI_PORT_INTERFACE_TYPE_SFI;
-        st = apis->port_api->set_port_attribute(port_id, &attr_intf_type);
-        if (st != SAI_STATUS_SUCCESS) {
-            sai_serialize_status(err, st);
-            printf("saictl: failed to set port type of port %s to SFI: %s\n", port_str, err);
-        } else {
-            printf("saictl: successfully set port type of port %s to SFI\n", port_str);
-        }
+        // // set interface type
+        // sai_attribute_t attr_intf_type;
+        // attr_intf_type.id = SAI_PORT_ATTR_INTERFACE_TYPE;
+        // attr_intf_type.value.s32 = SAI_PORT_INTERFACE_TYPE_SFI;
+        // st = apis->port_api->set_port_attribute(port_id, &attr_intf_type);
+        // if (st != SAI_STATUS_SUCCESS) {
+        //     sai_serialize_status(err, st);
+        //     printf("saictl: failed to set port type of port %s to SFI: %s\n", port_str, err);
+        // } else {
+        //     printf("saictl: successfully set port type of port %s to SFI\n", port_str);
+        // }
 
         // // set default vlan
         // sai_attribute_t attr_vlan;
@@ -884,6 +897,18 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
             printf("saictl: failed to set admin state of port %s to true: %s\n", port_str, err);
         } else {
             printf("saictl: successfully set admin state of port %s to true\n", port_str);
+        }
+
+        // vlan tags on host interfaces
+        sai_attribute_t attr_vlan_tag;
+        attr_vlan_tag.id = SAI_HOSTIF_ATTR_VLAN_TAG;
+        attr_vlan_tag.value.s32 = SAI_HOSTIF_VLAN_TAG_ORIGINAL;
+        st = apis->hostif_api->set_hostif_attribute(hostif_id, &attr_vlan_tag);
+        if (st != SAI_STATUS_SUCCESS) {
+            sai_serialize_status(err, st);
+            printf("saictl: failed to set vlan tagging behaviour for host interface %s: %s\n", ifname, err);
+        } else {
+            printf("saictl: successfully set vlan tagging behaviour for host interface for %s\n", ifname);
         }
 
         // bring host interface up
