@@ -1,5 +1,5 @@
-/bin/**
-/obj/**
+/poc/bin/**
+/poc/obj/**
 /**/*.log
 /saictl-skel.tar.xz
 /copy-out

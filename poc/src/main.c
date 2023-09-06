@@ -792,7 +792,7 @@ static size_t add_host_intfs(sai_apis_t *apis, sai_object_id_t sw_id, sai_object
 
         // prep an interface name
         char ifname[SAI_HOSTIF_NAME_SIZE] = {0};
-        snprintf(ifname, SAI_HOSTIF_NAME_SIZE, "Ethernet%d", i);
+        snprintf(ifname, SAI_HOSTIF_NAME_SIZE, "Ethernet%d", (((i) < (99)) ? (i) : (99)));
 
         // build attribute list
         sai_attribute_t attrs[4] = {

@@ -53,9 +53,9 @@ CXXFLAGS += -Wno-psabi
 CXXFLAGS += -Wcast-align=strict
 CXXFLAGS += -Xlinker --no-as-needed
 
-CPPFLAGS := -Iinclude -Iinclude/sai -Iinclude/sai/experimental
+CPPFLAGS := -Iinclude -I../include -I../include/sai -I../include/sai/experimental
 CFLAGS   := -g -Wall -Werror -Wno-error=unused-function -fPIC -pipe -Xlinker --no-as-needed
-LDFLAGS  := -Llib
+LDFLAGS  := -Llib -L../lib
 LDLIBS   := -lsai
 
 .PHONY: all clean
