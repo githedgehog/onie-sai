@@ -9,3 +9,4 @@
 /test.tar.xz
 /**/libsai.so*
 /.vscode
+/**/target/**
