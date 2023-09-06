@@ -1,5 +1,5 @@
-/poc/bin/**
-/poc/obj/**
+/poc/bin
+/poc/obj
 /**/*.log
 /saictl-skel.tar.xz
 /copy-out
@@ -9,4 +9,4 @@
 /test.tar.xz
 /**/libsai.so*
 /.vscode
-/**/target/**
+/**/target
