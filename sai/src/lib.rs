@@ -7,8 +7,6 @@ use sai_sys::*;
 use std::os::raw::{c_char, c_int};
 use std::ptr::null;
 
-static BLAH: OnceLock<Box<dyn Fn(i32) + Send + Sync>> = OnceLock::new();
-
 static PROFILE_GET_NEXT_VALUE_CALLBACK: OnceLock<Box<dyn Fn(sai_switch_profile_id_t, *mut *const c_char, *mut *const c_char) -> c_int + Send + Sync>> = OnceLock::new();
 
 extern "C" fn profile_get_next_value_cb(profile_id: sai_switch_profile_id_t,
@@ -71,6 +69,7 @@ impl SAI {
         let p2 = Arc::clone(&p1);
         PROFILE_GET_NEXT_VALUE_CALLBACK.set(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *mut *const c_char, value: *mut *const c_char| { p1.profile_get_next_value(profile_id, variable, value) }));
         PROFILE_GET_VALUE_CALLBACK.set(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *const c_char| { p2.profile_get_value(profile_id, variable) }));
+        ret.init();
         ret
     }
 
