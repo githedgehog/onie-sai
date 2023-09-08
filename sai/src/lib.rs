@@ -1,4 +1,5 @@
-use std::cell::RefCell;
+use std::cell::OnceCell;
+use std::sync::{OnceLock, Mutex, Arc};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -6,37 +7,33 @@ use sai_sys::*;
 use std::os::raw::{c_char, c_int};
 use std::ptr::null;
 
-thread_local!(
-    static PROFILE_GET_NEXT_VALUE_CALLBACK: RefCell<Option<Box<dyn FnMut(sai_switch_profile_id_t, *mut *const c_char, *mut *const c_char) -> c_int>>> = RefCell::new(None);
-);
+static BLAH: OnceLock<Box<dyn Fn(i32) + Send + Sync>> = OnceLock::new();
+
+static PROFILE_GET_NEXT_VALUE_CALLBACK: OnceLock<Box<dyn Fn(sai_switch_profile_id_t, *mut *const c_char, *mut *const c_char) -> c_int + Send + Sync>> = OnceLock::new();
+
 extern "C" fn profile_get_next_value_cb(profile_id: sai_switch_profile_id_t,
     variable: *mut *const c_char,
     value: *mut *const c_char,
 ) -> c_int {
-    PROFILE_GET_NEXT_VALUE_CALLBACK.with(|cb| {
         // Check if the callback is set
-        if let Some(ref mut callback) = *cb.borrow_mut() {
+        if let Some(ref mut callback) = PROFILE_GET_NEXT_VALUE_CALLBACK.get() {
             callback(profile_id, variable, value)
         } else {
             0
         }
-    })
 }
 
-thread_local!(
-    static PROFILE_GET_VALUE_CALLBACK: RefCell<Option<Box<dyn FnMut(sai_switch_profile_id_t, *const c_char) -> *const c_char>>> = RefCell::new(None);
-);
-extern "C" fn profile_get_value_cb(
+    static PROFILE_GET_VALUE_CALLBACK: OnceLock<Box<dyn Fn(sai_switch_profile_id_t, *const c_char) -> *const c_char + Send + Sync>> = OnceLock::new();
+
+    extern "C" fn profile_get_value_cb(
     profile_id: sai_switch_profile_id_t,
     variable: *const c_char,
 ) -> *const c_char {
-    PROFILE_GET_VALUE_CALLBACK.with(|cb| {
-        if let Some(ref mut callback) = *cb.borrow_mut() {
+        if let Some(ref mut callback) = PROFILE_GET_VALUE_CALLBACK.get() {
             callback(profile_id, variable)
         } else {
             null()
         }
-    })
 }
 
 static PROFILE_SMT: sai_service_method_table_t = sai_service_method_table_t {
@@ -67,18 +64,13 @@ impl SAI {
 
     pub fn new(profile: HashMap<String, String>) -> SAI {
         let ret = SAI {};
-        let p1 = Rc::new(SAIProfile {
+        let p1 = Arc::new(SAIProfile {
             profile_idx: 0,
             profile: profile,
         });
-        let p2 = Rc::clone(&p1);
-        PROFILE_GET_NEXT_VALUE_CALLBACK.with(|cb| {
-            *cb.borrow_mut() = Some(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *mut *const c_char, value: *mut *const c_char| { p1.profile_get_next_value(profile_id, variable, value) }));
-        });
-        PROFILE_GET_VALUE_CALLBACK.with(|cb| {
-            *cb.borrow_mut() = Some(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *const c_char| { p2.profile_get_value(profile_id, variable) }));
-        });
-        ret.init();
+        let p2 = Arc::clone(&p1);
+        PROFILE_GET_NEXT_VALUE_CALLBACK.set(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *mut *const c_char, value: *mut *const c_char| { p1.profile_get_next_value(profile_id, variable, value) }));
+        PROFILE_GET_VALUE_CALLBACK.set(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *const c_char| { p2.profile_get_value(profile_id, variable) }));
         ret
     }
 
