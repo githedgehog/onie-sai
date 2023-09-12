@@ -1,9 +1,9 @@
+use std::ffi::{CStr, CString};
 use std::sync::{Arc, RwLock, Mutex};
-use std::collections::HashMap;
 
 use sai_sys::*;
 use std::os::raw::{c_char, c_int};
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 
 static PROFILE_GET_NEXT_VALUE_CALLBACK: RwLock<Option<Box<dyn Fn(sai_switch_profile_id_t, *mut *const c_char, *mut *const c_char) -> c_int + Send + Sync>>> = RwLock::new(None);
 
@@ -40,19 +40,64 @@ static PROFILE_SMT: sai_service_method_table_t = sai_service_method_table_t {
     profile_get_value: Some(profile_get_value_cb),
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct SAIProfile {
-    profile_idx: u32,
-    profile: HashMap<String, String>,
+    profile_idx: Mutex<usize>,
+    profile: Vec<(CString, CString)>,
 }
 
 impl SAIProfile {
-    fn profile_get_next_value(&self, profile_id: sai_switch_profile_id_t, variable: *mut *const c_char, value: *mut *const c_char) -> c_int {
+    fn profile_get_next_value(&self, _profile_id: sai_switch_profile_id_t, variable: *mut *const c_char, value: *mut *const c_char) -> c_int {
+        if value == null_mut() {
+            // resetting profile map iterator
+            *self.profile_idx.lock().unwrap() = 0;
+            return 0;
+        }
+
+        if variable == null_mut() {
+            // variable is null
+            return -1;
+        }
+
+        let idx = { *self.profile_idx.lock().unwrap() };
+        if self.profile.len() == idx {
+            // iterator reached end
+            return -1;
+        }
+
+        // here comes the scary part: set the C variable and value to the Rust ones
+        //
+        // NOTE: this is kind of unsafe because it assumes that the vector isn't being dropped
+        // however, we know that because we own it, and this closure is never being called again when
+        // the profile is being dropped
+        //
+        // the unwrap() is safe, as we were testing above if we reached the end
+        let entry = self.profile.get(idx).unwrap();
+        unsafe {
+            *variable = entry.0.as_ptr() as *const c_char;
+            *value = entry.1.as_ptr() as *const c_char
+        }
+        *self.profile_idx.lock().unwrap() += 1;
+
+        // the 0 return value denotes to SAI to continue with the next value
         0
     }
 
-    fn profile_get_value(&self, profile_id: sai_switch_profile_id_t, variable: *const c_char) -> *const c_char {
-        null()
+    fn profile_get_value(&self, _profile_id: sai_switch_profile_id_t, variable: *const c_char) -> *const c_char {
+        if variable == null() {
+            return null();
+        }
+
+        // convert variable to Rust string
+        let var_cstr = unsafe { CStr::from_ptr(variable) };
+        let var = var_cstr.to_owned();
+
+        // NOTE: this is kind of unsafe because it assumes that the vector isn't being dropped
+        // however, we know that because we own it, and this closure is never being called again when
+        // the profile is being dropped
+        self.profile.iter()
+            .find(|&x| x.0 == var)
+            .map_or(null(), |x| x.1.as_ptr() as *const c_char)
     }
 }
 
@@ -150,7 +195,7 @@ pub struct SAI {}
 
 impl SAI {
 
-    pub fn new(profile: HashMap<String, String>) -> Result<SAI, InitError> {
+    pub fn new(profile: Vec<(CString, CString)>) -> Result<SAI, InitError> {
         let init_lock = SAI_INITIALIZED.try_lock();
         if let Ok(mut sai_initialized) = init_lock {
             // SAI is a singleton, so if this is true, it means it was already initialized
@@ -162,7 +207,7 @@ impl SAI {
 
                 // deal with the profile, and making sure there is a closure which can be called for it which has access to the map
                 let p1 = Arc::new(SAIProfile {
-                    profile_idx: 0,
+                    profile_idx: Mutex::new(0),
                     profile: profile,
                 });
                 let p2 = Arc::clone(&p1);
@@ -228,13 +273,12 @@ impl Drop for SAI {
 
 #[cfg(test)]
 mod tests {
-    use std::str;
     use super::*;
 
     #[test]
     fn sai_new_and_drop() {
         // this is our profile we're going to clone and pass around
-        let profile = HashMap::from([(str::from_utf8(SAI_KEY_INIT_CONFIG_FILE).unwrap().to_string(), "/does/not/exist".to_string())]);
+        let profile = vec![(CString::from_vec_with_nul(SAI_KEY_INIT_CONFIG_FILE.to_vec()).unwrap(), CString::new("/does/not/exist").unwrap())];
 
         // first initialization must work
         let res = SAI::new(profile.clone());
