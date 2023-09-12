@@ -7,6 +7,7 @@ use std::ptr::{null, null_mut};
 
 // we are re-exporting some things here
 pub use sai_sys::sai_mac_t;
+pub use sai_sys::SAI_KEY_INIT_CONFIG_FILE;
 
 static PROFILE_GET_NEXT_VALUE_CALLBACK: RwLock<
     Option<
@@ -576,6 +577,7 @@ impl Drop for SAI {
     }
 }
 
+#[derive(Debug)]
 pub struct SwitchObjectID(sai_object_id_t);
 
 #[derive(Clone, Debug)]
