@@ -5,6 +5,9 @@ use sai_sys::*;
 use std::os::raw::{c_char, c_int};
 use std::ptr::{null, null_mut};
 
+// we are re-exporting some things here
+pub use sai_sys::sai_mac_t;
+
 static PROFILE_GET_NEXT_VALUE_CALLBACK: RwLock<
     Option<
         Box<
@@ -134,6 +137,18 @@ pub enum InitError {
 impl From<Status> for InitError {
     fn from(value: Status) -> Self {
         InitError::SAI(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Error {
+    APIUnavailable,
+    SAI(Status),
+}
+
+impl From<Status> for Error {
+    fn from(value: Status) -> Self {
+        Error::SAI(value)
     }
 }
 
@@ -522,6 +537,25 @@ impl SAI {
             }
         }
     }
+
+    pub fn switch_create(&self, attrs: Vec<SwitchAttribute>) -> Result<SwitchObjectID, Error> {
+        // check that API is available/callable
+        if self.apis.switch_api == null_mut() {
+            return Err(Error::APIUnavailable);
+        }
+        let switch_api = unsafe { *self.apis.switch_api };
+        let create_switch = switch_api.create_switch.ok_or(Error::APIUnavailable)?;
+
+        // now call it
+        let mut sw_id = 0;
+        let attrs_arg: Vec<sai_attribute_t> = attrs.into_iter().map(Into::into).collect();
+        unsafe {
+            match create_switch(&mut sw_id, attrs_arg.len() as u32, attrs_arg.as_ptr()) {
+                0 => Ok(SwitchObjectID(sw_id)),
+                v => Err(Error::SAI(Status::from(v))),
+            }
+        }
+    }
 }
 
 impl Drop for SAI {
@@ -539,6 +573,29 @@ impl Drop for SAI {
             *cb_write_lock = None;
         }
         *SAI_INITIALIZED.lock().unwrap() = false;
+    }
+}
+
+pub struct SwitchObjectID(sai_object_id_t);
+
+#[derive(Clone, Debug)]
+pub enum SwitchAttribute {
+    InitSwitch(bool),
+    SrcMacAddress(sai_mac_t),
+}
+
+impl From<SwitchAttribute> for sai_attribute_t {
+    fn from(value: SwitchAttribute) -> Self {
+        match value {
+            SwitchAttribute::InitSwitch(v) => Self {
+                id: _sai_switch_attr_t_SAI_SWITCH_ATTR_INIT_SWITCH,
+                value: sai_attribute_value_t { booldata: v },
+            },
+            SwitchAttribute::SrcMacAddress(v) => Self {
+                id: _sai_switch_attr_t_SAI_SWITCH_ATTR_SRC_MAC_ADDRESS,
+                value: _sai_attribute_value_t { mac: v },
+            },
+        }
     }
 }
 
