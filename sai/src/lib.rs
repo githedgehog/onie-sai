@@ -1,38 +1,49 @@
 use std::ffi::{CStr, CString};
-use std::sync::{Arc, RwLock, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use sai_sys::*;
 use std::os::raw::{c_char, c_int};
 use std::ptr::{null, null_mut};
 
-static PROFILE_GET_NEXT_VALUE_CALLBACK: RwLock<Option<Box<dyn Fn(sai_switch_profile_id_t, *mut *const c_char, *mut *const c_char) -> c_int + Send + Sync>>> = RwLock::new(None);
+static PROFILE_GET_NEXT_VALUE_CALLBACK: RwLock<
+    Option<
+        Box<
+            dyn Fn(sai_switch_profile_id_t, *mut *const c_char, *mut *const c_char) -> c_int
+                + Send
+                + Sync,
+        >,
+    >,
+> = RwLock::new(None);
 
-extern "C" fn profile_get_next_value_cb(profile_id: sai_switch_profile_id_t,
+extern "C" fn profile_get_next_value_cb(
+    profile_id: sai_switch_profile_id_t,
     variable: *mut *const c_char,
     value: *mut *const c_char,
 ) -> c_int {
-        // Check if the callback is set
-        let cb_read_lock = PROFILE_GET_NEXT_VALUE_CALLBACK.read().unwrap();
-        if let Some(ref callback) = *cb_read_lock {
-            callback(profile_id, variable, value)
-        } else {
-            0
-        }
+    // Check if the callback is set
+    let cb_read_lock = PROFILE_GET_NEXT_VALUE_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        callback(profile_id, variable, value)
+    } else {
+        0
+    }
 }
 
-static PROFILE_GET_VALUE_CALLBACK: RwLock<Option<Box<dyn Fn(sai_switch_profile_id_t, *const c_char) -> *const c_char + Send + Sync>>> = RwLock::new(None);
+static PROFILE_GET_VALUE_CALLBACK: RwLock<
+    Option<Box<dyn Fn(sai_switch_profile_id_t, *const c_char) -> *const c_char + Send + Sync>>,
+> = RwLock::new(None);
 
-    extern "C" fn profile_get_value_cb(
+extern "C" fn profile_get_value_cb(
     profile_id: sai_switch_profile_id_t,
     variable: *const c_char,
 ) -> *const c_char {
-        // Check if the callback is set
-        let cb_read_lock = PROFILE_GET_VALUE_CALLBACK.read().unwrap();
-        if let Some(ref callback) = *cb_read_lock {
-            callback(profile_id, variable)
-        } else {
-            null()
-        }
+    // Check if the callback is set
+    let cb_read_lock = PROFILE_GET_VALUE_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        callback(profile_id, variable)
+    } else {
+        null()
+    }
 }
 
 static PROFILE_SMT: sai_service_method_table_t = sai_service_method_table_t {
@@ -41,13 +52,18 @@ static PROFILE_SMT: sai_service_method_table_t = sai_service_method_table_t {
 };
 
 #[derive(Debug)]
-struct SAIProfile {
+struct Profile {
     profile_idx: Mutex<usize>,
     profile: Vec<(CString, CString)>,
 }
 
-impl SAIProfile {
-    fn profile_get_next_value(&self, _profile_id: sai_switch_profile_id_t, variable: *mut *const c_char, value: *mut *const c_char) -> c_int {
+impl Profile {
+    fn profile_get_next_value(
+        &self,
+        _profile_id: sai_switch_profile_id_t,
+        variable: *mut *const c_char,
+        value: *mut *const c_char,
+    ) -> c_int {
         if value == null_mut() {
             // resetting profile map iterator
             *self.profile_idx.lock().unwrap() = 0;
@@ -83,7 +99,11 @@ impl SAIProfile {
         0
     }
 
-    fn profile_get_value(&self, _profile_id: sai_switch_profile_id_t, variable: *const c_char) -> *const c_char {
+    fn profile_get_value(
+        &self,
+        _profile_id: sai_switch_profile_id_t,
+        variable: *const c_char,
+    ) -> *const c_char {
         if variable == null() {
             return null();
         }
@@ -95,7 +115,8 @@ impl SAIProfile {
         // NOTE: this is kind of unsafe because it assumes that the vector isn't being dropped
         // however, we know that because we own it, and this closure is never being called again when
         // the profile is being dropped
-        self.profile.iter()
+        self.profile
+            .iter()
             .find(|&x| x.0 == var)
             .map_or(null(), |x| x.1.as_ptr() as *const c_char)
     }
@@ -180,21 +201,22 @@ impl From<sai_status_t> for Status {
             -0x00000016 => Status::SwUpgradeVersionMismatch,
             -0x00000017 => Status::NotExecuted,
             -0x00000018 => Status::StageMismatch,
-            -0x00010000..=0x0001FFFF => Status::InvalidAttribute(value.abs()-0x00010000),
-            -0x00020000..=0x0002FFFF => Status::InvalidAttributeValue(value.abs()-0x00020000),
-            -0x00030000..=0x0003FFFF => Status::AttributeNotImplemented(value.abs()-0x00030000),
-            -0x00040000..=0x0004FFFF => Status::UnknownAttribute(value.abs()-0x00040000),
-            -0x00050000..=0x0005FFFF => Status::AttributeNotSupported(value.abs()-0x00050000),
+            -0x00010000..=0x0001FFFF => Status::InvalidAttribute(value.abs() - 0x00010000),
+            -0x00020000..=0x0002FFFF => Status::InvalidAttributeValue(value.abs() - 0x00020000),
+            -0x00030000..=0x0003FFFF => Status::AttributeNotImplemented(value.abs() - 0x00030000),
+            -0x00040000..=0x0004FFFF => Status::UnknownAttribute(value.abs() - 0x00040000),
+            -0x00050000..=0x0005FFFF => Status::AttributeNotSupported(value.abs() - 0x00050000),
             _ => Status::Unknown(value),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct SAI {}
+pub struct SAI {
+    apis: sai_apis_t,
+}
 
 impl SAI {
-
     pub fn new(profile: Vec<(CString, CString)>) -> Result<SAI, InitError> {
         let init_lock = SAI_INITIALIZED.try_lock();
         if let Ok(mut sai_initialized) = init_lock {
@@ -203,25 +225,38 @@ impl SAI {
                 Err(InitError::AlreadyInitialized)
             } else {
                 // we will return this, and the whole SAI_INITIALIZED lock is just there to ensure it is a singleton
-                let ret = SAI {};
+                let mut ret = SAI {
+                    apis: Default::default(),
+                };
 
                 // deal with the profile, and making sure there is a closure which can be called for it which has access to the map
-                let p1 = Arc::new(SAIProfile {
+                let p1 = Arc::new(Profile {
                     profile_idx: Mutex::new(0),
                     profile: profile,
                 });
                 let p2 = Arc::clone(&p1);
                 {
                     let mut cb_write_lock = PROFILE_GET_NEXT_VALUE_CALLBACK.write().unwrap();
-                    *cb_write_lock = Some(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *mut *const c_char, value: *mut *const c_char| { p1.profile_get_next_value(profile_id, variable, value) }));
+                    *cb_write_lock = Some(Box::new(
+                        move |profile_id: sai_switch_profile_id_t,
+                              variable: *mut *const c_char,
+                              value: *mut *const c_char| {
+                            p1.profile_get_next_value(profile_id, variable, value)
+                        },
+                    ));
                 }
                 {
                     let mut cb_write_lock = PROFILE_GET_VALUE_CALLBACK.write().unwrap();
-                    *cb_write_lock = Some(Box::new(move |profile_id: sai_switch_profile_id_t, variable: *const c_char| { p2.profile_get_value(profile_id, variable) }));
+                    *cb_write_lock = Some(Box::new(
+                        move |profile_id: sai_switch_profile_id_t, variable: *const c_char| {
+                            p2.profile_get_value(profile_id, variable)
+                        },
+                    ));
                 }
 
                 // this calls the the underlying C function
                 ret.init()?;
+                ret.metadata_api_query()?;
 
                 // we lock our singleton
                 *sai_initialized = true;
@@ -238,6 +273,16 @@ impl SAI {
         unsafe {
             match sai_api_initialize(0, &PROFILE_SMT) {
                 0 => Ok(()),
+                v => Err(Status::from(v)),
+            }
+        }
+    }
+
+    fn metadata_api_query(&mut self) -> Result<i32, Status> {
+        // query available functionality
+        unsafe {
+            match sai_metadata_apis_query(Some(sai_api_query), &mut self.apis) {
+                v if v >= 0 => Ok(v),
                 v => Err(Status::from(v)),
             }
         }
@@ -278,7 +323,10 @@ mod tests {
     #[test]
     fn sai_new_and_drop() {
         // this is our profile we're going to clone and pass around
-        let profile = vec![(CString::from_vec_with_nul(SAI_KEY_INIT_CONFIG_FILE.to_vec()).unwrap(), CString::new("/does/not/exist").unwrap())];
+        let profile = vec![(
+            CString::from_vec_with_nul(SAI_KEY_INIT_CONFIG_FILE.to_vec()).unwrap(),
+            CString::new("/does/not/exist").unwrap(),
+        )];
 
         // first initialization must work
         let res = SAI::new(profile.clone());
