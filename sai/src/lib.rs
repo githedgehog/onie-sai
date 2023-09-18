@@ -24,7 +24,6 @@ extern "C" fn profile_get_next_value_cb(
     variable: *mut *const c_char,
     value: *mut *const c_char,
 ) -> c_int {
-    println!("DEBUG: profile_get_next_value_cb");
     // Check if the callback is set
     let cb_read_lock = PROFILE_GET_NEXT_VALUE_CALLBACK.read().unwrap();
     if let Some(ref callback) = *cb_read_lock {
@@ -42,7 +41,6 @@ extern "C" fn profile_get_value_cb(
     profile_id: sai_switch_profile_id_t,
     variable: *const c_char,
 ) -> *const c_char {
-    println!("DEBUG: profile_get_value_cb");
     // Check if the callback is set
     let cb_read_lock = PROFILE_GET_VALUE_CALLBACK.read().unwrap();
     if let Some(ref callback) = *cb_read_lock {
@@ -73,20 +71,17 @@ impl Profile {
         if value == null_mut() {
             // resetting profile map iterator
             *self.profile_idx.lock().unwrap() = 0;
-            println!("DEBUG: profile_get_next_value, resetting profile map iterator");
             return 0;
         }
 
         if variable == null_mut() {
             // variable is null
-            println!("DEBUG: profile_get_next_value, variable is NULL");
             return -1;
         }
 
         let idx = { *self.profile_idx.lock().unwrap() };
         if self.profile.len() == idx {
             // iterator reached end
-            println!("DEBUG: profile_get_next_value, iterator reached end");
             return -1;
         }
 
@@ -103,10 +98,6 @@ impl Profile {
         unsafe {
             *variable = entry_var;
             *value = entry_val;
-            println!(
-                "DEBUG: profile_get_next_value, *var {:p} *val {:p} {:?}={:?} entry_var {:p} entr_val {:p}",
-                *variable, *value, entry.0, entry.1, entry_var, entry_val
-            );
         }
         *self.profile_idx.lock().unwrap() += 1;
 
@@ -119,9 +110,7 @@ impl Profile {
         _profile_id: sai_switch_profile_id_t,
         variable: *const c_char,
     ) -> *const c_char {
-        println!("DEBUG: profile_get_value");
         if variable == null() {
-            println!("DEBUG: profile_get_value, variable is NULL");
             return null();
         }
 
@@ -141,7 +130,7 @@ impl Profile {
 
 impl Drop for Profile {
     fn drop(&mut self) {
-        println!("!!!!!!!!!!!!!!!!! CRAP: in profile drop!");
+        // nothing right now, we had this here for debugging
     }
 }
 
@@ -692,10 +681,7 @@ impl SAI {
         let attrs_arg_ptr = attrs_arg.as_ptr();
         unsafe {
             match create_switch(&mut sw_id, attrs_arg.len() as u32, attrs_arg_ptr) {
-                0 => {
-                    println!("switch object id {}", sw_id);
-                    Ok(SwitchObjectID(sw_id))
-                }
+                0 => Ok(SwitchObjectID(sw_id)),
                 v => Err(Error::SAI(Status::from(v))),
             }
         }
@@ -720,8 +706,20 @@ impl Drop for SAI {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SwitchObjectID(sai_object_id_t);
+
+impl std::fmt::Debug for SwitchObjectID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SwitchObjectID(oid:{:#x})", self.0)
+    }
+}
+
+impl std::fmt::Display for SwitchObjectID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.0)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum SwitchAttribute {
