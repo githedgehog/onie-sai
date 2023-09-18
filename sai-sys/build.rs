@@ -20,6 +20,7 @@ fn main() {
         .clang_arg("-I../include/sai")
         .clang_arg("-I../include/sai/experimental")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .derive_default(true)
         .generate()
         .expect("Unable to generate bindings");
 

@@ -24,6 +24,7 @@ extern "C" fn profile_get_next_value_cb(
     variable: *mut *const c_char,
     value: *mut *const c_char,
 ) -> c_int {
+    println!("DEBUG: profile_get_next_value_cb");
     // Check if the callback is set
     let cb_read_lock = PROFILE_GET_NEXT_VALUE_CALLBACK.read().unwrap();
     if let Some(ref callback) = *cb_read_lock {
@@ -41,6 +42,7 @@ extern "C" fn profile_get_value_cb(
     profile_id: sai_switch_profile_id_t,
     variable: *const c_char,
 ) -> *const c_char {
+    println!("DEBUG: profile_get_value_cb");
     // Check if the callback is set
     let cb_read_lock = PROFILE_GET_VALUE_CALLBACK.read().unwrap();
     if let Some(ref callback) = *cb_read_lock {
@@ -71,17 +73,20 @@ impl Profile {
         if value == null_mut() {
             // resetting profile map iterator
             *self.profile_idx.lock().unwrap() = 0;
+            println!("DEBUG: profile_get_next_value, resetting profile map iterator");
             return 0;
         }
 
         if variable == null_mut() {
             // variable is null
+            println!("DEBUG: profile_get_next_value, variable is NULL");
             return -1;
         }
 
         let idx = { *self.profile_idx.lock().unwrap() };
         if self.profile.len() == idx {
             // iterator reached end
+            println!("DEBUG: profile_get_next_value, iterator reached end");
             return -1;
         }
 
@@ -93,9 +98,15 @@ impl Profile {
         //
         // the unwrap() is safe, as we were testing above if we reached the end
         let entry = self.profile.get(idx).unwrap();
+        let entry_var = entry.0.as_ptr();
+        let entry_val = entry.1.as_ptr();
         unsafe {
-            *variable = entry.0.as_ptr() as *const c_char;
-            *value = entry.1.as_ptr() as *const c_char
+            *variable = entry_var;
+            *value = entry_val;
+            println!(
+                "DEBUG: profile_get_next_value, *var {:p} *val {:p} {:?}={:?} entry_var {:p} entr_val {:p}",
+                *variable, *value, entry.0, entry.1, entry_var, entry_val
+            );
         }
         *self.profile_idx.lock().unwrap() += 1;
 
@@ -108,7 +119,9 @@ impl Profile {
         _profile_id: sai_switch_profile_id_t,
         variable: *const c_char,
     ) -> *const c_char {
+        println!("DEBUG: profile_get_value");
         if variable == null() {
+            println!("DEBUG: profile_get_value, variable is NULL");
             return null();
         }
 
@@ -123,6 +136,12 @@ impl Profile {
             .iter()
             .find(|&x| x.0 == var)
             .map_or(null(), |x| x.1.as_ptr() as *const c_char)
+    }
+}
+
+impl Drop for Profile {
+    fn drop(&mut self) {
+        println!("!!!!!!!!!!!!!!!!! CRAP: in profile drop!");
     }
 }
 
@@ -415,9 +434,15 @@ impl From<API> for sai_api_t {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SAI {
-    apis: sai_apis_t,
+    switch_api: sai_switch_api_t,
+    vlan_api: sai_vlan_api_t,
+    bridge_api: sai_bridge_api_t,
+    port_api: sai_port_api_t,
+    hostif_api: sai_hostif_api_t,
+    router_interface_api: sai_router_interface_api_t,
+    route_api: sai_route_api_t,
 }
 
 impl SAI {
@@ -467,9 +492,7 @@ impl SAI {
                 Err(InitError::AlreadyInitialized)
             } else {
                 // we will return this, and the whole SAI_INITIALIZED lock is just there to ensure it is a singleton
-                let mut ret = SAI {
-                    apis: Default::default(),
-                };
+                let mut ret: SAI = Default::default();
 
                 // deal with the profile, and making sure there is a closure which can be called for it which has access to the map
                 let p1 = Arc::new(Profile {
@@ -498,7 +521,7 @@ impl SAI {
 
                 // this calls the the underlying C function
                 ret.init()?;
-                ret.metadata_api_query()?;
+                ret.apis_query();
 
                 // we lock our singleton
                 *sai_initialized = true;
@@ -520,15 +543,135 @@ impl SAI {
         }
     }
 
-    fn metadata_api_query(&mut self) -> Result<i32, Status> {
-        // query available functionality
-        unsafe {
-            match sai_metadata_apis_query(Some(sai_api_query), &mut self.apis) {
-                v if v >= 0 => Ok(v),
-                v => Err(Status::from(v)),
+    fn apis_query(&mut self) {
+        // switch API
+        {
+            let mut switch_api_backing: sai_switch_api_t = Default::default();
+            let switch_api_ptr_orig = &switch_api_backing as *const _;
+            let mut switch_api_ptr = &mut switch_api_backing as *mut _;
+            let switch_api_ptr_ptr = &mut switch_api_ptr as *mut *mut _;
+            let st = unsafe { sai_api_query(_sai_api_t_SAI_API_SWITCH, switch_api_ptr_ptr as _) };
+            if st == SAI_STATUS_SUCCESS as i32 {
+                self.switch_api = if switch_api_ptr_orig == switch_api_ptr {
+                    switch_api_backing
+                } else {
+                    unsafe { *switch_api_ptr }
+                };
+            }
+        }
+
+        // vlan API
+        {
+            let mut vlan_api_backing: sai_vlan_api_t = Default::default();
+            let vlan_api_ptr_orig = &vlan_api_backing as *const _;
+            let mut vlan_api_ptr = &mut vlan_api_backing as *mut _;
+            let vlan_api_ptr_ptr = &mut vlan_api_ptr as *mut *mut _;
+            let st = unsafe { sai_api_query(_sai_api_t_SAI_API_VLAN, vlan_api_ptr_ptr as _) };
+            if st == SAI_STATUS_SUCCESS as i32 {
+                self.vlan_api = if vlan_api_ptr_orig == vlan_api_ptr {
+                    vlan_api_backing
+                } else {
+                    unsafe { *vlan_api_ptr }
+                };
+            }
+        }
+
+        // bridge API
+        {
+            let mut bridge_api_backing: sai_bridge_api_t = Default::default();
+            let bridge_api_ptr_orig = &bridge_api_backing as *const _;
+            let mut bridge_api_ptr = &mut bridge_api_backing as *mut _;
+            let bridge_api_ptr_ptr = &mut bridge_api_ptr as *mut *mut _;
+            let st = unsafe { sai_api_query(_sai_api_t_SAI_API_BRIDGE, bridge_api_ptr_ptr as _) };
+            if st == SAI_STATUS_SUCCESS as i32 {
+                self.bridge_api = if bridge_api_ptr_orig == bridge_api_ptr {
+                    bridge_api_backing
+                } else {
+                    unsafe { *bridge_api_ptr }
+                };
+            }
+        }
+
+        // port API
+        {
+            let mut port_api_backing: sai_port_api_t = Default::default();
+            let port_api_ptr_orig = &port_api_backing as *const _;
+            let mut port_api_ptr = &mut port_api_backing as *mut _;
+            let port_api_ptr_ptr = &mut port_api_ptr as *mut *mut _;
+            let st = unsafe { sai_api_query(_sai_api_t_SAI_API_PORT, port_api_ptr_ptr as _) };
+            if st == SAI_STATUS_SUCCESS as i32 {
+                self.port_api = if port_api_ptr_orig == port_api_ptr {
+                    port_api_backing
+                } else {
+                    unsafe { *port_api_ptr }
+                };
+            }
+        }
+
+        // hostif API
+        {
+            let mut hostif_api_backing: sai_hostif_api_t = Default::default();
+            let hostif_api_ptr_orig = &hostif_api_backing as *const _;
+            let mut hostif_api_ptr = &mut hostif_api_backing as *mut _;
+            let hostif_api_ptr_ptr = &mut hostif_api_ptr as *mut *mut _;
+            let st = unsafe { sai_api_query(_sai_api_t_SAI_API_HOSTIF, hostif_api_ptr_ptr as _) };
+            if st == SAI_STATUS_SUCCESS as i32 {
+                self.hostif_api = if hostif_api_ptr_orig == hostif_api_ptr {
+                    hostif_api_backing
+                } else {
+                    unsafe { *hostif_api_ptr }
+                };
+            }
+        }
+
+        // router interface API
+        {
+            let mut router_interface_api_backing: sai_router_interface_api_t = Default::default();
+            let router_interface_api_ptr_orig = &router_interface_api_backing as *const _;
+            let mut router_interface_api_ptr = &mut router_interface_api_backing as *mut _;
+            let router_interface_api_ptr_ptr = &mut router_interface_api_ptr as *mut *mut _;
+            let st = unsafe {
+                sai_api_query(
+                    _sai_api_t_SAI_API_ROUTER_INTERFACE,
+                    router_interface_api_ptr_ptr as _,
+                )
+            };
+            if st == SAI_STATUS_SUCCESS as i32 {
+                self.router_interface_api =
+                    if router_interface_api_ptr_orig == router_interface_api_ptr {
+                        router_interface_api_backing
+                    } else {
+                        unsafe { *router_interface_api_ptr }
+                    };
+            }
+        }
+
+        // route API
+        {
+            let mut route_api_backing: sai_route_api_t = Default::default();
+            let route_api_ptr_orig = &route_api_backing as *const _;
+            let mut route_api_ptr = &mut route_api_backing as *mut _;
+            let route_api_ptr_ptr = &mut route_api_ptr as *mut *mut _;
+            let st = unsafe { sai_api_query(_sai_api_t_SAI_API_ROUTE, route_api_ptr_ptr as _) };
+            if st == SAI_STATUS_SUCCESS as i32 {
+                self.route_api = if route_api_ptr_orig == route_api_ptr {
+                    route_api_backing
+                } else {
+                    unsafe { *route_api_ptr }
+                };
             }
         }
     }
+
+    // fn metadata_api_query(&mut self) -> Result<i32, Status> {
+    //     // query available functionality
+    //     unsafe {
+    //         match sai_metadata_apis_query(Some(sai_api_query), &mut self.apis) {
+    //             v if v >= 0 => Ok(v),
+    //             v => Err(Status::from(v)),
+    //         }
+    //     }
+    // }
 
     fn uninit(&self) -> Result<(), Status> {
         unsafe {
@@ -541,18 +684,18 @@ impl SAI {
 
     pub fn switch_create(&self, attrs: Vec<SwitchAttribute>) -> Result<SwitchObjectID, Error> {
         // check that API is available/callable
-        if self.apis.switch_api == null_mut() {
-            return Err(Error::APIUnavailable);
-        }
-        let switch_api = unsafe { *self.apis.switch_api };
-        let create_switch = switch_api.create_switch.ok_or(Error::APIUnavailable)?;
+        let create_switch = self.switch_api.create_switch.ok_or(Error::APIUnavailable)?;
 
         // now call it
-        let mut sw_id = 0;
+        let mut sw_id: sai_object_id_t = 0;
         let attrs_arg: Vec<sai_attribute_t> = attrs.into_iter().map(Into::into).collect();
+        let attrs_arg_ptr = attrs_arg.as_ptr();
         unsafe {
-            match create_switch(&mut sw_id, attrs_arg.len() as u32, attrs_arg.as_ptr()) {
-                0 => Ok(SwitchObjectID(sw_id)),
+            match create_switch(&mut sw_id, attrs_arg.len() as u32, attrs_arg_ptr) {
+                0 => {
+                    println!("switch object id {}", sw_id);
+                    Ok(SwitchObjectID(sw_id))
+                }
                 v => Err(Error::SAI(Status::from(v))),
             }
         }
@@ -577,7 +720,7 @@ impl Drop for SAI {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SwitchObjectID(sai_object_id_t);
 
 #[derive(Clone, Debug)]

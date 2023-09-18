@@ -5,9 +5,6 @@ use sai::SwitchAttribute;
 use sai::SAI;
 
 fn main() -> ExitCode {
-    if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
-        println!("ERROR: failed to set log level for all APIs: {:?}", e);
-    }
     if let Ok(version) = SAI::api_version() {
         println!("INFO: SAI version: {}", version);
     }
@@ -27,6 +24,10 @@ fn main() -> ExitCode {
         }
     };
     println!("INFO: successfully initialized SAI");
+
+    if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
+        println!("ERROR: failed to set log level for all APIs: {:?}", e);
+    }
 
     // now create switch
     let sw_id = match sai_api.switch_create(vec![
