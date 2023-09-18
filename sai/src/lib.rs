@@ -55,6 +55,118 @@ static PROFILE_SMT: sai_service_method_table_t = sai_service_method_table_t {
     profile_get_value: Some(profile_get_value_cb),
 };
 
+static SWITCH_STATE_CHANGE_CALLBACK: RwLock<
+    Option<Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>>,
+> = RwLock::new(None);
+
+extern "C" fn switch_state_change_cb(
+    switch_id: sai_object_id_t,
+    switch_oper_status: sai_switch_oper_status_t,
+) {
+    let cb_read_lock = SWITCH_STATE_CHANGE_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        callback(switch_id, switch_oper_status);
+    }
+}
+
+static SWITCH_SHUTDOWN_REQUEST_CALLBACK: RwLock<
+    Option<Box<dyn Fn(sai_object_id_t) + Send + Sync>>,
+> = RwLock::new(None);
+
+extern "C" fn switch_shutdown_request_cb(switch_id: sai_object_id_t) {
+    let cb_read_lock = SWITCH_SHUTDOWN_REQUEST_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        callback(switch_id);
+    }
+}
+
+static FDB_EVENT_CALLBACK: RwLock<
+    Option<Box<dyn Fn(Vec<sai_fdb_event_notification_data_t>) + Send + Sync>>,
+> = RwLock::new(None);
+
+extern "C" fn fdb_event_cb(count: u32, data: *const sai_fdb_event_notification_data_t) {
+    let cb_read_lock = FDB_EVENT_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        let mut arg: Vec<sai_fdb_event_notification_data_t> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let elem = unsafe { *data.offset(i as isize) };
+            arg.push(elem);
+        }
+        callback(arg);
+    }
+}
+
+static NAT_EVENT_CALLBACK: RwLock<
+    Option<Box<dyn Fn(Vec<sai_nat_event_notification_data_t>) + Send + Sync>>,
+> = RwLock::new(None);
+
+extern "C" fn nat_event_cb(count: u32, data: *const sai_nat_event_notification_data_t) {
+    let cb_read_lock = NAT_EVENT_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        let mut arg: Vec<sai_nat_event_notification_data_t> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let elem = unsafe { *data.offset(i as isize) };
+            arg.push(elem);
+        }
+        callback(arg);
+    }
+}
+
+static PORT_STATE_CHANGE_CALLBACK: RwLock<
+    Option<Box<dyn Fn(Vec<sai_port_oper_status_notification_t>) + Send + Sync>>,
+> = RwLock::new(None);
+
+extern "C" fn port_state_change_cb(count: u32, data: *const sai_port_oper_status_notification_t) {
+    let cb_read_lock = PORT_STATE_CHANGE_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        let mut arg: Vec<sai_port_oper_status_notification_t> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let elem = unsafe { *data.offset(i as isize) };
+            arg.push(elem);
+        }
+        callback(arg);
+    }
+}
+
+static QUEUE_PFC_DEADLOCK_CALLBACK: RwLock<
+    Option<Box<dyn Fn(Vec<sai_queue_deadlock_notification_data_t>) + Send + Sync>>,
+> = RwLock::new(None);
+
+extern "C" fn queue_pfc_deadlock_cb(
+    count: u32,
+    data: *const sai_queue_deadlock_notification_data_t,
+) {
+    let cb_read_lock = QUEUE_PFC_DEADLOCK_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        let mut arg: Vec<sai_queue_deadlock_notification_data_t> =
+            Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let elem = unsafe { *data.offset(i as isize) };
+            arg.push(elem);
+        }
+        callback(arg);
+    }
+}
+
+static BFD_SESSION_STATE_CHANGE_CALLBACK: RwLock<
+    Option<Box<dyn Fn(Vec<sai_bfd_session_state_notification_t>) + Send + Sync>>,
+> = RwLock::new(None);
+
+extern "C" fn bfd_session_state_change_cb(
+    count: u32,
+    data: *const sai_bfd_session_state_notification_t,
+) {
+    let cb_read_lock = BFD_SESSION_STATE_CHANGE_CALLBACK.read().unwrap();
+    if let Some(ref callback) = *cb_read_lock {
+        let mut arg: Vec<sai_bfd_session_state_notification_t> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let elem = unsafe { *data.offset(i as isize) };
+            arg.push(elem);
+        }
+        callback(arg);
+    }
+}
+
 #[derive(Debug)]
 struct Profile {
     profile_idx: Mutex<usize>,
@@ -151,6 +263,7 @@ impl From<Status> for InitError {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
+    SwitchAlreadyCreated,
     APIUnavailable,
     SAI(Status),
 }
@@ -671,19 +784,34 @@ impl SAI {
         }
     }
 
-    pub fn switch_create(&self, attrs: Vec<SwitchAttribute>) -> Result<SwitchObjectID, Error> {
+    pub fn switch_create(&self, attrs: Vec<SwitchAttribute>) -> Result<Switch, Error> {
+        // check first if a switch was created already
+        let mut switch_created = SWITCH_CREATED.lock().unwrap();
+        if *switch_created {
+            return Err(Error::SwitchAlreadyCreated);
+        }
         // check that API is available/callable
         let create_switch = self.switch_api.create_switch.ok_or(Error::APIUnavailable)?;
 
         // now call it
         let mut sw_id: sai_object_id_t = 0;
-        let attrs_arg: Vec<sai_attribute_t> = attrs.into_iter().map(Into::into).collect();
+        let mut attrs_arg: Vec<sai_attribute_t> = attrs.into_iter().map(Into::into).collect();
+        attrs_arg.push(sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_SWITCH_STATE_CHANGE_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: switch_state_change_cb as sai_pointer_t,
+            },
+        });
         let attrs_arg_ptr = attrs_arg.as_ptr();
-        unsafe {
-            match create_switch(&mut sw_id, attrs_arg.len() as u32, attrs_arg_ptr) {
-                0 => Ok(SwitchObjectID(sw_id)),
-                v => Err(Error::SAI(Status::from(v))),
+        match unsafe { create_switch(&mut sw_id, attrs_arg.len() as u32, attrs_arg_ptr) } {
+            0 => {
+                *switch_created = true;
+                Ok(Switch {
+                    id: sw_id,
+                    sai: &self,
+                })
             }
+            v => Err(Error::SAI(Status::from(v))),
         }
     }
 }
@@ -706,18 +834,234 @@ impl Drop for SAI {
     }
 }
 
-#[derive(Clone)]
-pub struct SwitchObjectID(sai_object_id_t);
+static SWITCH_CREATED: Mutex<bool> = Mutex::new(false);
 
-impl std::fmt::Debug for SwitchObjectID {
+pub struct Switch<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for Switch<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SwitchObjectID(oid:{:#x})", self.0)
+        write!(f, "Switch(oid:{:#x})", self.id)
     }
 }
 
-impl std::fmt::Display for SwitchObjectID {
+impl std::fmt::Display for Switch<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.0)
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl Switch<'_> {
+    pub fn set_switch_state_change_callback(
+        &self,
+        cb: Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>,
+    ) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        // we acquire this lock and will not let it go before the end of this function which is correct
+        let mut cb_write_lock = SWITCH_STATE_CHANGE_CALLBACK.write().unwrap();
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_SWITCH_STATE_CHANGE_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: switch_state_change_cb as sai_pointer_t,
+            },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // only set the closure when we know that the call to SAI was successful
+        *cb_write_lock = Some(cb);
+        Ok(())
+    }
+
+    pub fn set_switch_shutdown_request_callback(
+        &self,
+        cb: Box<dyn Fn(sai_object_id_t) + Send + Sync>,
+    ) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        // we acquire this lock and will not let it go before the end of this function which is correct
+        let mut cb_write_lock = SWITCH_SHUTDOWN_REQUEST_CALLBACK.write().unwrap();
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_SWITCH_SHUTDOWN_REQUEST_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: switch_shutdown_request_cb as sai_pointer_t,
+            },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // only set the closure when we know that the call to SAI was successful
+        *cb_write_lock = Some(cb);
+        Ok(())
+    }
+
+    pub fn set_fdb_event_callback(
+        &self,
+        cb: Box<dyn Fn(Vec<sai_fdb_event_notification_data_t>) + Send + Sync>,
+    ) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        // we acquire this lock and will not let it go before the end of this function which is correct
+        let mut cb_write_lock = FDB_EVENT_CALLBACK.write().unwrap();
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_FDB_EVENT_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: fdb_event_cb as sai_pointer_t,
+            },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // only set the closure when we know that the call to SAI was successful
+        *cb_write_lock = Some(cb);
+        Ok(())
+    }
+
+    pub fn set_nat_event_callback(
+        &self,
+        cb: Box<dyn Fn(Vec<sai_nat_event_notification_data_t>) + Send + Sync>,
+    ) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        // we acquire this lock and will not let it go before the end of this function which is correct
+        let mut cb_write_lock = NAT_EVENT_CALLBACK.write().unwrap();
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_NAT_EVENT_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: nat_event_cb as sai_pointer_t,
+            },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // only set the closure when we know that the call to SAI was successful
+        *cb_write_lock = Some(cb);
+        Ok(())
+    }
+
+    pub fn set_port_state_change_callback(
+        &self,
+        cb: Box<dyn Fn(Vec<sai_port_oper_status_notification_t>) + Send + Sync>,
+    ) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        // we acquire this lock and will not let it go before the end of this function which is correct
+        let mut cb_write_lock = PORT_STATE_CHANGE_CALLBACK.write().unwrap();
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_PORT_STATE_CHANGE_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: port_state_change_cb as sai_pointer_t,
+            },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // only set the closure when we know that the call to SAI was successful
+        *cb_write_lock = Some(cb);
+        Ok(())
+    }
+
+    pub fn set_queue_pfc_deadlock_callback(
+        &self,
+        cb: Box<dyn Fn(Vec<sai_queue_deadlock_notification_data_t>) + Send + Sync>,
+    ) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        // we acquire this lock and will not let it go before the end of this function which is correct
+        let mut cb_write_lock = QUEUE_PFC_DEADLOCK_CALLBACK.write().unwrap();
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_QUEUE_PFC_DEADLOCK_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: queue_pfc_deadlock_cb as sai_pointer_t,
+            },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // only set the closure when we know that the call to SAI was successful
+        *cb_write_lock = Some(cb);
+        Ok(())
+    }
+
+    pub fn set_bfd_session_state_change_callback(
+        &self,
+        cb: Box<dyn Fn(Vec<sai_bfd_session_state_notification_t>) + Send + Sync>,
+    ) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        // we acquire this lock and will not let it go before the end of this function which is correct
+        let mut cb_write_lock = BFD_SESSION_STATE_CHANGE_CALLBACK.write().unwrap();
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_BFD_SESSION_STATE_CHANGE_NOTIFY,
+            value: sai_attribute_value_t {
+                ptr: bfd_session_state_change_cb as sai_pointer_t,
+            },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // only set the closure when we know that the call to SAI was successful
+        *cb_write_lock = Some(cb);
+        Ok(())
     }
 }
 
