@@ -1,6 +1,7 @@
 use std::ffi::CString;
 use std::process::ExitCode;
 
+use sai::BridgePortType;
 use sai::SwitchAttribute;
 use sai::SAI;
 
@@ -78,6 +79,54 @@ fn main() -> ExitCode {
         println!("INFO Removing VLAN member {}...", member);
         if let Err(e) = member.remove() {
             println!("ERROR: failed to remove VLAN member: {:?}", e);
+        }
+    }
+
+    // remove default bridge ports
+    let default_bridge = match switch.get_default_bridge() {
+        Ok(bridge) => bridge,
+        Err(e) => {
+            println!("ERROR: failed to get dfeault bridge: {:?}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+    println!(
+        "INFO default bridge of switch {} is: {:?}",
+        switch, default_bridge
+    );
+    let default_bridge_ports = match default_bridge.get_ports() {
+        Ok(ports) => ports,
+        Err(e) => {
+            println!(
+                "ERROR: failed to get bridge ports for default bridge {}: {:?}",
+                default_bridge, e
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    for bridge_port in default_bridge_ports {
+        match bridge_port.get_type() {
+            // we only go ahead when this is a real port
+            Ok(BridgePortType::Port) => {}
+            Ok(v) => {
+                println!(
+                    "INFO: not removing bridge port {} of type: {:?}",
+                    bridge_port, v
+                );
+                continue;
+            }
+            Err(e) => {
+                println!(
+                    "ERROR: failed to get bridge porty type of bridge port {}: {:?}",
+                    bridge_port, e
+                );
+                continue;
+            }
+        }
+
+        println!("INFO: removing bridge port {}...", bridge_port);
+        if let Err(e) = bridge_port.remove() {
+            println!("ERROR: failed to remove bridge port: {:?}", e);
         }
     }
 
