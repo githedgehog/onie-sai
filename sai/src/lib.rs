@@ -853,7 +853,31 @@ impl std::fmt::Display for Switch<'_> {
     }
 }
 
-impl Switch<'_> {
+impl<'a> Switch<'a> {
+    pub fn get_default_vlan(&self) -> Result<VLAN<'a>, Error> {
+        // check that API is available/callable
+        let get_switch_attribute = self
+            .sai
+            .switch_api
+            .get_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_DEFAULT_VLAN_ID,
+            value: sai_attribute_value_t { oid: 0 },
+        };
+
+        let st = unsafe { get_switch_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(VLAN {
+            id: unsafe { attr.value.oid },
+            sai: self.sai,
+        })
+    }
+
     pub fn set_switch_state_change_callback(
         &self,
         cb: Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>,
@@ -1082,6 +1106,96 @@ impl From<SwitchAttribute> for sai_attribute_t {
                 id: _sai_switch_attr_t_SAI_SWITCH_ATTR_SRC_MAC_ADDRESS,
                 value: _sai_attribute_value_t { mac: v },
             },
+        }
+    }
+}
+
+pub struct VLAN<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for VLAN<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VLAN(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for VLAN<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> VLAN<'a> {
+    pub fn get_members(&self) -> Result<Vec<VLANMember>, Error> {
+        // check that API is available/callable
+        let get_vlan_attribute = self
+            .sai
+            .vlan_api
+            .get_vlan_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let mut members: Vec<sai_object_id_t> = vec![0u64; 128];
+        let mut attr = sai_attribute_t {
+            id: _sai_vlan_attr_t_SAI_VLAN_ATTR_MEMBER_LIST,
+            value: sai_attribute_value_t {
+                objlist: sai_object_list_t {
+                    count: 128,
+                    list: members.as_mut_ptr(),
+                },
+            },
+        };
+
+        let st = unsafe { get_vlan_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // iterate over the returned list and build the vector for return
+        let count = unsafe { attr.value.objlist.count };
+        let list = unsafe { attr.value.objlist.list };
+        let mut ret: Vec<VLANMember> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let oid: sai_object_id_t = unsafe { *list.offset(i as isize) };
+            ret.push(VLANMember {
+                id: oid,
+                sai: self.sai,
+            });
+        }
+        Ok(ret)
+    }
+}
+
+pub struct VLANMember<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for VLANMember<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VLANMember(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for VLANMember<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> VLANMember<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        // check that API is available/callable
+        let remove_vlan_member = self
+            .sai
+            .vlan_api
+            .remove_vlan_member
+            .ok_or(Error::APIUnavailable)?;
+
+        match unsafe { remove_vlan_member(self.id) } {
+            0 => Ok(()),
+            v => Err(Error::SAI(Status::from(v))),
         }
     }
 }

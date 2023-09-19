@@ -30,7 +30,7 @@ fn main() -> ExitCode {
     }
 
     // now create switch
-    let sw_id = match sai_api.switch_create(vec![
+    let switch = match sai_api.switch_create(vec![
         SwitchAttribute::InitSwitch(true),
         SwitchAttribute::SrcMacAddress([0x1c, 0x72, 0x1d, 0xec, 0x44, 0xa0]),
     ]) {
@@ -40,6 +40,46 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    println!("INFO: successfully created switch: {:?}", sw_id);
+    println!("INFO: successfully created switch: {:?}", switch);
+
+    // port state change callback
+    if let Err(e) = switch.set_port_state_change_callback(Box::new(|v| {
+        v.iter()
+            .for_each(|n| println!("INFO: Port State Change Event: {:?}", n));
+    })) {
+        println!("ERROR: failed to set port state change callback: {:?}", e);
+    } else {
+        println!("INFO: successfully set port state change callback");
+    }
+
+    // remove default vlan members
+    let default_vlan = match switch.get_default_vlan() {
+        Ok(vlan) => vlan,
+        Err(e) => {
+            println!("ERROR: failed to get default VLAN: {:?}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+    println!(
+        "INFO: default VLAN of switch {} is: {:?}",
+        switch, default_vlan
+    );
+    let default_vlan_members = match default_vlan.get_members() {
+        Ok(members) => members,
+        Err(e) => {
+            println!(
+                "ERROR: failed to get VLAN members for default VLAN {}: {:?}",
+                default_vlan, e
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    for member in default_vlan_members {
+        println!("INFO Removing VLAN member {}...", member);
+        if let Err(e) = member.remove() {
+            println!("ERROR: failed to remove VLAN member: {:?}", e);
+        }
+    }
+
     return ExitCode::SUCCESS;
 }
