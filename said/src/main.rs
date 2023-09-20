@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 use sai::BridgePortType;
 use sai::SwitchAttribute;
+use sai::SwitchID;
 use sai::SAI;
 
 fn main() -> ExitCode {

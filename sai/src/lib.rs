@@ -836,6 +836,29 @@ impl Drop for SAI {
 
 static SWITCH_CREATED: Mutex<bool> = Mutex::new(false);
 
+#[derive(Clone, Copy)]
+pub struct SwitchID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for SwitchID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for SwitchID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<Switch<'_>> for SwitchID {
+    fn from(value: Switch) -> Self {
+        Self { id: value.id }
+    }
+}
+
 pub struct Switch<'a> {
     id: sai_object_id_t,
     sai: &'a SAI,
@@ -898,6 +921,62 @@ impl<'a> Switch<'a> {
 
         Ok(Bridge {
             id: unsafe { attr.value.oid },
+            sai: self.sai,
+        })
+    }
+
+    pub fn get_default_hostif_trap_group(&self) -> Result<HostIfTrapGroup<'a>, Error> {
+        // check that API is available/callable
+        let get_switch_attribute = self
+            .sai
+            .switch_api
+            .get_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_DEFAULT_TRAP_GROUP,
+            value: sai_attribute_value_t { oid: 0 },
+        };
+
+        let st = unsafe { get_switch_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(HostIfTrapGroup {
+            id: unsafe { attr.value.oid },
+            sai: self.sai,
+        })
+    }
+
+    pub fn create_hostif_trap(
+        &self,
+        attrs: Vec<HostIfTrapAttribute>,
+    ) -> Result<HostIfTrap<'a>, Error> {
+        // check that API is available/callable
+        let create_hostif_trap = self
+            .sai
+            .hostif_api
+            .create_hostif_trap
+            .ok_or(Error::APIUnavailable)?;
+
+        let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
+
+        let mut oid: sai_object_id_t = 0;
+        let st = unsafe {
+            create_hostif_trap(
+                &mut oid as *mut _,
+                self.id,
+                args.len() as u32,
+                args.as_ptr(),
+            )
+        };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(HostIfTrap {
+            id: oid,
             sai: self.sai,
         })
     }
@@ -1359,24 +1438,553 @@ impl From<sai_bridge_port_type_t> for BridgePortType {
     }
 }
 
-/*
-    /** Port or LAG or System Port */
-    SAI_BRIDGE_PORT_TYPE_PORT,
+#[derive(Clone, Copy)]
+pub struct HostIfTrapGroupID {
+    id: sai_object_id_t,
+}
 
-    /** Port or LAG.vlan */
-    SAI_BRIDGE_PORT_TYPE_SUB_PORT,
+impl std::fmt::Debug for HostIfTrapGroupID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
 
-    /** Bridge router port */
-    SAI_BRIDGE_PORT_TYPE_1Q_ROUTER,
+impl std::fmt::Display for HostIfTrapGroupID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
 
-    /** Bridge router port */
-    SAI_BRIDGE_PORT_TYPE_1D_ROUTER,
+impl From<HostIfTrapGroupID> for sai_object_id_t {
+    fn from(value: HostIfTrapGroupID) -> Self {
+        value.id
+    }
+}
 
-    /** Bridge tunnel port */
-    SAI_BRIDGE_PORT_TYPE_TUNNEL,
+impl From<HostIfTrapGroup<'_>> for HostIfTrapGroupID {
+    fn from(value: HostIfTrapGroup) -> Self {
+        Self { id: value.id }
+    }
+}
 
-} sai_bridge_port_type_t;
-*/
+pub struct HostIfTrapGroup<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for HostIfTrapGroup<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HostIfTrapGroup(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfTrapGroup<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> HostIfTrapGroup<'a> {}
+
+#[derive(Clone, Copy)]
+pub struct HostIfTrapID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for HostIfTrapID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfTrapID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<HostIfTrap<'_>> for HostIfTrapID {
+    fn from(value: HostIfTrap) -> Self {
+        Self { id: value.id }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum PacketAction {
+    Drop,
+    Forward,
+    Copy,
+    CopyCancel,
+    Trap,
+    Log,
+    Deny,
+    Transit,
+    DoNotDrop,
+}
+
+impl From<PacketAction> for i32 {
+    fn from(value: PacketAction) -> Self {
+        match value {
+            PacketAction::Drop => _sai_packet_action_t_SAI_PACKET_ACTION_DROP as i32,
+            PacketAction::Forward => _sai_packet_action_t_SAI_PACKET_ACTION_FORWARD as i32,
+            PacketAction::Copy => _sai_packet_action_t_SAI_PACKET_ACTION_COPY as i32,
+            PacketAction::CopyCancel => _sai_packet_action_t_SAI_PACKET_ACTION_COPY_CANCEL as i32,
+            PacketAction::Trap => _sai_packet_action_t_SAI_PACKET_ACTION_TRAP as i32,
+            PacketAction::Log => _sai_packet_action_t_SAI_PACKET_ACTION_LOG as i32,
+            PacketAction::Deny => _sai_packet_action_t_SAI_PACKET_ACTION_DENY as i32,
+            PacketAction::Transit => _sai_packet_action_t_SAI_PACKET_ACTION_TRANSIT as i32,
+            PacketAction::DoNotDrop => _sai_packet_action_t_SAI_PACKET_ACTION_DONOTDROP as i32,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum HostIfTrapType {
+    STP,
+    LACP,
+    EAPOL,
+    LLDP,
+    PVRST,
+    IGMPTypeQuery,
+    IGMPTypeLeave,
+    IGMPTypeV1Report,
+    IGMPTypeV2Report,
+    IGMPTypeV3Report,
+    SamplePacket,
+    UDLD,
+    CDP,
+    VTP,
+    DTP,
+    PAGP,
+    PTP,
+    PTPTxEvent,
+    DHCPL2,
+    DHCPv6L2,
+    SwitchCustomRangeBase,
+    ARPRequest,
+    ARPResponse,
+    DHCP,
+    OSPF,
+    PIM,
+    VRRP,
+    DHCPv6,
+    OSPFv6,
+    VRRPv6,
+    IPv6NeighborDiscovery,
+    IPv6MLDv1v2,
+    IPv6MLDv1Report,
+    IPv6MLDv1Done,
+    MLDv2Report,
+    UnknownL3Multicast,
+    SNATMiss,
+    DNATMiss,
+    NATHairpin,
+    IPv6NeighborSolicitation,
+    IPv6NeighborAdvertisement,
+    ISIS,
+    RouterCustomRangeBase,
+    IP2ME,
+    SSH,
+    SNMP,
+    BGP,
+    BGPv6,
+    BFD,
+    BFDv6,
+    BFDMicro,
+    BFDv6Micro,
+    LDP,
+    GNMI,
+    P4rt,
+    NTPClient,
+    NTPServer,
+    LocalIPCustomRangeBase,
+    L3MTUError,
+    TTLError,
+    StaticFDBMove,
+    PipelineDiscardEgressBuffer,
+    PipelineDiscardWRED,
+    PipelineDiscardRouter,
+    MPLSTTLError,
+    MPLSRouterAlertLabel,
+    MPLSLabelLookupMiss,
+    CustomExceptionRangeBase,
+}
+
+impl From<HostIfTrapType> for i32 {
+    fn from(value: HostIfTrapType) -> Self {
+        match value {
+            HostIfTrapType::STP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_STP as i32,
+            HostIfTrapType::LACP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_LACP as i32,
+            HostIfTrapType::EAPOL => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_EAPOL as i32,
+            HostIfTrapType::LLDP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_LLDP as i32,
+            HostIfTrapType::PVRST => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PVRST as i32,
+            HostIfTrapType::IGMPTypeQuery => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_QUERY as i32
+            }
+            HostIfTrapType::IGMPTypeLeave => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_LEAVE as i32
+            }
+            HostIfTrapType::IGMPTypeV1Report => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V1_REPORT as i32
+            }
+            HostIfTrapType::IGMPTypeV2Report => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V2_REPORT as i32
+            }
+            HostIfTrapType::IGMPTypeV3Report => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V3_REPORT as i32
+            }
+            HostIfTrapType::SamplePacket => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_SAMPLEPACKET as i32
+            }
+            HostIfTrapType::UDLD => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_UDLD as i32,
+            HostIfTrapType::CDP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_CDP as i32,
+            HostIfTrapType::VTP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_VTP as i32,
+            HostIfTrapType::DTP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_DTP as i32,
+            HostIfTrapType::PAGP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PAGP as i32,
+            HostIfTrapType::PTP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PTP as i32,
+            HostIfTrapType::PTPTxEvent => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PTP_TX_EVENT as i32
+            }
+            HostIfTrapType::DHCPL2 => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_DHCP_L2 as i32,
+            HostIfTrapType::DHCPv6L2 => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_DHCPV6_L2 as i32
+            }
+            HostIfTrapType::SwitchCustomRangeBase => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_SWITCH_CUSTOM_RANGE_BASE as i32
+            }
+            HostIfTrapType::ARPRequest => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_ARP_REQUEST as i32
+            }
+            HostIfTrapType::ARPResponse => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_ARP_RESPONSE as i32
+            }
+            HostIfTrapType::DHCP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_DHCP as i32,
+            HostIfTrapType::OSPF => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_OSPF as i32,
+            HostIfTrapType::PIM => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PIM as i32,
+            HostIfTrapType::VRRP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_VRRP as i32,
+            HostIfTrapType::DHCPv6 => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_DHCPV6 as i32,
+            HostIfTrapType::OSPFv6 => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_OSPFV6 as i32,
+            HostIfTrapType::VRRPv6 => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_VRRPV6 as i32,
+            HostIfTrapType::IPv6NeighborDiscovery => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IPV6_NEIGHBOR_DISCOVERY as i32
+            }
+            HostIfTrapType::IPv6MLDv1v2 => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_V2 as i32
+            }
+            HostIfTrapType::IPv6MLDv1Report => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_REPORT as i32
+            }
+            HostIfTrapType::IPv6MLDv1Done => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_DONE as i32
+            }
+            HostIfTrapType::MLDv2Report => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_MLD_V2_REPORT as i32
+            }
+            HostIfTrapType::UnknownL3Multicast => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_UNKNOWN_L3_MULTICAST as i32
+            }
+            HostIfTrapType::SNATMiss => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_SNAT_MISS as i32
+            }
+            HostIfTrapType::DNATMiss => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_DNAT_MISS as i32
+            }
+            HostIfTrapType::NATHairpin => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_NAT_HAIRPIN as i32
+            }
+            HostIfTrapType::IPv6NeighborSolicitation => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IPV6_NEIGHBOR_SOLICITATION as i32
+            }
+            HostIfTrapType::IPv6NeighborAdvertisement => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IPV6_NEIGHBOR_ADVERTISEMENT as i32
+            }
+            HostIfTrapType::ISIS => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_ISIS as i32,
+            HostIfTrapType::RouterCustomRangeBase => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_ROUTER_CUSTOM_RANGE_BASE as i32
+            }
+            HostIfTrapType::IP2ME => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_IP2ME as i32,
+            HostIfTrapType::SSH => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_SSH as i32,
+            HostIfTrapType::SNMP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_SNMP as i32,
+            HostIfTrapType::BGP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_BGP as i32,
+            HostIfTrapType::BGPv6 => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_BGPV6 as i32,
+            HostIfTrapType::BFD => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_BFD as i32,
+            HostIfTrapType::BFDv6 => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_BFDV6 as i32,
+            HostIfTrapType::BFDMicro => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_BFD_MICRO as i32
+            }
+            HostIfTrapType::BFDv6Micro => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_BFDV6_MICRO as i32
+            }
+            HostIfTrapType::LDP => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_LDP as i32,
+            HostIfTrapType::GNMI => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_GNMI as i32,
+            HostIfTrapType::P4rt => _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_P4RT as i32,
+            HostIfTrapType::NTPClient => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_NTPCLIENT as i32
+            }
+            HostIfTrapType::NTPServer => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_NTPSERVER as i32
+            }
+            HostIfTrapType::LocalIPCustomRangeBase => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_LOCAL_IP_CUSTOM_RANGE_BASE as i32
+            }
+            HostIfTrapType::L3MTUError => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_L3_MTU_ERROR as i32
+            }
+            HostIfTrapType::TTLError => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_TTL_ERROR as i32
+            }
+            HostIfTrapType::StaticFDBMove => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_STATIC_FDB_MOVE as i32
+            }
+            HostIfTrapType::PipelineDiscardEgressBuffer => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PIPELINE_DISCARD_EGRESS_BUFFER as i32
+            }
+            HostIfTrapType::PipelineDiscardWRED => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PIPELINE_DISCARD_WRED as i32
+            }
+            HostIfTrapType::PipelineDiscardRouter => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_PIPELINE_DISCARD_ROUTER as i32
+            }
+            HostIfTrapType::MPLSTTLError => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_MPLS_TTL_ERROR as i32
+            }
+            HostIfTrapType::MPLSRouterAlertLabel => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_MPLS_ROUTER_ALERT_LABEL as i32
+            }
+            HostIfTrapType::MPLSLabelLookupMiss => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_MPLS_LABEL_LOOKUP_MISS as i32
+            }
+            HostIfTrapType::CustomExceptionRangeBase => {
+                _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_CUSTOM_EXCEPTION_RANGE_BASE as i32
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum HostIfTrapAttribute {
+    TrapType(HostIfTrapType),
+    PacketAction(PacketAction),
+    TrapPriority(u32),
+    ExcludePortList(Vec<PortID>),
+    TrapGroup(HostIfTrapGroupID),
+    MirrorSession(Vec<MirrorSessionID>),
+    Counter(CounterID),
+}
+
+impl From<HostIfTrapAttribute> for sai_attribute_t {
+    fn from(value: HostIfTrapAttribute) -> Self {
+        match value {
+            HostIfTrapAttribute::TrapType(v) => Self {
+                id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE,
+                value: sai_attribute_value_t { s32: v.into() },
+            },
+            HostIfTrapAttribute::PacketAction(v) => Self {
+                id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_PACKET_ACTION,
+                value: sai_attribute_value_t { s32: v.into() },
+            },
+            HostIfTrapAttribute::TrapPriority(v) => Self {
+                id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_TRAP_PRIORITY,
+                value: sai_attribute_value_t { u32_: v },
+            },
+            HostIfTrapAttribute::ExcludePortList(v) => {
+                let mut arg: Vec<sai_object_id_t> = v.into_iter().map(|v| v.into()).collect();
+                Self {
+                    id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_EXCLUDE_PORT_LIST,
+                    value: sai_attribute_value_t {
+                        objlist: sai_object_list_t {
+                            count: arg.len() as u32,
+                            list: arg.as_mut_ptr(),
+                        },
+                    },
+                }
+            }
+            HostIfTrapAttribute::TrapGroup(v) => Self {
+                id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+            HostIfTrapAttribute::MirrorSession(v) => {
+                let mut arg: Vec<sai_object_id_t> = v.into_iter().map(|v| v.into()).collect();
+                Self {
+                    id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_MIRROR_SESSION,
+                    value: sai_attribute_value_t {
+                        objlist: sai_object_list_t {
+                            count: arg.len() as u32,
+                            list: arg.as_mut_ptr(),
+                        },
+                    },
+                }
+            }
+            HostIfTrapAttribute::Counter(v) => Self {
+                id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+        }
+    }
+}
+
+pub struct HostIfTrap<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for HostIfTrap<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HostIfTrap(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfTrap<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> HostIfTrapGroup<'a> {}
+
+#[derive(Clone, Copy)]
+pub struct PortID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for PortID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for PortID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<PortID> for sai_object_id_t {
+    fn from(value: PortID) -> Self {
+        value.id
+    }
+}
+
+impl From<Port<'_>> for PortID {
+    fn from(value: Port) -> Self {
+        Self { id: value.id }
+    }
+}
+
+pub struct Port<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for Port<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Port(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for Port<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> Port<'a> {}
+
+#[derive(Clone, Copy)]
+pub struct CounterID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for CounterID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for CounterID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<CounterID> for sai_object_id_t {
+    fn from(value: CounterID) -> Self {
+        value.id
+    }
+}
+
+impl From<Counter<'_>> for CounterID {
+    fn from(value: Counter) -> Self {
+        Self { id: value.id }
+    }
+}
+
+pub struct Counter<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for Counter<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Counter(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for Counter<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> Counter<'a> {}
+
+#[derive(Clone, Copy)]
+pub struct MirrorSessionID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for MirrorSessionID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for MirrorSessionID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<MirrorSessionID> for sai_object_id_t {
+    fn from(value: MirrorSessionID) -> Self {
+        value.id
+    }
+}
+
+impl From<MirrorSession<'_>> for MirrorSessionID {
+    fn from(value: MirrorSession) -> Self {
+        Self { id: value.id }
+    }
+}
+
+pub struct MirrorSession<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for MirrorSession<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MirrorSession(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for MirrorSession<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> MirrorSession<'a> {}
 
 #[cfg(test)]
 mod tests {
