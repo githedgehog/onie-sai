@@ -66,22 +66,22 @@ fn main() -> ExitCode {
         "INFO: default VLAN of switch {} is: {:?}",
         switch, default_vlan
     );
-    let default_vlan_members = match default_vlan.get_members() {
-        Ok(members) => members,
+    match default_vlan.get_members() {
         Err(e) => {
             println!(
                 "ERROR: failed to get VLAN members for default VLAN {}: {:?}",
                 default_vlan, e
             );
-            return ExitCode::FAILURE;
+        }
+        Ok(members) => {
+            for member in members {
+                println!("INFO: Removing VLAN member {}...", member);
+                if let Err(e) = member.remove() {
+                    println!("ERROR: failed to remove VLAN member: {:?}", e);
+                }
+            }
         }
     };
-    for member in default_vlan_members {
-        println!("INFO Removing VLAN member {}...", member);
-        if let Err(e) = member.remove() {
-            println!("ERROR: failed to remove VLAN member: {:?}", e);
-        }
-    }
 
     // remove default bridge ports
     let default_bridge = match switch.get_default_bridge() {
@@ -95,41 +95,41 @@ fn main() -> ExitCode {
         "INFO default bridge of switch {} is: {:?}",
         switch, default_bridge
     );
-    let default_bridge_ports = match default_bridge.get_ports() {
-        Ok(ports) => ports,
+    match default_bridge.get_ports() {
         Err(e) => {
             println!(
                 "ERROR: failed to get bridge ports for default bridge {}: {:?}",
                 default_bridge, e
             );
-            return ExitCode::FAILURE;
+        }
+        Ok(ports) => {
+            for bridge_port in ports {
+                match bridge_port.get_type() {
+                    // we only go ahead when this is a real port
+                    Ok(BridgePortType::Port) => {}
+                    Ok(v) => {
+                        println!(
+                            "INFO: not removing bridge port {} of type: {:?}",
+                            bridge_port, v
+                        );
+                        continue;
+                    }
+                    Err(e) => {
+                        println!(
+                            "ERROR: failed to get bridge porty type of bridge port {}: {:?}",
+                            bridge_port, e
+                        );
+                        continue;
+                    }
+                }
+
+                println!("INFO: removing bridge port {}...", bridge_port);
+                if let Err(e) = bridge_port.remove() {
+                    println!("ERROR: failed to remove bridge port: {:?}", e);
+                }
+            }
         }
     };
-    for bridge_port in default_bridge_ports {
-        match bridge_port.get_type() {
-            // we only go ahead when this is a real port
-            Ok(BridgePortType::Port) => {}
-            Ok(v) => {
-                println!(
-                    "INFO: not removing bridge port {} of type: {:?}",
-                    bridge_port, v
-                );
-                continue;
-            }
-            Err(e) => {
-                println!(
-                    "ERROR: failed to get bridge porty type of bridge port {}: {:?}",
-                    bridge_port, e
-                );
-                continue;
-            }
-        }
-
-        println!("INFO: removing bridge port {}...", bridge_port);
-        if let Err(e) = bridge_port.remove() {
-            println!("ERROR: failed to remove bridge port: {:?}", e);
-        }
-    }
 
     println!("INFO: Success");
 
