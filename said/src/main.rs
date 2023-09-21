@@ -131,5 +131,7 @@ fn main() -> ExitCode {
         }
     }
 
+    println!("INFO: Success");
+
     return ExitCode::SUCCESS;
 }
