@@ -960,7 +960,14 @@ impl<'a> Switch<'a> {
             .create_hostif_trap
             .ok_or(Error::APIUnavailable)?;
 
-        let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
+        let mut exclude_port_list_backing: Vec<sai_object_id_t> = Vec::new();
+        let mut mirror_session_backing: Vec<sai_object_id_t> = Vec::new();
+        let args: Vec<sai_attribute_t> = attrs
+            .into_iter()
+            .map(|v| {
+                v.to_sai_attribute_t(&mut exclude_port_list_backing, &mut mirror_session_backing)
+            })
+            .collect();
 
         let mut oid: sai_object_id_t = 0;
         let st = unsafe {
@@ -1509,7 +1516,7 @@ impl From<HostIfTrap<'_>> for HostIfTrapID {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum PacketAction {
     Drop,
     Forward,
@@ -1538,7 +1545,7 @@ impl From<PacketAction> for i32 {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum HostIfTrapType {
     STP,
     LACP,
@@ -1772,52 +1779,63 @@ pub enum HostIfTrapAttribute {
     Counter(CounterID),
 }
 
-impl From<HostIfTrapAttribute> for sai_attribute_t {
-    fn from(value: HostIfTrapAttribute) -> Self {
-        match value {
-            HostIfTrapAttribute::TrapType(v) => Self {
+impl HostIfTrapAttribute {
+    fn to_sai_attribute_t(
+        &self,
+        exclude_port_list_backing: &mut Vec<sai_object_id_t>,
+        mirror_session_backing: &mut Vec<sai_object_id_t>,
+    ) -> sai_attribute_t {
+        match self {
+            HostIfTrapAttribute::TrapType(v) => sai_attribute_t {
                 id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE,
-                value: sai_attribute_value_t { s32: v.into() },
+                value: sai_attribute_value_t { s32: (*v).into() },
             },
-            HostIfTrapAttribute::PacketAction(v) => Self {
+            HostIfTrapAttribute::PacketAction(v) => sai_attribute_t {
                 id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_PACKET_ACTION,
-                value: sai_attribute_value_t { s32: v.into() },
+                value: sai_attribute_value_t { s32: (*v).into() },
             },
-            HostIfTrapAttribute::TrapPriority(v) => Self {
+            HostIfTrapAttribute::TrapPriority(v) => sai_attribute_t {
                 id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_TRAP_PRIORITY,
-                value: sai_attribute_value_t { u32_: v },
+                value: sai_attribute_value_t { u32_: *v },
             },
             HostIfTrapAttribute::ExcludePortList(v) => {
-                let mut arg: Vec<sai_object_id_t> = v.into_iter().map(|v| v.into()).collect();
-                Self {
+                // let mut arg: Vec<sai_object_id_t> = v.into_iter().map(|v| v.into()).collect();
+                exclude_port_list_backing.clear();
+                v.iter()
+                    .for_each(|port_id| exclude_port_list_backing.push(port_id.id));
+                sai_attribute_t {
                     id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_EXCLUDE_PORT_LIST,
                     value: sai_attribute_value_t {
                         objlist: sai_object_list_t {
-                            count: arg.len() as u32,
-                            list: arg.as_mut_ptr(),
+                            count: exclude_port_list_backing.len() as u32,
+                            list: exclude_port_list_backing.as_mut_ptr(),
                         },
                     },
                 }
             }
-            HostIfTrapAttribute::TrapGroup(v) => Self {
+            HostIfTrapAttribute::TrapGroup(v) => sai_attribute_t {
                 id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP,
-                value: sai_attribute_value_t { oid: v.into() },
+                value: sai_attribute_value_t { oid: (*v).into() },
             },
             HostIfTrapAttribute::MirrorSession(v) => {
-                let mut arg: Vec<sai_object_id_t> = v.into_iter().map(|v| v.into()).collect();
-                Self {
+                // let mut arg: Vec<sai_object_id_t> = v.into_iter().map(|v| v.into()).collect();
+                mirror_session_backing.clear();
+                v.iter().for_each(|mirror_session_id| {
+                    mirror_session_backing.push(mirror_session_id.id)
+                });
+                sai_attribute_t {
                     id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_MIRROR_SESSION,
                     value: sai_attribute_value_t {
                         objlist: sai_object_list_t {
-                            count: arg.len() as u32,
-                            list: arg.as_mut_ptr(),
+                            count: mirror_session_backing.len() as u32,
+                            list: mirror_session_backing.as_mut_ptr(),
                         },
                     },
                 }
             }
-            HostIfTrapAttribute::Counter(v) => Self {
+            HostIfTrapAttribute::Counter(v) => sai_attribute_t {
                 id: _sai_hostif_trap_attr_t_SAI_HOSTIF_TRAP_ATTR_COUNTER_ID,
-                value: sai_attribute_value_t { oid: v.into() },
+                value: sai_attribute_value_t { oid: (*v).into() },
             },
         }
     }

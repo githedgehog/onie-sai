@@ -29,6 +29,10 @@ mod tests {
 
     #[test]
     fn basic_api_initialization_and_teardown() {
+        // query API version
+        let mut version: sai_api_version_t = 0;
+        let st = unsafe { sai_query_api_version(&mut version as *mut _) };
+        assert_eq!(st, SAI_STATUS_SUCCESS as i32);
         // initialize API
         let smt = sai_service_method_table_t {
             profile_get_next_value: Some(profile_get_next_value),
@@ -37,11 +41,16 @@ mod tests {
         let st = unsafe { sai_api_initialize(0, &smt) };
         assert_eq!(st, SAI_STATUS_SUCCESS as i32);
 
+        let mut apis_backing = MaybeUninit::<sai_apis_t>::uninit();
+        let st = unsafe { sai_metadata_apis_query(Some(sai_api_query), apis_backing.as_mut_ptr()) };
+        assert_eq!(st, 3);
+        let apis = unsafe { apis_backing.assume_init() };
+
         // query available functionalities
         // there would be `sai_metadata_apis_query()`, but one must stay away from this function as it is not backwards compatible
         // so we'll query simply for all the APIs that we care about, and stay away from the others that we don't care about
         // switch API
-        let mut switch_api_backing = MaybeUninit::<sai_switch_api_t>::new(Default::default());
+        let mut switch_api_backing = MaybeUninit::<sai_switch_api_t>::uninit();
         let switch_api_ptr_orig = switch_api_backing.as_ptr();
         let mut switch_api_ptr = switch_api_backing.as_mut_ptr();
         assert_eq!(switch_api_ptr_orig, switch_api_ptr);
@@ -73,7 +82,7 @@ mod tests {
         //     println!("in here for gods sake");
         //     unsafe { *vlan_api_ptr }
         // };
-        let mut vlan_api_backing = MaybeUninit::<sai_vlan_api_t>::new(Default::default());
+        let mut vlan_api_backing = MaybeUninit::<sai_vlan_api_t>::uninit();
         let vlan_api_ptr_orig = vlan_api_backing.as_ptr();
         let mut vlan_api_ptr = vlan_api_backing.as_mut_ptr();
         assert_eq!(vlan_api_ptr_orig, vlan_api_ptr);
@@ -91,8 +100,10 @@ mod tests {
             }
         };
 
+        let bl = unsafe { sai_metadata_sai_vlan_api };
+
         // bridge API
-        let mut bridge_api_backing = MaybeUninit::<sai_bridge_api_t>::new(Default::default());
+        let mut bridge_api_backing = MaybeUninit::<sai_bridge_api_t>::uninit();
         let bridge_api_ptr_orig = bridge_api_backing.as_ptr();
         let mut bridge_api_ptr = bridge_api_backing.as_mut_ptr();
         assert_eq!(bridge_api_ptr_orig, bridge_api_ptr);
@@ -111,7 +122,7 @@ mod tests {
         };
 
         // port API
-        let mut port_api_backing = MaybeUninit::<sai_port_api_t>::new(Default::default());
+        let mut port_api_backing = MaybeUninit::<sai_port_api_t>::uninit();
         let port_api_ptr_orig = port_api_backing.as_ptr();
         let mut port_api_ptr = port_api_backing.as_mut_ptr();
         assert_eq!(port_api_ptr_orig, port_api_ptr);
@@ -130,7 +141,7 @@ mod tests {
         };
 
         // HostIf API
-        let mut hostif_api_backing = MaybeUninit::<sai_hostif_api_t>::new(Default::default());
+        let mut hostif_api_backing = MaybeUninit::<sai_hostif_api_t>::uninit();
         let hostif_api_ptr_orig = hostif_api_backing.as_ptr();
         let mut hostif_api_ptr = hostif_api_backing.as_mut_ptr();
         assert_eq!(hostif_api_ptr_orig, hostif_api_ptr);
@@ -149,8 +160,7 @@ mod tests {
         };
 
         // router interface API
-        let mut router_interface_api_backing =
-            MaybeUninit::<sai_router_interface_api_t>::new(Default::default());
+        let mut router_interface_api_backing = MaybeUninit::<sai_router_interface_api_t>::uninit();
         let router_interface_api_ptr_orig = router_interface_api_backing.as_ptr();
         let mut router_interface_api_ptr = router_interface_api_backing.as_mut_ptr();
         assert_eq!(router_interface_api_ptr_orig, router_interface_api_ptr);
@@ -175,7 +185,7 @@ mod tests {
         };
 
         // route API
-        let mut route_api_backing = MaybeUninit::<sai_route_api_t>::new(Default::default());
+        let mut route_api_backing = MaybeUninit::<sai_route_api_t>::uninit();
         let route_api_ptr_orig = route_api_backing.as_ptr();
         let mut route_api_ptr = route_api_backing.as_mut_ptr();
         assert_eq!(route_api_ptr_orig, route_api_ptr);
@@ -192,10 +202,6 @@ mod tests {
                 *route_api_ptr
             }
         };
-
-        let mut apis: sai_apis_t = Default::default();
-        let st = unsafe { sai_metadata_apis_query(Some(sai_api_query), &mut apis) };
-        assert_eq!(st, 3);
 
         // simply check that the functions that we want to use are available
         // NOTE: we can't assume that this works in a unit test

@@ -27,9 +27,9 @@ fn main() -> ExitCode {
     };
     println!("INFO: successfully initialized SAI");
 
-    if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
-        println!("ERROR: failed to set log level for all APIs: {:?}", e);
-    }
+    // if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
+    //     println!("ERROR: failed to set log level for all APIs: {:?}", e);
+    // }
 
     // now create switch
     let switch = match sai_api.switch_create(vec![
