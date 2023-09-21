@@ -2,8 +2,13 @@ use std::ffi::CString;
 use std::process::ExitCode;
 
 use sai::BridgePortType;
+use sai::HostIfTableEntryAttribute;
+use sai::HostIfTableEntryChannelType;
+use sai::HostIfTableEntryType;
+use sai::HostIfTrapAttribute;
+use sai::HostIfTrapType;
+use sai::PacketAction;
 use sai::SwitchAttribute;
-use sai::SwitchID;
 use sai::SAI;
 
 fn main() -> ExitCode {
@@ -128,6 +133,64 @@ fn main() -> ExitCode {
                     println!("ERROR: failed to remove bridge port: {:?}", e);
                 }
             }
+        }
+    };
+
+    // program traps
+    let default_trap_group = match switch.get_default_hostif_trap_group() {
+        Ok(group) => group,
+        Err(e) => {
+            println!(
+                "ERROR: failed to get default host interface trap group: {:?}",
+                e
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    let _ip2me_trap = match switch.create_hostif_trap(vec![
+        HostIfTrapAttribute::TrapType(HostIfTrapType::IP2ME),
+        HostIfTrapAttribute::PacketAction(PacketAction::Trap),
+        HostIfTrapAttribute::TrapGroup(default_trap_group.into()),
+    ]) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("ERROR: failed to create ip2me trap: {:?}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+    let _arp_req_trap = match switch.create_hostif_trap(vec![
+        HostIfTrapAttribute::TrapType(HostIfTrapType::ARPRequest),
+        HostIfTrapAttribute::PacketAction(PacketAction::Copy),
+        HostIfTrapAttribute::TrapGroup(default_trap_group.into()),
+    ]) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("ERROR: failed to create ip2me trap: {:?}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+    let _arp_resp_trap = match switch.create_hostif_trap(vec![
+        HostIfTrapAttribute::TrapType(HostIfTrapType::ARPResponse),
+        HostIfTrapAttribute::PacketAction(PacketAction::Copy),
+        HostIfTrapAttribute::TrapGroup(default_trap_group.into()),
+    ]) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("ERROR: failed to create ip2me trap: {:?}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+    let _default_table_entry = match switch.create_hostif_table_entry(vec![
+        HostIfTableEntryAttribute::Type(HostIfTableEntryType::Wildcard),
+        HostIfTableEntryAttribute::ChannelType(HostIfTableEntryChannelType::NetdevPhysicalPort),
+    ]) {
+        Ok(v) => v,
+        Err(e) => {
+            println!(
+                "ERROR: failed to create default host interface table entry: {:?}",
+                e
+            );
+            return ExitCode::FAILURE;
         }
     };
 

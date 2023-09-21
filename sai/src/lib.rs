@@ -988,6 +988,33 @@ impl<'a> Switch<'a> {
         })
     }
 
+    pub fn create_hostif_table_entry(
+        &self,
+        attrs: Vec<HostIfTableEntryAttribute>,
+    ) -> Result<HostIfTableEntry<'a>, Error> {
+        // check that API is available/callable
+        let create_hostif_table_entry = self
+            .sai
+            .hostif_api
+            .create_hostif_table_entry
+            .ok_or(Error::APIUnavailable)?;
+
+        let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
+
+        let mut oid: sai_object_id_t = 0;
+        let st = unsafe {
+            create_hostif_table_entry(&mut oid, self.id, args.len() as u32, args.as_ptr())
+        };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(HostIfTableEntry {
+            id: oid,
+            sai: self.sai,
+        })
+    }
+
     pub fn set_switch_state_change_callback(
         &self,
         cb: Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>,
@@ -1474,6 +1501,7 @@ impl From<HostIfTrapGroup<'_>> for HostIfTrapGroupID {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct HostIfTrapGroup<'a> {
     id: sai_object_id_t,
     sai: &'a SAI,
@@ -1859,6 +1887,267 @@ impl std::fmt::Display for HostIfTrap<'_> {
 }
 
 impl<'a> HostIfTrapGroup<'a> {}
+
+#[derive(Clone, Copy, Debug)]
+pub enum HostIfTableEntryType {
+    Port,
+    LAG,
+    VLAN,
+    TrapID,
+    Wildcard,
+}
+
+impl From<HostIfTableEntryType> for i32 {
+    fn from(value: HostIfTableEntryType) -> Self {
+        match value {
+            HostIfTableEntryType::Port => {
+                _sai_hostif_table_entry_type_t_SAI_HOSTIF_TABLE_ENTRY_TYPE_PORT as i32
+            }
+            HostIfTableEntryType::LAG => {
+                _sai_hostif_table_entry_type_t_SAI_HOSTIF_TABLE_ENTRY_TYPE_LAG as i32
+            }
+            HostIfTableEntryType::VLAN => {
+                _sai_hostif_table_entry_type_t_SAI_HOSTIF_TABLE_ENTRY_TYPE_VLAN as i32
+            }
+            HostIfTableEntryType::TrapID => {
+                _sai_hostif_table_entry_type_t_SAI_HOSTIF_TABLE_ENTRY_TYPE_TRAP_ID as i32
+            }
+            HostIfTableEntryType::Wildcard => {
+                _sai_hostif_table_entry_type_t_SAI_HOSTIF_TABLE_ENTRY_TYPE_WILDCARD as i32
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum HostIfTableEntryChannelType {
+    CB,
+    FD,
+    NetdevPhysicalPort,
+    NetdevLogicalPort,
+    NetdevL3,
+    Genetlink,
+}
+
+impl From<HostIfTableEntryChannelType> for i32 {
+    fn from(value: HostIfTableEntryChannelType) -> Self {
+        match value {
+            HostIfTableEntryChannelType::CB => {
+                _sai_hostif_table_entry_channel_type_t_SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_CB as i32
+            }
+            HostIfTableEntryChannelType::FD => _sai_hostif_table_entry_channel_type_t_SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_FD as i32,
+            HostIfTableEntryChannelType::NetdevPhysicalPort => {
+                _sai_hostif_table_entry_channel_type_t_SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_PHYSICAL_PORT as i32
+            }
+            HostIfTableEntryChannelType::NetdevLogicalPort => {
+                _sai_hostif_table_entry_channel_type_t_SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_LOGICAL_PORT as i32
+            }
+            HostIfTableEntryChannelType::NetdevL3 => {
+                _sai_hostif_table_entry_channel_type_t_SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_NETDEV_L3 as i32
+            }
+            HostIfTableEntryChannelType::Genetlink => {
+                _sai_hostif_table_entry_channel_type_t_SAI_HOSTIF_TABLE_ENTRY_CHANNEL_TYPE_GENETLINK as i32
+            }
+        }
+    }
+}
+
+// TODO: still needs From implementation for all types
+// * @objects SAI_OBJECT_TYPE_PORT, SAI_OBJECT_TYPE_LAG, SAI_OBJECT_TYPE_ROUTER_INTERFACE
+// SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+#[derive(Clone, Copy)]
+pub struct HostIfTableEntryObjectID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for HostIfTableEntryObjectID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfTableEntryObjectID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<PortID> for HostIfTableEntryObjectID {
+    fn from(value: PortID) -> Self {
+        Self { id: value.id }
+    }
+}
+
+impl From<HostIfTableEntryObjectID> for sai_object_id_t {
+    fn from(value: HostIfTableEntryObjectID) -> Self {
+        value.id
+    }
+}
+
+// TODO: still needs From implementation for all types
+// * @objects SAI_OBJECT_TYPE_HOSTIF_TRAP, SAI_OBJECT_TYPE_HOSTIF_USER_DEFINED_TRAP
+// SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
+#[derive(Clone, Copy)]
+pub struct HostIfTableEntryTrapID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for HostIfTableEntryTrapID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfTableEntryTrapID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<HostIfTrapID> for HostIfTableEntryTrapID {
+    fn from(value: HostIfTrapID) -> Self {
+        Self { id: value.id }
+    }
+}
+
+impl From<HostIfTableEntryTrapID> for sai_object_id_t {
+    fn from(value: HostIfTableEntryTrapID) -> Self {
+        value.id
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum HostIfTableEntryAttribute {
+    Type(HostIfTableEntryType),
+    ObjectID(HostIfTableEntryObjectID),
+    TrapID(HostIfTableEntryTrapID),
+    ChannelType(HostIfTableEntryChannelType),
+    HostIf(HostIfID),
+}
+
+impl From<HostIfTableEntryAttribute> for sai_attribute_t {
+    fn from(value: HostIfTableEntryAttribute) -> Self {
+        match value {
+            HostIfTableEntryAttribute::Type(v) => Self {
+                id: _sai_hostif_table_entry_attr_t_SAI_HOSTIF_TABLE_ENTRY_ATTR_TYPE,
+                value: sai_attribute_value_t { s32: v.into() },
+            },
+            HostIfTableEntryAttribute::ObjectID(v) => Self {
+                id: _sai_hostif_table_entry_attr_t_SAI_HOSTIF_TABLE_ENTRY_ATTR_OBJ_ID,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+            HostIfTableEntryAttribute::TrapID(v) => Self {
+                id: _sai_hostif_table_entry_attr_t_SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+            HostIfTableEntryAttribute::ChannelType(v) => Self {
+                id: _sai_hostif_table_entry_attr_t_SAI_HOSTIF_TABLE_ENTRY_ATTR_CHANNEL_TYPE,
+                value: sai_attribute_value_t { s32: v.into() },
+            },
+            HostIfTableEntryAttribute::HostIf(v) => Self {
+                id: _sai_hostif_table_entry_attr_t_SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct HostIfTableEntryID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for HostIfTableEntryID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfTableEntryID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<HostIfTableEntryID> for sai_object_id_t {
+    fn from(value: HostIfTableEntryID) -> Self {
+        value.id
+    }
+}
+
+impl From<HostIfTableEntry<'_>> for HostIfTableEntryID {
+    fn from(value: HostIfTableEntry) -> Self {
+        Self { id: value.id }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct HostIfTableEntry<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for HostIfTableEntry<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HostIfTableEntry(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfTableEntry<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> HostIfTableEntry<'a> {}
+
+#[derive(Clone, Copy)]
+pub struct HostIfID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for HostIfID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<HostIfID> for sai_object_id_t {
+    fn from(value: HostIfID) -> Self {
+        value.id
+    }
+}
+
+impl From<HostIf<'_>> for HostIfID {
+    fn from(value: HostIf) -> Self {
+        Self { id: value.id }
+    }
+}
+
+pub struct HostIf<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for HostIf<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HostIf(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIf<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> HostIf<'a> {}
 
 #[derive(Clone, Copy)]
 pub struct PortID {
