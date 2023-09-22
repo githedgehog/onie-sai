@@ -10,6 +10,8 @@ use sai::HostIfTrapAttribute;
 use sai::HostIfTrapType;
 use sai::HostIfType;
 use sai::PacketAction;
+use sai::RouterInterfaceAttribute;
+use sai::RouterInterfaceType;
 use sai::SwitchAttribute;
 use sai::SAI;
 
@@ -217,6 +219,32 @@ fn main() -> ExitCode {
             println!(
                 "ERROR: failed to create host interface for CPU port {}: {:?}",
                 cpu_port, e
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // get the default virtual router
+    let default_virtual_router = match switch.get_default_virtual_router() {
+        Ok(v) => v,
+        Err(e) => {
+            println!("ERROR: failed to get default virtual router: {:?}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // prep the router: create loopback interface
+    // create initial routes
+    let _lo_rif = match switch.create_router_interface(vec![
+        RouterInterfaceAttribute::Type(RouterInterfaceType::Loopback),
+        RouterInterfaceAttribute::VirtualRouterID(default_virtual_router.into()),
+        RouterInterfaceAttribute::MTU(9100),
+    ]) {
+        Ok(v) => v,
+        Err(e) => {
+            println!(
+                "ERROR: failed to get create loopback interface for virtual router {}: {:?}",
+                default_virtual_router, e
             );
             return ExitCode::FAILURE;
         }
