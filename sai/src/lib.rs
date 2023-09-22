@@ -1,11 +1,13 @@
 use std::ffi::{CStr, CString};
 use std::sync::{Arc, Mutex, RwLock};
 
+use ipnet::IpNet;
 use sai_sys::*;
 use std::os::raw::{c_char, c_int};
 use std::ptr::{null, null_mut};
 
 // we are re-exporting some things here
+pub use sai_sys::sai_ip_prefix_t;
 pub use sai_sys::sai_mac_t;
 pub use sai_sys::SAI_KEY_INIT_CONFIG_FILE;
 
@@ -1079,31 +1081,7 @@ impl<'a> Switch<'a> {
 
         Ok(VirtualRouter {
             id: unsafe { attr.value.oid },
-            sai: self.sai,
-        })
-    }
-
-    pub fn create_router_interface(
-        &self,
-        attrs: Vec<RouterInterfaceAttribute>,
-    ) -> Result<RouterInterface, Error> {
-        let create_router_interface = self
-            .sai
-            .router_interface_api
-            .create_router_interface
-            .ok_or(Error::APIUnavailable)?;
-
-        let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
-
-        let mut oid: sai_object_id_t = 0;
-        let st =
-            unsafe { create_router_interface(&mut oid, self.id, args.len() as u32, args.as_ptr()) };
-        if st != SAI_STATUS_SUCCESS as sai_status_t {
-            return Err(Error::SAI(Status::from(st)));
-        }
-
-        Ok(RouterInterface {
-            id: oid,
+            switch_id: self.id,
             sai: self.sai,
         })
     }
@@ -2022,6 +2000,7 @@ impl HostIfTrapAttribute {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct HostIfTrap<'a> {
     id: sai_object_id_t,
     sai: &'a SAI,
@@ -2039,7 +2018,52 @@ impl std::fmt::Display for HostIfTrap<'_> {
     }
 }
 
-impl<'a> HostIfTrapGroup<'a> {}
+#[derive(Clone, Copy)]
+pub struct HostIfUserDefinedTrapID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for HostIfUserDefinedTrapID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfUserDefinedTrapID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<HostIfUserDefinedTrapID> for sai_object_id_t {
+    fn from(value: HostIfUserDefinedTrapID) -> Self {
+        value.id
+    }
+}
+
+impl From<HostIfUserDefinedTrap<'_>> for HostIfUserDefinedTrapID {
+    fn from(value: HostIfUserDefinedTrap<'_>) -> Self {
+        Self { id: value.id }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct HostIfUserDefinedTrap<'a> {
+    id: sai_object_id_t,
+    sai: &'a SAI,
+}
+
+impl std::fmt::Debug for HostIfUserDefinedTrap<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HostIfUserDefinedTrap(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfUserDefinedTrap<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum HostIfTableEntryType {
@@ -2526,6 +2550,7 @@ impl From<VirtualRouter<'_>> for VirtualRouterID {
 #[derive(Clone, Copy)]
 pub struct VirtualRouter<'a> {
     id: sai_object_id_t,
+    switch_id: sai_object_id_t,
     sai: &'a SAI,
 }
 
@@ -2541,7 +2566,70 @@ impl std::fmt::Display for VirtualRouter<'_> {
     }
 }
 
-impl<'a> VirtualRouter<'a> {}
+impl<'a> VirtualRouter<'a> {
+    pub fn create_router_interface(
+        &self,
+        attrs: Vec<RouterInterfaceAttribute>,
+    ) -> Result<RouterInterface, Error> {
+        let create_router_interface = self
+            .sai
+            .router_interface_api
+            .create_router_interface
+            .ok_or(Error::APIUnavailable)?;
+
+        let mut args: Vec<sai_attribute_t> = Vec::with_capacity(attrs.len() + 1);
+        args.push(sai_attribute_t {
+            id: _sai_router_interface_attr_t_SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID,
+            value: sai_attribute_value_t { oid: self.id },
+        });
+        for attr in attrs.into_iter() {
+            let sai_attr: sai_attribute_t = attr.into();
+            args.push(sai_attr);
+        }
+
+        let mut oid: sai_object_id_t = 0;
+        let st = unsafe {
+            create_router_interface(&mut oid, self.switch_id, args.len() as u32, args.as_ptr())
+        };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(RouterInterface {
+            id: oid,
+            sai: self.sai,
+        })
+    }
+
+    pub fn create_route_entry(
+        &self,
+        destination: IpNet,
+        attrs: Vec<RouteEntryAttribute>,
+    ) -> Result<RouteEntry, Error> {
+        let create_route_entry = self
+            .sai
+            .route_api
+            .create_route_entry
+            .ok_or(Error::APIUnavailable)?;
+
+        let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
+
+        let entry = sai_route_entry_t {
+            switch_id: self.switch_id,
+            vr_id: self.id,
+            destination: destination.into(),
+        };
+        let st = unsafe { create_route_entry(&entry, args.len() as u32, args.as_ptr()) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(RouteEntry {
+            entry: entry,
+            sai: self.sai,
+        })
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum RouterInterfaceType {
@@ -2637,7 +2725,7 @@ impl From<RouterInterfaceType> for i32 {
 // TODO: Ingress and Egress ACL need proper type
 #[derive(Clone, Copy, Debug)]
 pub enum RouterInterfaceAttribute {
-    VirtualRouterID(VirtualRouterID),
+    // VirtualRouterID(VirtualRouterID),
     Type(RouterInterfaceType),
     PortID(RouterInterfacePortID),
     VlanID(VLANID),
@@ -2663,10 +2751,10 @@ pub enum RouterInterfaceAttribute {
 impl From<RouterInterfaceAttribute> for sai_attribute_t {
     fn from(value: RouterInterfaceAttribute) -> Self {
         match value {
-            RouterInterfaceAttribute::VirtualRouterID(v) => sai_attribute_t {
-                id: _sai_router_interface_attr_t_SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID,
-                value: sai_attribute_value_t { oid: v.into() },
-            },
+            // RouterInterfaceAttribute::VirtualRouterID(v) => sai_attribute_t {
+            //     id: _sai_router_interface_attr_t_SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID,
+            //     value: sai_attribute_value_t { oid: v.into() },
+            // },
             RouterInterfaceAttribute::Type(v) => sai_attribute_t {
                 id: _sai_router_interface_attr_t_SAI_ROUTER_INTERFACE_ATTR_TYPE,
                 value: sai_attribute_value_t { s32: v.into() },
@@ -2838,50 +2926,142 @@ impl std::fmt::Display for RouterInterface<'_> {
 
 impl<'a> RouterInterface<'a> {}
 
+// TODO: implement From for all types
+// * @type sai_object_id_t
+// * @objects SAI_OBJECT_TYPE_NEXT_HOP, SAI_OBJECT_TYPE_NEXT_HOP_GROUP, SAI_OBJECT_TYPE_ROUTER_INTERFACE, SAI_OBJECT_TYPE_PORT
+// SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID,
 #[derive(Clone, Copy)]
-pub struct RouteEntryID {
+pub struct RouteEntryNextHopID {
     id: sai_object_id_t,
 }
 
-impl std::fmt::Debug for RouteEntryID {
+impl std::fmt::Debug for RouteEntryNextHopID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "oid:{:#x}", self.id)
     }
 }
 
-impl std::fmt::Display for RouteEntryID {
+impl std::fmt::Display for RouteEntryNextHopID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "oid:{:#x}", self.id)
     }
 }
 
-impl From<RouteEntryID> for sai_object_id_t {
-    fn from(value: RouteEntryID) -> Self {
+impl From<RouteEntryNextHopID> for sai_object_id_t {
+    fn from(value: RouteEntryNextHopID) -> Self {
         value.id
     }
 }
 
-impl From<RouteEntry<'_>> for RouteEntryID {
-    fn from(value: RouteEntry) -> Self {
+impl From<PortID> for RouteEntryNextHopID {
+    fn from(value: PortID) -> Self {
         Self { id: value.id }
+    }
+}
+
+impl From<Port<'_>> for RouteEntryNextHopID {
+    fn from(value: Port<'_>) -> Self {
+        Self { id: value.id }
+    }
+}
+
+impl From<RouterInterfaceID> for RouteEntryNextHopID {
+    fn from(value: RouterInterfaceID) -> Self {
+        Self { id: value.id }
+    }
+}
+
+impl From<RouterInterface<'_>> for RouteEntryNextHopID {
+    fn from(value: RouterInterface<'_>) -> Self {
+        Self { id: value.id }
+    }
+}
+
+/*
+    *
+     * @type sai_packet_action_t
+    SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION = SAI_ROUTE_ENTRY_ATTR_START,
+     * @type sai_object_id_t
+     * @objects SAI_OBJECT_TYPE_HOSTIF_USER_DEFINED_TRAP
+    SAI_ROUTE_ENTRY_ATTR_USER_TRAP_ID,
+     * @type sai_object_id_t
+     * @objects SAI_OBJECT_TYPE_NEXT_HOP, SAI_OBJECT_TYPE_NEXT_HOP_GROUP, SAI_OBJECT_TYPE_ROUTER_INTERFACE, SAI_OBJECT_TYPE_PORT
+    SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID,
+     * @type sai_uint32_t
+    SAI_ROUTE_ENTRY_ATTR_META_DATA,
+     * @type sai_ip_addr_family_t
+    SAI_ROUTE_ENTRY_ATTR_IP_ADDR_FAMILY,
+     * @type sai_object_id_t
+     * @objects SAI_OBJECT_TYPE_COUNTER
+    SAI_ROUTE_ENTRY_ATTR_COUNTER_ID,
+*/
+
+#[derive(Clone, Copy, Debug)]
+pub enum RouteEntryAttribute {
+    PacketAction(PacketAction),
+    UserDefinedTrap(HostIfUserDefinedTrapID),
+    NextHopID(RouteEntryNextHopID),
+    MetaData(u32),
+    AddrFamily(sai_ip_addr_family_t),
+    CounterID(CounterID),
+}
+
+impl From<RouteEntryAttribute> for sai_attribute_t {
+    fn from(value: RouteEntryAttribute) -> Self {
+        match value {
+            RouteEntryAttribute::PacketAction(v) => sai_attribute_t {
+                id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION,
+                value: sai_attribute_value_t { s32: v.into() },
+            },
+            RouteEntryAttribute::UserDefinedTrap(v) => sai_attribute_t {
+                id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_USER_TRAP_ID,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+            RouteEntryAttribute::NextHopID(v) => sai_attribute_t {
+                id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+            RouteEntryAttribute::MetaData(v) => sai_attribute_t {
+                id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_META_DATA,
+                value: sai_attribute_value_t { u32_: v },
+            },
+            RouteEntryAttribute::AddrFamily(v) => sai_attribute_t {
+                id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_IP_ADDR_FAMILY,
+                value: sai_attribute_value_t { u32_: v },
+            },
+            RouteEntryAttribute::CounterID(v) => sai_attribute_t {
+                id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_COUNTER_ID,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+        }
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct RouteEntry<'a> {
-    id: sai_object_id_t,
+    entry: sai_route_entry_t,
     sai: &'a SAI,
 }
 
 impl std::fmt::Debug for RouteEntry<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RouteEntry(oid:{:#x})", self.id)
+        // TODO
+        write!(
+            f,
+            "RouteEntry(switch_id:oid:{:#x}, vr_id:oid:{:#x})",
+            self.entry.switch_id, self.entry.vr_id
+        )
     }
 }
 
 impl std::fmt::Display for RouteEntry<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        // TODO
+        write!(
+            f,
+            "RouteEntry: switch_id:oid:{:#x}, vr_id:oid:{:#x})",
+            self.entry.switch_id, self.entry.vr_id
+        )
     }
 }
 

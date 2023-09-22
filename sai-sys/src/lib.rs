@@ -2,7 +2,34 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+use ipnet::IpNet;
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+impl From<IpNet> for sai_ip_prefix_t {
+    fn from(value: IpNet) -> Self {
+        match value {
+            IpNet::V4(v) => sai_ip_prefix_t {
+                addr_family: _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV4,
+                addr: sai_ip_addr_t {
+                    ip4: v.addr().into(),
+                },
+                mask: sai_ip_addr_t {
+                    ip4: v.netmask().into(),
+                },
+            },
+            IpNet::V6(v) => sai_ip_prefix_t {
+                addr_family: _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV6,
+                addr: sai_ip_addr_t {
+                    ip6: v.addr().octets(),
+                },
+                mask: sai_ip_addr_t {
+                    ip6: v.netmask().octets(),
+                },
+            },
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

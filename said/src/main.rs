@@ -1,6 +1,8 @@
 use std::ffi::CString;
 use std::process::ExitCode;
+use std::str::FromStr;
 
+use ipnet::IpNet;
 use sai::BridgePortType;
 use sai::HostIfAttribute;
 use sai::HostIfTableEntryAttribute;
@@ -10,6 +12,7 @@ use sai::HostIfTrapAttribute;
 use sai::HostIfTrapType;
 use sai::HostIfType;
 use sai::PacketAction;
+use sai::RouteEntryAttribute;
 use sai::RouterInterfaceAttribute;
 use sai::RouterInterfaceType;
 use sai::SwitchAttribute;
@@ -235,15 +238,43 @@ fn main() -> ExitCode {
 
     // prep the router: create loopback interface
     // create initial routes
-    let _lo_rif = match switch.create_router_interface(vec![
+    let _lo_rif = match default_virtual_router.create_router_interface(vec![
         RouterInterfaceAttribute::Type(RouterInterfaceType::Loopback),
-        RouterInterfaceAttribute::VirtualRouterID(default_virtual_router.into()),
         RouterInterfaceAttribute::MTU(9100),
     ]) {
         Ok(v) => v,
         Err(e) => {
             println!(
                 "ERROR: failed to get create loopback interface for virtual router {}: {:?}",
+                default_virtual_router, e
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    let _default_route_entry = match default_virtual_router.create_route_entry(
+        IpNet::from_str("0.0.0.0/0").unwrap(),
+        vec![RouteEntryAttribute::PacketAction(PacketAction::Drop)],
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            println!(
+                "ERROR: failed to create default route entry for virtual router {}: {:?}",
+                default_virtual_router, e
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    let _myip_route_entry = match default_virtual_router.create_route_entry(
+        IpNet::from_str("10.10.10.1/32").unwrap(),
+        vec![
+            RouteEntryAttribute::PacketAction(PacketAction::Forward),
+            RouteEntryAttribute::NextHopID(cpu_port.into()),
+        ],
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            println!(
+                "ERROR: failed to create route entry for ourselves for virtual router {}: {:?}",
                 default_virtual_router, e
             );
             return ExitCode::FAILURE;
