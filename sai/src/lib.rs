@@ -267,6 +267,7 @@ impl From<Status> for InitError {
 pub enum Error {
     SwitchAlreadyCreated,
     APIUnavailable,
+    APIFunctionUnavailable,
     SAI(Status),
 }
 
@@ -540,16 +541,51 @@ impl From<API> for sai_api_t {
 
 #[derive(Debug, Default)]
 pub struct SAI {
-    switch_api: sai_switch_api_t,
-    vlan_api: sai_vlan_api_t,
-    bridge_api: sai_bridge_api_t,
-    port_api: sai_port_api_t,
-    hostif_api: sai_hostif_api_t,
-    router_interface_api: sai_router_interface_api_t,
-    route_api: sai_route_api_t,
+    switch_api_backing: sai_switch_api_t,
+    switch_api_ptr: Option<*const sai_switch_api_t>,
+    vlan_api_backing: sai_vlan_api_t,
+    vlan_api_ptr: Option<*const sai_vlan_api_t>,
+    bridge_api_backing: sai_bridge_api_t,
+    bridge_api_ptr: Option<*const sai_bridge_api_t>,
+    port_api_backing: sai_port_api_t,
+    port_api_ptr: Option<*const sai_port_api_t>,
+    hostif_api_backing: sai_hostif_api_t,
+    hostif_api_ptr: Option<*const sai_hostif_api_t>,
+    router_interface_api_backing: sai_router_interface_api_t,
+    router_interface_api_ptr: Option<*const sai_router_interface_api_t>,
+    route_api_backing: sai_route_api_t,
+    route_api_ptr: Option<*const sai_route_api_t>,
 }
 
 impl SAI {
+    fn switch_api(&self) -> Option<sai_switch_api_t> {
+        self.switch_api_ptr.map(|api| unsafe { *api })
+    }
+
+    fn vlan_api(&self) -> Option<sai_vlan_api_t> {
+        self.vlan_api_ptr.map(|api| unsafe { *api })
+    }
+
+    fn bridge_api(&self) -> Option<sai_bridge_api_t> {
+        self.bridge_api_ptr.map(|api| unsafe { *api })
+    }
+
+    fn port_api(&self) -> Option<sai_port_api_t> {
+        self.port_api_ptr.map(|api| unsafe { *api })
+    }
+
+    fn hostif_api(&self) -> Option<sai_hostif_api_t> {
+        self.hostif_api_ptr.map(|api| unsafe { *api })
+    }
+
+    fn router_interface_api(&self) -> Option<sai_router_interface_api_t> {
+        self.router_interface_api_ptr.map(|api| unsafe { *api })
+    }
+
+    fn route_api(&self) -> Option<sai_route_api_t> {
+        self.route_api_ptr.map(|api| unsafe { *api })
+    }
+
     pub fn api_version() -> Result<u64, Status> {
         let mut version: sai_api_version_t = 0;
         unsafe {
@@ -625,7 +661,7 @@ impl SAI {
 
                 // this calls the the underlying C function
                 ret.init()?;
-                ret.apis_query();
+                ret.apis_query()?;
 
                 // we lock our singleton
                 *sai_initialized = true;
@@ -647,92 +683,105 @@ impl SAI {
         }
     }
 
-    fn apis_query(&mut self) {
+    // TODO: this shouldn't necessarily fail the initialization. However, for our case right now this is exactly what we need/want. So let's just continue like this.
+    fn apis_query(&mut self) -> Result<(), Status> {
+        // NOTE: we are not using sai_metadata_apis_query on purpose, as we got burned by it. If you want to know details, talk to mheese about it.
+        // As we are only using a few select APIs at this point in time, we can also easily afford to simply query only the APIs that we need.
+        //
+        // Here is a dilemma with the implementation unfortunately. While the docs talk about "Caller allocated method table", the reality of implementations clearly looks
+        // different: at least Broadcom SAI is returning a pointer to their own allocated/managed table, and they are not using a provided table at all. We can detect this
+        // by comparing the returned pointer to the one that we passed in essentially.
+        //
+        // Furthermore, here is the biggest problem: just because you get a pointer to a table back, does not mean that it is actually populated with functions already
+        // even though the function is considered a success and returns with success.
+        // This means that in Rust (like in C) we need to dereference the returned pointer every time we use it, and we can't simply store a copy of the table that the
+        // returned pointer is pointer to. Affected APIs are at least: vlan_api, router_interface_api.
+        //
         // switch API
         {
-            let mut switch_api_backing: sai_switch_api_t = Default::default();
-            let switch_api_ptr_orig = &switch_api_backing as *const _;
-            let mut switch_api_ptr = &mut switch_api_backing as *mut _;
+            self.switch_api_backing = Default::default();
+            let switch_api_ptr_orig = &self.switch_api_backing as *const _;
+            let mut switch_api_ptr = &mut self.switch_api_backing as *mut _;
             let switch_api_ptr_ptr = &mut switch_api_ptr as *mut *mut _;
             let st = unsafe { sai_api_query(_sai_api_t_SAI_API_SWITCH, switch_api_ptr_ptr as _) };
-            if st == SAI_STATUS_SUCCESS as i32 {
-                self.switch_api = if switch_api_ptr_orig == switch_api_ptr {
-                    switch_api_backing
-                } else {
-                    unsafe { *switch_api_ptr }
-                };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
             }
+            if switch_api_ptr_orig != switch_api_ptr {
+                // TODO: print debug
+            }
+            self.switch_api_ptr = Some(switch_api_ptr);
         }
 
         // vlan API
         {
-            let mut vlan_api_backing: sai_vlan_api_t = Default::default();
-            let vlan_api_ptr_orig = &vlan_api_backing as *const _;
-            let mut vlan_api_ptr = &mut vlan_api_backing as *mut _;
+            self.vlan_api_backing = Default::default();
+            let vlan_api_ptr_orig = &self.vlan_api_backing as *const _;
+            let mut vlan_api_ptr = &mut self.vlan_api_backing as *mut _;
             let vlan_api_ptr_ptr = &mut vlan_api_ptr as *mut *mut _;
             let st = unsafe { sai_api_query(_sai_api_t_SAI_API_VLAN, vlan_api_ptr_ptr as _) };
-            if st == SAI_STATUS_SUCCESS as i32 {
-                self.vlan_api = if vlan_api_ptr_orig == vlan_api_ptr {
-                    vlan_api_backing
-                } else {
-                    unsafe { *vlan_api_ptr }
-                };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
             }
+            if vlan_api_ptr_orig != vlan_api_ptr {
+                // TODO: print debug
+            }
+            self.vlan_api_ptr = Some(vlan_api_ptr);
         }
 
         // bridge API
         {
-            let mut bridge_api_backing: sai_bridge_api_t = Default::default();
-            let bridge_api_ptr_orig = &bridge_api_backing as *const _;
-            let mut bridge_api_ptr = &mut bridge_api_backing as *mut _;
+            self.bridge_api_backing = Default::default();
+            let bridge_api_ptr_orig = &self.bridge_api_backing as *const _;
+            let mut bridge_api_ptr = &mut self.bridge_api_backing as *mut _;
             let bridge_api_ptr_ptr = &mut bridge_api_ptr as *mut *mut _;
             let st = unsafe { sai_api_query(_sai_api_t_SAI_API_BRIDGE, bridge_api_ptr_ptr as _) };
-            if st == SAI_STATUS_SUCCESS as i32 {
-                self.bridge_api = if bridge_api_ptr_orig == bridge_api_ptr {
-                    bridge_api_backing
-                } else {
-                    unsafe { *bridge_api_ptr }
-                };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
             }
+            if bridge_api_ptr_orig != bridge_api_ptr {
+                // TODO: print debug
+            }
+            self.bridge_api_ptr = Some(bridge_api_ptr);
         }
 
         // port API
         {
-            let mut port_api_backing: sai_port_api_t = Default::default();
-            let port_api_ptr_orig = &port_api_backing as *const _;
-            let mut port_api_ptr = &mut port_api_backing as *mut _;
+            self.port_api_backing = Default::default();
+            let port_api_ptr_orig = &self.port_api_backing as *const _;
+            let mut port_api_ptr = &mut self.port_api_backing as *mut _;
             let port_api_ptr_ptr = &mut port_api_ptr as *mut *mut _;
             let st = unsafe { sai_api_query(_sai_api_t_SAI_API_PORT, port_api_ptr_ptr as _) };
-            if st == SAI_STATUS_SUCCESS as i32 {
-                self.port_api = if port_api_ptr_orig == port_api_ptr {
-                    port_api_backing
-                } else {
-                    unsafe { *port_api_ptr }
-                };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
             }
+            if port_api_ptr_orig != port_api_ptr {
+                // TODO: print debug
+            }
+            self.port_api_ptr = Some(port_api_ptr);
         }
 
         // hostif API
         {
-            let mut hostif_api_backing: sai_hostif_api_t = Default::default();
-            let hostif_api_ptr_orig = &hostif_api_backing as *const _;
-            let mut hostif_api_ptr = &mut hostif_api_backing as *mut _;
+            self.hostif_api_backing = Default::default();
+            let hostif_api_ptr_orig = &self.hostif_api_backing as *const _;
+            let mut hostif_api_ptr = &mut self.hostif_api_backing as *mut _;
             let hostif_api_ptr_ptr = &mut hostif_api_ptr as *mut *mut _;
             let st = unsafe { sai_api_query(_sai_api_t_SAI_API_HOSTIF, hostif_api_ptr_ptr as _) };
-            if st == SAI_STATUS_SUCCESS as i32 {
-                self.hostif_api = if hostif_api_ptr_orig == hostif_api_ptr {
-                    hostif_api_backing
-                } else {
-                    unsafe { *hostif_api_ptr }
-                };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
             }
+            if hostif_api_ptr_orig == hostif_api_ptr {
+                // TODO: print debug
+            }
+            self.hostif_api_ptr = Some(hostif_api_ptr);
         }
 
         // router interface API
         {
-            let mut router_interface_api_backing: sai_router_interface_api_t = Default::default();
-            let router_interface_api_ptr_orig = &router_interface_api_backing as *const _;
-            let mut router_interface_api_ptr = &mut router_interface_api_backing as *mut _;
+            self.router_interface_api_backing = Default::default();
+            let router_interface_api_ptr_orig = &self.router_interface_api_backing as *const _;
+            let mut router_interface_api_ptr = &mut self.router_interface_api_backing as *mut _;
             let router_interface_api_ptr_ptr = &mut router_interface_api_ptr as *mut *mut _;
             let st = unsafe {
                 sai_api_query(
@@ -740,33 +789,35 @@ impl SAI {
                     router_interface_api_ptr_ptr as _,
                 )
             };
-            if st == SAI_STATUS_SUCCESS as i32 {
-                self.router_interface_api =
-                    if router_interface_api_ptr_orig == router_interface_api_ptr {
-                        router_interface_api_backing
-                    } else {
-                        unsafe { *router_interface_api_ptr }
-                    };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
             }
+            if router_interface_api_ptr_orig != router_interface_api_ptr {
+                // TODO: print debug
+            }
+            self.router_interface_api_ptr = Some(router_interface_api_ptr);
         }
 
         // route API
         {
-            let mut route_api_backing: sai_route_api_t = Default::default();
-            let route_api_ptr_orig = &route_api_backing as *const _;
-            let mut route_api_ptr = &mut route_api_backing as *mut _;
+            self.route_api_backing = Default::default();
+            let route_api_ptr_orig = &self.route_api_backing as *const _;
+            let mut route_api_ptr = &mut self.route_api_backing as *mut _;
             let route_api_ptr_ptr = &mut route_api_ptr as *mut *mut _;
             let st = unsafe { sai_api_query(_sai_api_t_SAI_API_ROUTE, route_api_ptr_ptr as _) };
-            if st == SAI_STATUS_SUCCESS as i32 {
-                self.route_api = if route_api_ptr_orig == route_api_ptr {
-                    route_api_backing
-                } else {
-                    unsafe { *route_api_ptr }
-                };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
             }
+            if route_api_ptr_orig != route_api_ptr {
+                // TODO: print debug
+            }
+            self.route_api_ptr = Some(route_api_ptr);
         }
+        Ok(())
     }
 
+    // NOTE: we abandoned this easy and convenient way of querying the APIs as we got burned by it.
+    // Ask mheese if you are curious about the details.
     // fn metadata_api_query(&mut self) -> Result<i32, Status> {
     //     // query available functionality
     //     unsafe {
@@ -793,7 +844,10 @@ impl SAI {
             return Err(Error::SwitchAlreadyCreated);
         }
         // check that API is available/callable
-        let create_switch = self.switch_api.create_switch.ok_or(Error::APIUnavailable)?;
+        let switch_api = self.switch_api().ok_or(Error::APIUnavailable)?;
+        let create_switch = switch_api
+            .create_switch
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // now call it
         let mut sw_id: sai_object_id_t = 0;
@@ -881,11 +935,10 @@ impl std::fmt::Display for Switch<'_> {
 impl<'a> Switch<'a> {
     pub fn get_default_vlan(&self) -> Result<VLAN<'a>, Error> {
         // check that API is available/callable
-        let get_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let get_switch_attribute = switch_api
             .get_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut attr = sai_attribute_t {
             id: _sai_switch_attr_t_SAI_SWITCH_ATTR_DEFAULT_VLAN_ID,
@@ -905,11 +958,10 @@ impl<'a> Switch<'a> {
 
     pub fn get_default_bridge(&self) -> Result<Bridge<'a>, Error> {
         // check that API is available/callable
-        let get_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let get_switch_attribute = switch_api
             .get_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut attr = sai_attribute_t {
             id: _sai_switch_attr_t_SAI_SWITCH_ATTR_DEFAULT_1Q_BRIDGE_ID,
@@ -929,11 +981,10 @@ impl<'a> Switch<'a> {
 
     pub fn get_default_hostif_trap_group(&self) -> Result<HostIfTrapGroup<'a>, Error> {
         // check that API is available/callable
-        let get_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let get_switch_attribute = switch_api
             .get_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut attr = sai_attribute_t {
             id: _sai_switch_attr_t_SAI_SWITCH_ATTR_DEFAULT_TRAP_GROUP,
@@ -956,11 +1007,10 @@ impl<'a> Switch<'a> {
         attrs: Vec<HostIfTrapAttribute>,
     ) -> Result<HostIfTrap<'a>, Error> {
         // check that API is available/callable
-        let create_hostif_trap = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let create_hostif_trap = hostif_api
             .create_hostif_trap
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut exclude_port_list_backing: Vec<sai_object_id_t> = Vec::new();
         let mut mirror_session_backing: Vec<sai_object_id_t> = Vec::new();
@@ -995,11 +1045,10 @@ impl<'a> Switch<'a> {
         attrs: Vec<HostIfTableEntryAttribute>,
     ) -> Result<HostIfTableEntry<'a>, Error> {
         // check that API is available/callable
-        let create_hostif_table_entry = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let create_hostif_table_entry = hostif_api
             .create_hostif_table_entry
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
 
@@ -1018,11 +1067,10 @@ impl<'a> Switch<'a> {
     }
 
     pub fn get_cpu_port(&self) -> Result<Port<'a>, Error> {
-        let get_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let get_switch_attribute = switch_api
             .get_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut attr = sai_attribute_t {
             id: _sai_switch_attr_t_SAI_SWITCH_ATTR_CPU_PORT,
@@ -1042,11 +1090,10 @@ impl<'a> Switch<'a> {
 
     pub fn create_hostif(&self, attrs: Vec<HostIfAttribute>) -> Result<HostIf, Error> {
         // check that API is available/callable
-        let create_hostif = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let create_hostif = hostif_api
             .create_hostif
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
 
@@ -1063,11 +1110,10 @@ impl<'a> Switch<'a> {
     }
 
     pub fn get_default_virtual_router(&self) -> Result<VirtualRouter, Error> {
-        let get_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let get_switch_attribute = switch_api
             .get_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut attr = sai_attribute_t {
             id: _sai_switch_attr_t_SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID,
@@ -1087,11 +1133,10 @@ impl<'a> Switch<'a> {
     }
 
     pub fn get_ports(&self) -> Result<Vec<Port<'a>>, Error> {
-        let get_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let get_switch_attribute = switch_api
             .get_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut ports: Vec<sai_object_id_t> = vec![0u64; 128];
         let mut attr = sai_attribute_t {
@@ -1125,11 +1170,10 @@ impl<'a> Switch<'a> {
 
     pub fn enable_shell(&self) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let attr = sai_attribute_t {
             id: _sai_switch_attr_t_SAI_SWITCH_ATTR_SWITCH_SHELL_ENABLE,
@@ -1145,11 +1189,10 @@ impl<'a> Switch<'a> {
 
     pub fn remove(self) -> Result<(), Error> {
         // check that API is available/callable
-        let remove_switch = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let remove_switch = switch_api
             .remove_switch
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st: sai_status_t = unsafe { remove_switch(self.id) };
         if st != SAI_STATUS_SUCCESS as sai_status_t {
@@ -1164,11 +1207,10 @@ impl<'a> Switch<'a> {
         cb: Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>,
     ) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // we acquire this lock and will not let it go before the end of this function which is correct
         let mut cb_write_lock = SWITCH_STATE_CHANGE_CALLBACK.write().unwrap();
@@ -1194,11 +1236,10 @@ impl<'a> Switch<'a> {
         cb: Box<dyn Fn(sai_object_id_t) + Send + Sync>,
     ) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // we acquire this lock and will not let it go before the end of this function which is correct
         let mut cb_write_lock = SWITCH_SHUTDOWN_REQUEST_CALLBACK.write().unwrap();
@@ -1224,11 +1265,10 @@ impl<'a> Switch<'a> {
         cb: Box<dyn Fn(Vec<sai_fdb_event_notification_data_t>) + Send + Sync>,
     ) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // we acquire this lock and will not let it go before the end of this function which is correct
         let mut cb_write_lock = FDB_EVENT_CALLBACK.write().unwrap();
@@ -1254,11 +1294,10 @@ impl<'a> Switch<'a> {
         cb: Box<dyn Fn(Vec<sai_nat_event_notification_data_t>) + Send + Sync>,
     ) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // we acquire this lock and will not let it go before the end of this function which is correct
         let mut cb_write_lock = NAT_EVENT_CALLBACK.write().unwrap();
@@ -1284,11 +1323,10 @@ impl<'a> Switch<'a> {
         cb: Box<dyn Fn(Vec<sai_port_oper_status_notification_t>) + Send + Sync>,
     ) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // we acquire this lock and will not let it go before the end of this function which is correct
         let mut cb_write_lock = PORT_STATE_CHANGE_CALLBACK.write().unwrap();
@@ -1314,11 +1352,10 @@ impl<'a> Switch<'a> {
         cb: Box<dyn Fn(Vec<sai_queue_deadlock_notification_data_t>) + Send + Sync>,
     ) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // we acquire this lock and will not let it go before the end of this function which is correct
         let mut cb_write_lock = QUEUE_PFC_DEADLOCK_CALLBACK.write().unwrap();
@@ -1344,11 +1381,10 @@ impl<'a> Switch<'a> {
         cb: Box<dyn Fn(Vec<sai_bfd_session_state_notification_t>) + Send + Sync>,
     ) -> Result<(), Error> {
         // check that API is available/callable
-        let set_switch_attribute = self
-            .sai
-            .switch_api
+        let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
+        let set_switch_attribute = switch_api
             .set_switch_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         // we acquire this lock and will not let it go before the end of this function which is correct
         let mut cb_write_lock = BFD_SESSION_STATE_CHANGE_CALLBACK.write().unwrap();
@@ -1441,11 +1477,10 @@ impl std::fmt::Display for VLAN<'_> {
 impl<'a> VLAN<'a> {
     pub fn get_members(&self) -> Result<Vec<VLANMember<'a>>, Error> {
         // check that API is available/callable
-        let get_vlan_attribute = self
-            .sai
-            .vlan_api
+        let vlan_api = self.sai.vlan_api().ok_or(Error::APIUnavailable)?;
+        let get_vlan_attribute = vlan_api
             .get_vlan_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut members: Vec<sai_object_id_t> = vec![0u64; 128];
         let mut attr = sai_attribute_t {
@@ -1498,11 +1533,10 @@ impl std::fmt::Display for VLANMember<'_> {
 impl<'a> VLANMember<'a> {
     pub fn remove(self) -> Result<(), Error> {
         // check that API is available/callable
-        let remove_vlan_member = self
-            .sai
-            .vlan_api
+        let vlan_api = self.sai.vlan_api().ok_or(Error::APIUnavailable)?;
+        let remove_vlan_member = vlan_api
             .remove_vlan_member
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         match unsafe { remove_vlan_member(self.id) } {
             0 => Ok(()),
@@ -1561,11 +1595,10 @@ impl std::fmt::Display for Bridge<'_> {
 impl<'a> Bridge<'a> {
     pub fn get_ports(&self) -> Result<Vec<BridgePort>, Error> {
         // check that API is available/callable
-        let get_bridge_attribute = self
-            .sai
-            .bridge_api
+        let bridge_api = self.sai.bridge_api().ok_or(Error::APIUnavailable)?;
+        let get_bridge_attribute = bridge_api
             .get_bridge_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut members: Vec<sai_object_id_t> = vec![0u64; 128];
         let mut attr = sai_attribute_t {
@@ -1618,11 +1651,10 @@ impl std::fmt::Display for BridgePort<'_> {
 impl<'a> BridgePort<'a> {
     pub fn get_type(&self) -> Result<BridgePortType, Error> {
         // check that API is available/callable
-        let get_bridge_port_attribute = self
-            .sai
-            .bridge_api
+        let bridge_api = self.sai.bridge_api().ok_or(Error::APIUnavailable)?;
+        let get_bridge_port_attribute = bridge_api
             .get_bridge_port_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut attr = sai_attribute_t {
             id: _sai_bridge_port_attr_t_SAI_BRIDGE_PORT_ATTR_TYPE,
@@ -1640,11 +1672,10 @@ impl<'a> BridgePort<'a> {
 
     pub fn remove(self) -> Result<(), Error> {
         // check that API is available/callable
-        let remove_bridge_port = self
-            .sai
-            .bridge_api
+        let bridge_api = self.sai.bridge_api().ok_or(Error::APIUnavailable)?;
+        let remove_bridge_port = bridge_api
             .remove_bridge_port
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         match unsafe { remove_bridge_port(self.id) } {
             0 => Ok(()),
@@ -1725,11 +1756,10 @@ impl std::fmt::Display for HostIfTrapGroup<'_> {
 
 impl<'a> HostIfTrapGroup<'a> {
     pub fn remove(self) -> Result<(), Error> {
-        let remove_hostif_trap_group = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let remove_hostif_trap_group = hostif_api
             .remove_hostif_trap_group
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_hostif_trap_group(self.id) };
         if st != SAI_STATUS_SUCCESS as i32 {
@@ -2108,11 +2138,10 @@ impl std::fmt::Display for HostIfTrap<'_> {
 
 impl<'a> HostIfTrap<'a> {
     pub fn remove(self) -> Result<(), Error> {
-        let remove_hostif_trap = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let remove_hostif_trap = hostif_api
             .remove_hostif_trap
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_hostif_trap(self.id) };
         if st != SAI_STATUS_SUCCESS as i32 {
@@ -2172,11 +2201,10 @@ impl std::fmt::Display for HostIfUserDefinedTrap<'_> {
 
 impl<'a> HostIfUserDefinedTrap<'a> {
     pub fn remove(self) -> Result<(), Error> {
-        let remove_hostif_user_defined_trap = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let remove_hostif_user_defined_trap = hostif_api
             .remove_hostif_user_defined_trap
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_hostif_user_defined_trap(self.id) };
         if st != SAI_STATUS_SUCCESS as i32 {
@@ -2400,11 +2428,10 @@ impl std::fmt::Display for HostIfTableEntry<'_> {
 
 impl<'a> HostIfTableEntry<'a> {
     pub fn remove(self) -> Result<(), Error> {
-        let remove_hostif_table_entry = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let remove_hostif_table_entry = hostif_api
             .remove_hostif_table_entry
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_hostif_table_entry(self.id) };
         if st != SAI_STATUS_SUCCESS as i32 {
@@ -2607,11 +2634,10 @@ impl std::fmt::Display for HostIf<'_> {
 
 impl<'a> HostIf<'a> {
     pub fn set_vlan_tag(&self, vlan_tag: HostIfVlanTag) -> Result<(), Error> {
-        let set_hostif_attribute = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let set_hostif_attribute = hostif_api
             .set_hostif_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let attr = sai_attribute_t {
             id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_VLAN_TAG,
@@ -2629,11 +2655,10 @@ impl<'a> HostIf<'a> {
     }
 
     pub fn set_oper_status(&self, oper_status: bool) -> Result<(), Error> {
-        let set_hostif_attribute = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let set_hostif_attribute = hostif_api
             .set_hostif_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let attr = sai_attribute_t {
             id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_OPER_STATUS,
@@ -2651,11 +2676,10 @@ impl<'a> HostIf<'a> {
     }
 
     pub fn remove(self) -> Result<(), Error> {
-        let remove_hostif = self
-            .sai
-            .hostif_api
+        let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
+        let remove_hostif = hostif_api
             .remove_hostif
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_hostif(self.id) };
         if st != SAI_STATUS_SUCCESS as i32 {
@@ -2715,11 +2739,10 @@ impl std::fmt::Display for Port<'_> {
 
 impl<'a> Port<'a> {
     pub fn get_supported_speeds(&self) -> Result<Vec<u32>, Error> {
-        let get_port_attribute = self
-            .sai
-            .port_api
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
             .get_port_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut speeds: Vec<u32> = vec![0u32; 16];
         let mut attr = sai_attribute_t {
@@ -2749,11 +2772,10 @@ impl<'a> Port<'a> {
     }
 
     pub fn set_speed(&self, speed: u32) -> Result<(), Error> {
-        let set_port_attribute = self
-            .sai
-            .port_api
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
             .set_port_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let attr = sai_attribute_t {
             id: _sai_port_attr_t_SAI_PORT_ATTR_SPEED,
@@ -2769,11 +2791,10 @@ impl<'a> Port<'a> {
     }
 
     pub fn set_admin_state(&self, admin_state: bool) -> Result<(), Error> {
-        let set_port_attribute = self
-            .sai
-            .port_api
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
             .set_port_attribute
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let attr = sai_attribute_t {
             id: _sai_port_attr_t_SAI_PORT_ATTR_ADMIN_STATE,
@@ -2791,7 +2812,8 @@ impl<'a> Port<'a> {
     }
 
     pub fn remove(self) -> Result<(), Error> {
-        let remove_port = self.sai.port_api.remove_port.ok_or(Error::APIUnavailable)?;
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let remove_port = port_api.remove_port.ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_port(self.id) };
         if st != SAI_STATUS_SUCCESS as i32 {
@@ -2855,11 +2877,13 @@ impl<'a> VirtualRouter<'a> {
         &self,
         attrs: Vec<RouterInterfaceAttribute>,
     ) -> Result<RouterInterface, Error> {
-        let create_router_interface = self
+        let router_interface_api = self
             .sai
-            .router_interface_api
-            .create_router_interface
+            .router_interface_api()
             .ok_or(Error::APIUnavailable)?;
+        let create_router_interface = router_interface_api
+            .create_router_interface
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let mut args: Vec<sai_attribute_t> = Vec::with_capacity(attrs.len() + 1);
         args.push(sai_attribute_t {
@@ -2890,11 +2914,10 @@ impl<'a> VirtualRouter<'a> {
         destination: IpNet,
         attrs: Vec<RouteEntryAttribute>,
     ) -> Result<RouteEntry, Error> {
-        let create_route_entry = self
-            .sai
-            .route_api
+        let route_api = self.sai.route_api().ok_or(Error::APIUnavailable)?;
+        let create_route_entry = route_api
             .create_route_entry
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
 
@@ -2953,58 +2976,6 @@ impl From<RouterInterfaceType> for i32 {
         }
     }
 }
-
-/*
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_VIRTUAL_ROUTER
-    SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID = SAI_ROUTER_INTERFACE_ATTR_START,
-     * @type sai_router_interface_type_t
-    SAI_ROUTER_INTERFACE_ATTR_TYPE,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_PORT, SAI_OBJECT_TYPE_LAG, SAI_OBJECT_TYPE_SYSTEM_PORT
-    SAI_ROUTER_INTERFACE_ATTR_PORT_ID,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_VLAN
-    SAI_ROUTER_INTERFACE_ATTR_VLAN_ID,
-     * @type sai_uint16_t
-    SAI_ROUTER_INTERFACE_ATTR_OUTER_VLAN_ID,
-     * @type sai_uint16_t
-    SAI_ROUTER_INTERFACE_ATTR_INNER_VLAN_ID,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_BRIDGE
-    SAI_ROUTER_INTERFACE_ATTR_BRIDGE_ID,
-     * @type sai_mac_t
-    SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS,
-     * @type bool
-    SAI_ROUTER_INTERFACE_ATTR_ADMIN_V4_STATE,
-     * @type bool
-    SAI_ROUTER_INTERFACE_ATTR_ADMIN_V6_STATE,
-     * @type sai_uint32_t
-    SAI_ROUTER_INTERFACE_ATTR_MTU,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_ACL_TABLE, SAI_OBJECT_TYPE_ACL_TABLE_GROUP
-    SAI_ROUTER_INTERFACE_ATTR_INGRESS_ACL,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_ACL_TABLE, SAI_OBJECT_TYPE_ACL_TABLE_GROUP
-    SAI_ROUTER_INTERFACE_ATTR_EGRESS_ACL,
-     * @type sai_packet_action_t
-    SAI_ROUTER_INTERFACE_ATTR_NEIGHBOR_MISS_PACKET_ACTION,
-     * @type bool
-    SAI_ROUTER_INTERFACE_ATTR_V4_MCAST_ENABLE,
-     * @type bool
-    SAI_ROUTER_INTERFACE_ATTR_V6_MCAST_ENABLE,
-     * @type sai_packet_action_t
-    SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION,
-     * @type bool
-    SAI_ROUTER_INTERFACE_ATTR_IS_VIRTUAL,
-     * @type sai_uint8_t
-    SAI_ROUTER_INTERFACE_ATTR_NAT_ZONE_ID,
-     * @type bool
-    SAI_ROUTER_INTERFACE_ATTR_DISABLE_DECREMENT_TTL,
-     * @type bool
-    SAI_ROUTER_INTERFACE_ATTR_ADMIN_MPLS_STATE,
-
-*/
 
 // TODO: Ingress and Egress ACL need proper type
 #[derive(Clone, Copy, Debug)]
@@ -3210,11 +3181,13 @@ impl std::fmt::Display for RouterInterface<'_> {
 
 impl<'a> RouterInterface<'a> {
     pub fn remove(self) -> Result<(), Error> {
-        let remove_router_interface = self
+        let router_interface_api = self
             .sai
-            .router_interface_api
-            .remove_router_interface
+            .router_interface_api()
             .ok_or(Error::APIUnavailable)?;
+        let remove_router_interface = router_interface_api
+            .remove_router_interface
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_router_interface(self.id) };
         if st != SAI_STATUS_SUCCESS as i32 {
@@ -3366,11 +3339,10 @@ impl std::fmt::Display for RouteEntry<'_> {
 
 impl<'a> RouteEntry<'a> {
     pub fn remove(self) -> Result<(), Error> {
-        let remove_route_entry = self
-            .sai
-            .route_api
+        let route_api = self.sai.route_api().ok_or(Error::APIUnavailable)?;
+        let remove_route_entry = route_api
             .remove_route_entry
-            .ok_or(Error::APIUnavailable)?;
+            .ok_or(Error::APIFunctionUnavailable)?;
 
         let st = unsafe { remove_route_entry(&self.entry) };
         if st != SAI_STATUS_SUCCESS as i32 {
