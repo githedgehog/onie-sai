@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use ipnet::IpNet;
 use sai::BridgePortType;
+use sai::HostIf;
 use sai::HostIfAttribute;
 use sai::HostIfTableEntryAttribute;
 use sai::HostIfTableEntryChannelType;
@@ -11,6 +12,7 @@ use sai::HostIfTableEntryType;
 use sai::HostIfTrapAttribute;
 use sai::HostIfTrapType;
 use sai::HostIfType;
+use sai::HostIfVlanTag;
 use sai::PacketAction;
 use sai::RouteEntryAttribute;
 use sai::RouterInterfaceAttribute;
@@ -44,9 +46,10 @@ fn main() -> ExitCode {
     // }
 
     // now create switch
+    let mac_address = [0x1c, 0x72, 0x1d, 0xec, 0x44, 0xa0];
     let switch = match sai_api.switch_create(vec![
         SwitchAttribute::InitSwitch(true),
-        SwitchAttribute::SrcMacAddress([0x1c, 0x72, 0x1d, 0xec, 0x44, 0xa0]),
+        SwitchAttribute::SrcMacAddress(mac_address),
     ]) {
         Ok(sw_id) => sw_id,
         Err(e) => {
@@ -280,6 +283,129 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+
+    // get ports now
+    let ports = match switch.get_ports() {
+        Ok(v) => v,
+        Err(e) => {
+            println!(
+                "ERROR: failed to get port list from switch {}: {:?}",
+                switch, e
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let mut hostifs: Vec<HostIf> = Vec::with_capacity(ports.len());
+    for (i, port) in ports.into_iter().enumerate() {
+        // create host interface
+        let hostif = match switch.create_hostif(vec![
+            HostIfAttribute::Type(HostIfType::Netdev),
+            HostIfAttribute::ObjectID(port.into()),
+            HostIfAttribute::Name(format!("Ethernet{}", i)),
+        ]) {
+            Ok(v) => v,
+            Err(e) => {
+                println!(
+                    "ERROR: failed to create host interface for port {} on switch {}: {:?}",
+                    port, switch, e
+                );
+                return ExitCode::FAILURE;
+            }
+        };
+        hostifs.push(hostif);
+
+        // check supported speeds, and set port to 10G if possible
+        match port.get_supported_speeds() {
+            Err(e) => {
+                println!(
+                    "ERROR: failed to query port {} for supported speeds: {:?}",
+                    port, e
+                );
+            }
+            Ok(speeds) => {
+                if !speeds.contains(&10000) {
+                    println!(
+                        "WARN: port {} does not support 10G, only {:?}",
+                        port, speeds
+                    )
+                } else {
+                    match port.set_speed(10000) {
+                        Ok(_) => {
+                            println!("INFO: set port speed to 10G for port {}", port);
+                        }
+                        Err(e) => {
+                            println!(
+                                "ERROR: failed to set port speed to 10G for port {}: {:?}",
+                                port, e
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // set port up
+        match port.set_admin_state(true) {
+            Ok(_) => {
+                println!("INFO: set admin state to true for port {}", port);
+            }
+            Err(e) => {
+                println!(
+                    "ERROR: failed to set admin state to true for port {}: {:?}",
+                    port, e
+                );
+            }
+        }
+
+        // allow vlan tags on host interfaces
+        match hostif.set_vlan_tag(HostIfVlanTag::Original) {
+            Ok(_) => {
+                println!(
+                    "INFO: set vlan tag to keep original for host interface {}",
+                    hostif
+                );
+            }
+            Err(e) => {
+                println!(
+                    "ERROR: failed to set vlan tag to keep original for host interface {}: {:?}",
+                    hostif, e
+                );
+            }
+        }
+
+        // bring host interface up
+        match hostif.set_oper_status(true) {
+            Ok(_) => {
+                println!(
+                    "INFO: set oper status to true for host interface {}",
+                    hostif
+                );
+            }
+            Err(e) => {
+                println!(
+                    "ERROR: failed to set oper status to true for host interface {}: {:?}",
+                    hostif, e
+                );
+            }
+        }
+
+        // create router interface
+        match default_virtual_router.create_router_interface(vec![
+            RouterInterfaceAttribute::SrcMacAddress(mac_address),
+            RouterInterfaceAttribute::Type(RouterInterfaceType::Port),
+            RouterInterfaceAttribute::PortID(port.into()),
+            RouterInterfaceAttribute::MTU(9100),
+            RouterInterfaceAttribute::NATZoneID(0),
+        ]) {
+            Ok(v) => {
+                println!("INFO: successfully created router interface {}", v);
+            }
+            Err(e) => {
+                println!("ERROR: failed create router interface: {:?}", e);
+            }
+        }
+    }
 
     println!("INFO: Success");
 

@@ -1086,6 +1086,43 @@ impl<'a> Switch<'a> {
         })
     }
 
+    pub fn get_ports(&self) -> Result<Vec<Port<'a>>, Error> {
+        let get_switch_attribute = self
+            .sai
+            .switch_api
+            .get_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let mut ports: Vec<sai_object_id_t> = vec![0u64; 128];
+        let mut attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_PORT_LIST,
+            value: sai_attribute_value_t {
+                objlist: sai_object_list_t {
+                    count: 128,
+                    list: ports.as_mut_ptr(),
+                },
+            },
+        };
+
+        let st = unsafe { get_switch_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // iterate over the returned list and build the vector for return
+        let count = unsafe { attr.value.objlist.count };
+        let list = unsafe { attr.value.objlist.list };
+        let mut ret: Vec<Port> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let oid: sai_object_id_t = unsafe { *list.offset(i as isize) };
+            ret.push(Port {
+                id: oid,
+                sai: self.sai,
+            });
+        }
+        Ok(ret)
+    }
+
     pub fn set_switch_state_change_callback(
         &self,
         cb: Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>,
@@ -1366,7 +1403,7 @@ impl std::fmt::Display for VLAN<'_> {
 }
 
 impl<'a> VLAN<'a> {
-    pub fn get_members(&self) -> Result<Vec<VLANMember>, Error> {
+    pub fn get_members(&self) -> Result<Vec<VLANMember<'a>>, Error> {
         // check that API is available/callable
         let get_vlan_attribute = self
             .sai
@@ -2514,6 +2551,7 @@ impl From<HostIf<'_>> for HostIfID {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct HostIf<'a> {
     id: sai_object_id_t,
     sai: &'a SAI,
@@ -2532,6 +2570,50 @@ impl std::fmt::Display for HostIf<'_> {
 }
 
 impl<'a> HostIf<'a> {
+    pub fn set_vlan_tag(&self, vlan_tag: HostIfVlanTag) -> Result<(), Error> {
+        let set_hostif_attribute = self
+            .sai
+            .hostif_api
+            .set_hostif_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_VLAN_TAG,
+            value: sai_attribute_value_t {
+                s32: vlan_tag.into(),
+            },
+        };
+
+        let st = unsafe { set_hostif_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn set_oper_status(&self, oper_status: bool) -> Result<(), Error> {
+        let set_hostif_attribute = self
+            .sai
+            .hostif_api
+            .set_hostif_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_OPER_STATUS,
+            value: sai_attribute_value_t {
+                booldata: oper_status,
+            },
+        };
+
+        let st = unsafe { set_hostif_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn remove(self) -> Result<(), Error> {
         let remove_hostif = self
             .sai
@@ -2596,6 +2678,82 @@ impl std::fmt::Display for Port<'_> {
 }
 
 impl<'a> Port<'a> {
+    pub fn get_supported_speeds(&self) -> Result<Vec<u32>, Error> {
+        let get_port_attribute = self
+            .sai
+            .port_api
+            .get_port_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let mut speeds: Vec<u32> = vec![0u32; 16];
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_SUPPORTED_SPEED,
+            value: sai_attribute_value_t {
+                u32list: sai_u32_list_t {
+                    count: speeds.len() as u32,
+                    list: speeds.as_mut_ptr(),
+                },
+            },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // iterate over the returned list and build the vector for return
+        let count = unsafe { attr.value.u32list.count };
+        let list = unsafe { attr.value.u32list.list };
+        let mut ret: Vec<u32> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let speed: u32 = unsafe { *list.offset(i as isize) };
+            ret.push(speed);
+        }
+        Ok(ret)
+    }
+
+    pub fn set_speed(&self, speed: u32) -> Result<(), Error> {
+        let set_port_attribute = self
+            .sai
+            .port_api
+            .set_port_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_SPEED,
+            value: sai_attribute_value_t { u32_: speed },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn set_admin_state(&self, admin_state: bool) -> Result<(), Error> {
+        let set_port_attribute = self
+            .sai
+            .port_api
+            .set_port_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_ADMIN_STATE,
+            value: sai_attribute_value_t {
+                booldata: admin_state,
+            },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn remove(self) -> Result<(), Error> {
         let remove_port = self.sai.port_api.remove_port.ok_or(Error::APIUnavailable)?;
 
