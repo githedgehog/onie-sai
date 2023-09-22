@@ -194,6 +194,24 @@ fn main() -> ExitCode {
         }
     };
 
+    // get CPU port
+    let cpu_port = match switch.get_cpu_port() {
+        Ok(v) => v,
+        Err(e) => {
+            println!("ERROR: failed go get CPU port: {:?}", e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // create host interface for it
+    let _cpu_intf = match switch.create_hostif(vec![]) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("ERROR: failed to create host interface for CPU port {}: {:?}", cpu_port, e)
+            return ExitCode::FAILURE;
+        }
+    };
+
     println!("INFO: Success");
 
     return ExitCode::SUCCESS;

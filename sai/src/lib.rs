@@ -1015,6 +1015,51 @@ impl<'a> Switch<'a> {
         })
     }
 
+    pub fn get_cpu_port(&self) -> Result<Port<'a>, Error> {
+        let get_switch_attribute = self
+            .sai
+            .switch_api
+            .get_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_CPU_PORT,
+            value: sai_attribute_value_t { oid: 0 },
+        };
+
+        let st = unsafe { get_switch_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(Port {
+            id: unsafe { attr.value.oid },
+            sai: self.sai,
+        })
+    }
+
+    pub fn create_hostif(&self, attrs: Vec<HostIfAttribute>) -> Result<HostIf, Error> {
+        // check that API is available/callable
+        let create_hostif = self
+            .sai
+            .hostif_api
+            .create_hostif
+            .ok_or(Error::APIUnavailable)?;
+
+        let args: Vec<sai_attribute_t> = attrs.into_iter().map(|v| v.into()).collect();
+
+        let mut oid: sai_object_id_t = 0;
+        let st = unsafe { create_hostif(&mut oid, self.id, args.len() as u32, args.as_ptr()) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(HostIf {
+            id: oid,
+            sai: self.sai,
+        })
+    }
+
     pub fn set_switch_state_change_callback(
         &self,
         cb: Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>,
@@ -2100,6 +2145,167 @@ impl std::fmt::Display for HostIfTableEntry<'_> {
 }
 
 impl<'a> HostIfTableEntry<'a> {}
+
+#[derive(Clone, Copy, Debug)]
+pub enum HostIfType {
+    Netdev,
+    FD,
+    Genetlink,
+}
+
+impl From<HostIfType> for i32 {
+    fn from(value: HostIfType) -> Self {
+        match value {
+            HostIfType::Netdev => _sai_hostif_type_t_SAI_HOSTIF_TYPE_NETDEV as i32,
+            HostIfType::FD => _sai_hostif_type_t_SAI_HOSTIF_TYPE_FD as i32,
+            HostIfType::Genetlink => _sai_hostif_type_t_SAI_HOSTIF_TYPE_GENETLINK as i32,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum HostIfVlanTag {
+    Strip,
+    Keep,
+    Original,
+}
+
+impl From<HostIfVlanTag> for i32 {
+    fn from(value: HostIfVlanTag) -> Self {
+        match value {
+            HostIfVlanTag::Strip => _sai_hostif_vlan_tag_t_SAI_HOSTIF_VLAN_TAG_STRIP as i32,
+            HostIfVlanTag::Keep => _sai_hostif_vlan_tag_t_SAI_HOSTIF_VLAN_TAG_KEEP as i32,
+            HostIfVlanTag::Original => _sai_hostif_vlan_tag_t_SAI_HOSTIF_VLAN_TAG_ORIGINAL as i32,
+        }
+    }
+}
+
+// TODO: still needs From implementations for the other object types
+// * @type sai_object_id_t
+// * @objects SAI_OBJECT_TYPE_PORT, SAI_OBJECT_TYPE_LAG, SAI_OBJECT_TYPE_VLAN, SAI_OBJECT_TYPE_SYSTEM_PORT
+// SAI_HOSTIF_ATTR_OBJ_ID,
+#[derive(Clone, Copy)]
+pub struct HostIfObjectID {
+    id: sai_object_id_t,
+}
+
+impl std::fmt::Debug for HostIfObjectID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl std::fmt::Display for HostIfObjectID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl From<PortID> for HostIfObjectID {
+    fn from(value: PortID) -> Self {
+        Self { id: value.id }
+    }
+}
+
+impl From<HostIfObjectID> for sai_object_id_t {
+    fn from(value: HostIfObjectID) -> Self {
+        value.id
+    }
+}
+
+/*'
+/**
+ * @brief Host interface attribute IDs
+ */
+typedef enum _sai_hostif_attr_t
+{
+     * @type sai_hostif_type_t
+    SAI_HOSTIF_ATTR_TYPE = SAI_HOSTIF_ATTR_START,
+     * @type sai_object_id_t
+     * @objects SAI_OBJECT_TYPE_PORT, SAI_OBJECT_TYPE_LAG, SAI_OBJECT_TYPE_VLAN, SAI_OBJECT_TYPE_SYSTEM_PORT
+    SAI_HOSTIF_ATTR_OBJ_ID,
+     * @type char
+    SAI_HOSTIF_ATTR_NAME,
+     * @type bool
+    SAI_HOSTIF_ATTR_OPER_STATUS,
+     * @type sai_uint32_t
+    SAI_HOSTIF_ATTR_QUEUE,
+     * @type sai_hostif_vlan_tag_t
+     * @validonly SAI_HOSTIF_ATTR_TYPE == SAI_HOSTIF_TYPE_NETDEV
+    SAI_HOSTIF_ATTR_VLAN_TAG,
+     * @type char
+    SAI_HOSTIF_ATTR_GENETLINK_MCGRP_NAME,
+*/
+
+#[derive(Clone, Debug)]
+pub enum HostIfAttribute {
+    Type(HostIfType),
+    ObjectID(HostIfObjectID),
+    Name(String),
+    OperStatus(bool),
+    Queue(u32),
+    VlanTag(HostIfVlanTag),
+    GenetlinkMcgrpName(String),
+}
+
+impl From<HostIfAttribute> for sai_attribute_t {
+    fn from(value: HostIfAttribute) -> Self {
+        match value {
+            HostIfAttribute::Type(v) => sai_attribute_t {
+                id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_TYPE,
+                value: sai_attribute_value_t { s32: v.into() },
+            },
+            HostIfAttribute::ObjectID(v) => sai_attribute_t {
+                id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_OBJ_ID,
+                value: sai_attribute_value_t { oid: v.into() },
+            },
+            HostIfAttribute::Name(v) => {
+                let b = v.as_bytes();
+                let mut data: [i8; 32] = [0; 32];
+                for i in 0..b.len() {
+                    if i >= (SAI_HOSTIF_NAME_SIZE - 1) as usize {
+                        break;
+                    }
+                    data[i] = b.get(i).unwrap().clone() as i8;
+                }
+                sai_attribute_t {
+                    id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_NAME,
+                    value: sai_attribute_value_t {
+                        chardata: data.clone(),
+                    },
+                }
+            }
+            HostIfAttribute::OperStatus(v) => sai_attribute_t {
+                id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_OPER_STATUS,
+                value: sai_attribute_value_t { booldata: v },
+            },
+            HostIfAttribute::Queue(v) => sai_attribute_t {
+                id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_QUEUE,
+                value: sai_attribute_value_t { u32_: v },
+            },
+            HostIfAttribute::VlanTag(v) => sai_attribute_t {
+                id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_VLAN_TAG,
+                value: sai_attribute_value_t { s32: v.into() },
+            },
+            HostIfAttribute::GenetlinkMcgrpName(v) => {
+                let b = v.as_bytes();
+                let mut data: [i8; 32] = [0; 32];
+                for i in 0..b.len() {
+                    if i >= (SAI_HOSTIF_GENETLINK_MCGRP_NAME_SIZE - 1) as usize {
+                        break;
+                    }
+                    data[i] = b.get(i).unwrap().clone() as i8;
+                }
+                sai_attribute_t {
+                    id: _sai_hostif_attr_t_SAI_HOSTIF_ATTR_GENETLINK_MCGRP_NAME,
+                    value: sai_attribute_value_t {
+                        chardata: data.clone(),
+                    },
+                }
+            }
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct HostIfID {
