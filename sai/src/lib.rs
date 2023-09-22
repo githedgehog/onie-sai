@@ -1123,6 +1123,42 @@ impl<'a> Switch<'a> {
         Ok(ret)
     }
 
+    pub fn enable_shell(&self) -> Result<(), Error> {
+        // check that API is available/callable
+        let set_switch_attribute = self
+            .sai
+            .switch_api
+            .set_switch_attribute
+            .ok_or(Error::APIUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_switch_attr_t_SAI_SWITCH_ATTR_SWITCH_SHELL_ENABLE,
+            value: sai_attribute_value_t { booldata: true },
+        };
+        let st: sai_status_t = unsafe { set_switch_attribute(1, &attr as *const _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn remove(self) -> Result<(), Error> {
+        // check that API is available/callable
+        let remove_switch = self
+            .sai
+            .switch_api
+            .remove_switch
+            .ok_or(Error::APIUnavailable)?;
+
+        let st: sai_status_t = unsafe { remove_switch(self.id) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn set_switch_state_change_callback(
         &self,
         cb: Box<dyn Fn(sai_object_id_t, sai_switch_oper_status_t) + Send + Sync>,

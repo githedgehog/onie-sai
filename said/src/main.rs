@@ -6,6 +6,7 @@ use ipnet::IpNet;
 use sai::BridgePortType;
 use sai::HostIf;
 use sai::HostIfAttribute;
+use sai::HostIfID;
 use sai::HostIfTableEntryAttribute;
 use sai::HostIfTableEntryChannelType;
 use sai::HostIfTableEntryType;
@@ -214,7 +215,7 @@ fn main() -> ExitCode {
     };
 
     // create host interface for it
-    let _cpu_intf = match switch.create_hostif(vec![
+    let cpu_intf = match switch.create_hostif(vec![
         HostIfAttribute::Name("CPU".to_string()),
         HostIfAttribute::Type(HostIfType::Netdev),
         HostIfAttribute::ObjectID(cpu_port.into()),
@@ -404,6 +405,36 @@ fn main() -> ExitCode {
             Err(e) => {
                 println!("ERROR: failed create router interface: {:?}", e);
             }
+        }
+    }
+
+    match switch.enable_shell() {
+        Ok(_) => {}
+        Err(e) => {
+            println!("ERROR: failed to enter switch shell: {:?}", e);
+        }
+    }
+
+    // shutdown: remove things again
+    hostifs.push(cpu_intf);
+    for hostif in hostifs {
+        let id = HostIfID::from(hostif);
+        match hostif.remove() {
+            Ok(_) => {
+                println!("INFO: successfully removed host interface {}", id);
+            }
+            Err(e) => {
+                println!("ERROR: failed to remove host interface {}: {:?}", id, e);
+            }
+        }
+    }
+
+    match switch.remove() {
+        Ok(_) => {
+            println!("INFO: successfully removed switch");
+        }
+        Err(e) => {
+            println!("ERROR: failed to remove switch: {:?}", e);
         }
     }
 
