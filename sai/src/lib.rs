@@ -2207,6 +2207,12 @@ impl From<PortID> for HostIfObjectID {
     }
 }
 
+impl From<Port<'_>> for HostIfObjectID {
+    fn from(value: Port) -> Self {
+        Self { id: value.id }
+    }
+}
+
 impl From<HostIfObjectID> for sai_object_id_t {
     fn from(value: HostIfObjectID) -> Self {
         value.id
@@ -2384,6 +2390,7 @@ impl From<Port<'_>> for PortID {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Port<'a> {
     id: sai_object_id_t,
     sai: &'a SAI,

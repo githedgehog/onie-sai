@@ -2,11 +2,13 @@ use std::ffi::CString;
 use std::process::ExitCode;
 
 use sai::BridgePortType;
+use sai::HostIfAttribute;
 use sai::HostIfTableEntryAttribute;
 use sai::HostIfTableEntryChannelType;
 use sai::HostIfTableEntryType;
 use sai::HostIfTrapAttribute;
 use sai::HostIfTrapType;
+use sai::HostIfType;
 use sai::PacketAction;
 use sai::SwitchAttribute;
 use sai::SAI;
@@ -204,7 +206,12 @@ fn main() -> ExitCode {
     };
 
     // create host interface for it
-    let _cpu_intf = match switch.create_hostif(vec![]) {
+    let _cpu_intf = match switch.create_hostif(vec![
+        HostIfAttribute::Name("CPU".to_string()),
+        HostIfAttribute::Type(HostIfType::Netdev),
+        HostIfAttribute::ObjectID(cpu_port.into()),
+        HostIfAttribute::OperStatus(true),
+    ]) {
         Ok(v) => v,
         Err(e) => {
             println!(
