@@ -207,7 +207,10 @@ fn main() -> ExitCode {
     let _cpu_intf = match switch.create_hostif(vec![]) {
         Ok(v) => v,
         Err(e) => {
-            println!("ERROR: failed to create host interface for CPU port {}: {:?}", cpu_port, e)
+            println!(
+                "ERROR: failed to create host interface for CPU port {}: {:?}",
+                cpu_port, e
+            );
             return ExitCode::FAILURE;
         }
     };
