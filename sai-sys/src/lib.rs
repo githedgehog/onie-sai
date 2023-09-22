@@ -127,8 +127,6 @@ mod tests {
             }
         };
 
-        let bl = unsafe { sai_metadata_sai_vlan_api };
-
         // bridge API
         let mut bridge_api_backing = MaybeUninit::<sai_bridge_api_t>::uninit();
         let bridge_api_ptr_orig = bridge_api_backing.as_ptr();

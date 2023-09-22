@@ -1650,7 +1650,22 @@ impl std::fmt::Display for HostIfTrapGroup<'_> {
     }
 }
 
-impl<'a> HostIfTrapGroup<'a> {}
+impl<'a> HostIfTrapGroup<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_hostif_trap_group = self
+            .sai
+            .hostif_api
+            .remove_hostif_trap_group
+            .ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_hostif_trap_group(self.id) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct HostIfTrapID {
@@ -2018,6 +2033,23 @@ impl std::fmt::Display for HostIfTrap<'_> {
     }
 }
 
+impl<'a> HostIfTrap<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_hostif_trap = self
+            .sai
+            .hostif_api
+            .remove_hostif_trap
+            .ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_hostif_trap(self.id) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct HostIfUserDefinedTrapID {
     id: sai_object_id_t,
@@ -2062,6 +2094,23 @@ impl std::fmt::Debug for HostIfUserDefinedTrap<'_> {
 impl std::fmt::Display for HostIfUserDefinedTrap<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "oid:{:#x}", self.id)
+    }
+}
+
+impl<'a> HostIfUserDefinedTrap<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_hostif_user_defined_trap = self
+            .sai
+            .hostif_api
+            .remove_hostif_user_defined_trap
+            .ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_hostif_user_defined_trap(self.id) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -2276,7 +2325,22 @@ impl std::fmt::Display for HostIfTableEntry<'_> {
     }
 }
 
-impl<'a> HostIfTableEntry<'a> {}
+impl<'a> HostIfTableEntry<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_hostif_table_entry = self
+            .sai
+            .hostif_api
+            .remove_hostif_table_entry
+            .ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_hostif_table_entry(self.id) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum HostIfType {
@@ -2467,7 +2531,22 @@ impl std::fmt::Display for HostIf<'_> {
     }
 }
 
-impl<'a> HostIf<'a> {}
+impl<'a> HostIf<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_hostif = self
+            .sai
+            .hostif_api
+            .remove_hostif
+            .ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_hostif(self.id) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct PortID {
@@ -2516,7 +2595,18 @@ impl std::fmt::Display for Port<'_> {
     }
 }
 
-impl<'a> Port<'a> {}
+impl<'a> Port<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_port = self.sai.port_api.remove_port.ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_port(self.id) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct VirtualRouterID {
@@ -2924,7 +3014,22 @@ impl std::fmt::Display for RouterInterface<'_> {
     }
 }
 
-impl<'a> RouterInterface<'a> {}
+impl<'a> RouterInterface<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_router_interface = self
+            .sai
+            .router_interface_api
+            .remove_router_interface
+            .ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_router_interface(self.id) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+}
 
 // TODO: implement From for all types
 // * @type sai_object_id_t
@@ -3065,7 +3170,22 @@ impl std::fmt::Display for RouteEntry<'_> {
     }
 }
 
-impl<'a> RouteEntry<'a> {}
+impl<'a> RouteEntry<'a> {
+    pub fn remove(self) -> Result<(), Error> {
+        let remove_route_entry = self
+            .sai
+            .route_api
+            .remove_route_entry
+            .ok_or(Error::APIUnavailable)?;
+
+        let st = unsafe { remove_route_entry(&self.entry) };
+        if st != SAI_STATUS_SUCCESS as i32 {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub struct CounterID {
@@ -3090,30 +3210,31 @@ impl From<CounterID> for sai_object_id_t {
     }
 }
 
-impl From<Counter<'_>> for CounterID {
-    fn from(value: Counter) -> Self {
-        Self { id: value.id }
-    }
-}
+// impl From<Counter<'_>> for CounterID {
+//     fn from(value: Counter) -> Self {
+//         Self { id: value.id }
+//     }
+// }
 
-pub struct Counter<'a> {
-    id: sai_object_id_t,
-    sai: &'a SAI,
-}
+// #[derive(Clone, Copy)]
+// pub struct Counter<'a> {
+//     id: sai_object_id_t,
+//     sai: &'a SAI,
+// }
 
-impl std::fmt::Debug for Counter<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Counter(oid:{:#x})", self.id)
-    }
-}
+// impl std::fmt::Debug for Counter<'_> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "Counter(oid:{:#x})", self.id)
+//     }
+// }
 
-impl std::fmt::Display for Counter<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
-    }
-}
+// impl std::fmt::Display for Counter<'_> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "oid:{:#x}", self.id)
+//     }
+// }
 
-impl<'a> Counter<'a> {}
+// impl<'a> Counter<'a> {}
 
 #[derive(Clone, Copy)]
 pub struct MirrorSessionID {
@@ -3138,30 +3259,30 @@ impl From<MirrorSessionID> for sai_object_id_t {
     }
 }
 
-impl From<MirrorSession<'_>> for MirrorSessionID {
-    fn from(value: MirrorSession) -> Self {
-        Self { id: value.id }
-    }
-}
+// impl From<MirrorSession<'_>> for MirrorSessionID {
+//     fn from(value: MirrorSession) -> Self {
+//         Self { id: value.id }
+//     }
+// }
 
-pub struct MirrorSession<'a> {
-    id: sai_object_id_t,
-    sai: &'a SAI,
-}
+// pub struct MirrorSession<'a> {
+//     id: sai_object_id_t,
+//     sai: &'a SAI,
+// }
 
-impl std::fmt::Debug for MirrorSession<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "MirrorSession(oid:{:#x})", self.id)
-    }
-}
+// impl std::fmt::Debug for MirrorSession<'_> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "MirrorSession(oid:{:#x})", self.id)
+//     }
+// }
 
-impl std::fmt::Display for MirrorSession<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
-    }
-}
+// impl std::fmt::Display for MirrorSession<'_> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "oid:{:#x}", self.id)
+//     }
+// }
 
-impl<'a> MirrorSession<'a> {}
+// impl<'a> MirrorSession<'a> {}
 
 #[cfg(test)]
 mod tests {
