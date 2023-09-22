@@ -69,6 +69,9 @@ int main(int argc, char *argv[]) {
         printf("saictl: sai_metadata_apis_query error: 0x%x\n", st);
         // return EXIT_FAILURE;
     }
+    printf("saictl: apis 0x%x\n", &apis);
+    printf("saictl: apis.vlan_api 0x%x\n", apis.vlan_api);
+    printf("saictl: apis.vlan_api->get_vlan-attribute 0x%x\n", apis.vlan_api->get_vlan_attribute);
     for (int i=1; i < SAI_API_MAX; i++) {
         st = sai_log_set((sai_api_t)i, SAI_LOG_LEVEL_INFO);
         if (st != SAI_STATUS_SUCCESS) {

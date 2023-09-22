@@ -1,12 +1,10 @@
 [package]
-name = "sai-sys"
+name = "sai"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[build-dependencies]
-bindgen = "0.68.1"
-
 [dependencies]
 ipnet = "2.8.0"
+sai-sys = { version = "0.1.0", path = "../sai-sys" }
