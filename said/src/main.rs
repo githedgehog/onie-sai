@@ -3,22 +3,22 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use ipnet::IpNet;
-use sai::BridgePortType;
-use sai::HostIf;
-use sai::HostIfAttribute;
-use sai::HostIfID;
-use sai::HostIfTableEntryAttribute;
-use sai::HostIfTableEntryChannelType;
-use sai::HostIfTableEntryType;
-use sai::HostIfTrapAttribute;
-use sai::HostIfTrapType;
-use sai::HostIfType;
-use sai::HostIfVlanTag;
+use sai::bridge::BridgePortType;
+use sai::hostif::HostIf;
+use sai::hostif::HostIfAttribute;
+use sai::hostif::HostIfID;
+use sai::hostif::HostIfTableEntryAttribute;
+use sai::hostif::HostIfTableEntryChannelType;
+use sai::hostif::HostIfTableEntryType;
+use sai::hostif::HostIfTrapAttribute;
+use sai::hostif::HostIfTrapType;
+use sai::hostif::HostIfType;
+use sai::hostif::HostIfVlanTag;
+use sai::route::RouteEntryAttribute;
+use sai::router_interface::RouterInterfaceAttribute;
+use sai::router_interface::RouterInterfaceType;
+use sai::switch::SwitchAttribute;
 use sai::PacketAction;
-use sai::RouteEntryAttribute;
-use sai::RouterInterfaceAttribute;
-use sai::RouterInterfaceType;
-use sai::SwitchAttribute;
 use sai::SAI;
 
 fn main() -> ExitCode {
