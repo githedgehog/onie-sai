@@ -12,15 +12,16 @@ impl From<IpNet> for sai_ip_prefix_t {
             IpNet::V4(v) => sai_ip_prefix_t {
                 addr_family: _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV4,
                 addr: sai_ip_addr_t {
-                    ip4: v.addr().into(),
+                    ip4: u32::from(v.addr()).to_be(),
                 },
                 mask: sai_ip_addr_t {
-                    ip4: v.netmask().into(),
+                    ip4: u32::from(v.netmask()).to_be(),
                 },
             },
             IpNet::V6(v) => sai_ip_prefix_t {
                 addr_family: _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV6,
                 addr: sai_ip_addr_t {
+                    // TODO: this might need .to_be_bytes() as well
                     ip6: v.addr().octets(),
                 },
                 mask: sai_ip_addr_t {
