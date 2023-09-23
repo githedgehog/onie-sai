@@ -76,7 +76,7 @@ pub struct TableEntryObjectID {
 
 impl std::fmt::Debug for TableEntryObjectID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "tableentry:oid:{:#x}", self.id)
     }
 }
 
@@ -203,7 +203,7 @@ pub struct TableEntry<'a> {
 
 impl std::fmt::Debug for TableEntry<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "HostIfTableEntry(oid:{:#x})", self.id)
+        write!(f, "TableEntry(oid:{:#x})", self.id)
     }
 }
 

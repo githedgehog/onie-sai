@@ -8,7 +8,7 @@ pub struct PortID {
 
 impl std::fmt::Debug for PortID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "port:oid:{:#x}", self.id)
     }
 }
 

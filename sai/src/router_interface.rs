@@ -167,7 +167,7 @@ pub struct RouterInterfacePortID {
 
 impl std::fmt::Debug for RouterInterfacePortID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "routerinterface:oid:{:#x}", self.id)
     }
 }
 

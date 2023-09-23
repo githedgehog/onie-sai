@@ -8,7 +8,7 @@ pub struct UserDefinedTrapID {
 
 impl std::fmt::Debug for UserDefinedTrapID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "userdefinedtrap:oid:{:#x}", self.id)
     }
 }
 
@@ -38,7 +38,7 @@ pub struct UserDefinedTrap<'a> {
 
 impl std::fmt::Debug for UserDefinedTrap<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "HostIfUserDefinedTrap(oid:{:#x})", self.id)
+        write!(f, "UserDefinedTrap(oid:{:#x})", self.id)
     }
 }
 

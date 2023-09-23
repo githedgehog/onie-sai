@@ -13,7 +13,7 @@ pub struct VirtualRouterID {
 
 impl std::fmt::Debug for VirtualRouterID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "virtualrouter:oid:{:#x}", self.id)
     }
 }
 

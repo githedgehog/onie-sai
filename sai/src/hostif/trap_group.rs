@@ -8,7 +8,7 @@ pub struct TrapGroupID {
 
 impl std::fmt::Debug for TrapGroupID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "trapgroup:oid:{:#x}", self.id)
     }
 }
 
@@ -38,7 +38,7 @@ pub struct TrapGroup<'a> {
 
 impl std::fmt::Debug for TrapGroup<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "HostIfTrapGroup(oid:{:#x})", self.id)
+        write!(f, "TrapGroup(oid:{:#x})", self.id)
     }
 }
 

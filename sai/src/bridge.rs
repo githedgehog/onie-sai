@@ -10,7 +10,7 @@ pub struct BridgeID {
 
 impl std::fmt::Debug for BridgeID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "bridge:oid:{:#x}", self.id)
     }
 }
 

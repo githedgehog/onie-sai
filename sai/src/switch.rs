@@ -132,7 +132,7 @@ pub struct SwitchID {
 
 impl std::fmt::Debug for SwitchID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "switch:oid:{:#x}", self.id)
     }
 }
 

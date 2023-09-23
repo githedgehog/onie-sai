@@ -53,7 +53,7 @@ pub struct HostIfObjectID {
 
 impl std::fmt::Debug for HostIfObjectID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "oid:{:#x}", self.id)
+        write!(f, "hostif:oid:{:#x}", self.id)
     }
 }
 
