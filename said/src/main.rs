@@ -9,10 +9,8 @@ use sai::hostif::table_entry::TableEntryAttribute;
 use sai::hostif::table_entry::TableEntryType;
 use sai::hostif::trap::TrapAttribute;
 use sai::hostif::trap::TrapType;
-use sai::hostif::trap_group;
 use sai::hostif::HostIf;
 use sai::hostif::HostIfAttribute;
-use sai::hostif::HostIfID;
 use sai::hostif::HostIfType;
 use sai::hostif::VlanTag;
 use sai::port::PortID;
@@ -20,6 +18,7 @@ use sai::route::RouteEntryAttribute;
 use sai::router_interface::RouterInterfaceAttribute;
 use sai::router_interface::RouterInterfaceType;
 use sai::switch::SwitchAttribute;
+use sai::ObjectID;
 use sai::PacketAction;
 use sai::SAI;
 
@@ -160,7 +159,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let default_trap_group_id = trap_group::TrapGroupID::from(default_trap_group.clone());
+    let default_trap_group_id = default_trap_group.to_id();
     let _ip2me_trap = match switch.create_hostif_trap(vec![
         TrapAttribute::TrapType(TrapType::IP2ME),
         TrapAttribute::PacketAction(PacketAction::Trap),
@@ -303,7 +302,7 @@ fn main() -> ExitCode {
 
     let mut hostifs: Vec<HostIf> = Vec::with_capacity(ports.len());
     for (i, port) in ports.into_iter().enumerate() {
-        let port_id = PortID::from(port.clone());
+        let port_id = port.to_id();
         // create host interface
         let hostif = match switch.create_hostif(vec![
             HostIfAttribute::Type(HostIfType::Netdev),
@@ -423,7 +422,7 @@ fn main() -> ExitCode {
     // shutdown: remove things again
     hostifs.push(cpu_intf);
     for hostif in hostifs {
-        let id = HostIfID::from(hostif.clone());
+        let id = hostif.to_id();
         match hostif.remove() {
             Ok(_) => {
                 println!("INFO: successfully removed host interface {}", id);

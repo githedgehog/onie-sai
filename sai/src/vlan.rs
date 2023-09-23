@@ -89,3 +89,9 @@ impl<'a> VLAN<'a> {
         Ok(ret)
     }
 }
+
+impl ObjectID<VLANID> for VLAN<'_> {
+    fn to_id(&self) -> VLANID {
+        VLANID { id: self.id }
+    }
+}

@@ -142,6 +142,12 @@ impl std::fmt::Display for SwitchID {
     }
 }
 
+impl From<SwitchID> for sai_object_id_t {
+    fn from(value: SwitchID) -> Self {
+        value.id
+    }
+}
+
 impl From<Switch<'_>> for SwitchID {
     fn from(value: Switch) -> Self {
         Self { id: value.id }
@@ -654,5 +660,11 @@ impl From<SwitchAttribute> for sai_attribute_t {
                 value: _sai_attribute_value_t { mac: v },
             },
         }
+    }
+}
+
+impl ObjectID<SwitchID> for Switch<'_> {
+    fn to_id(&self) -> SwitchID {
+        SwitchID { id: self.id }
     }
 }

@@ -63,3 +63,9 @@ impl<'a> TrapGroup<'a> {
         }
     }
 }
+
+impl ObjectID<TrapGroupID> for TrapGroup<'_> {
+    fn to_id(&self) -> TrapGroupID {
+        TrapGroupID { id: self.id }
+    }
+}

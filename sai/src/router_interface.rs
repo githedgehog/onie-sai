@@ -260,3 +260,9 @@ impl<'a> RouterInterface<'a> {
         }
     }
 }
+
+impl ObjectID<RouterInterfaceID> for RouterInterface<'_> {
+    fn to_id(&self) -> RouterInterfaceID {
+        RouterInterfaceID { id: self.id }
+    }
+}

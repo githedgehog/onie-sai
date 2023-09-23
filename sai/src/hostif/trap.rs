@@ -18,6 +18,12 @@ impl std::fmt::Display for TrapID {
     }
 }
 
+impl From<TrapID> for sai_object_id_t {
+    fn from(value: TrapID) -> Self {
+        value.id
+    }
+}
+
 impl From<Trap<'_>> for TrapID {
     fn from(value: Trap) -> Self {
         Self { id: value.id }
@@ -331,5 +337,11 @@ impl<'a> Trap<'a> {
         } else {
             Ok(())
         }
+    }
+}
+
+impl ObjectID<TrapID> for Trap<'_> {
+    fn to_id(&self) -> TrapID {
+        TrapID { id: self.id }
     }
 }

@@ -255,3 +255,9 @@ impl<'a> HostIf<'a> {
         }
     }
 }
+
+impl ObjectID<HostIfID> for HostIf<'_> {
+    fn to_id(&self) -> HostIfID {
+        HostIfID { id: self.id }
+    }
+}

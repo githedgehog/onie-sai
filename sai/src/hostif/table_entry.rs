@@ -228,3 +228,9 @@ impl<'a> TableEntry<'a> {
         }
     }
 }
+
+impl ObjectID<TableEntryID> for TableEntry<'_> {
+    fn to_id(&self) -> TableEntryID {
+        TableEntryID { id: self.id }
+    }
+}

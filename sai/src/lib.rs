@@ -24,6 +24,13 @@ use sai_sys::*;
 use std::os::raw::{c_char, c_int};
 use std::ptr::{null, null_mut};
 
+pub trait ObjectID<ID>
+where
+    sai_object_id_t: From<ID>,
+{
+    fn to_id(&self) -> ID;
+}
+
 static PROFILE_GET_NEXT_VALUE_CALLBACK: RwLock<
     Option<
         Box<

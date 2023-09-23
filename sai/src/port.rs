@@ -134,3 +134,9 @@ impl<'a> Port<'a> {
         }
     }
 }
+
+impl ObjectID<PortID> for Port<'_> {
+    fn to_id(&self) -> PortID {
+        PortID { id: self.id }
+    }
+}

@@ -63,3 +63,9 @@ impl<'a> UserDefinedTrap<'a> {
         }
     }
 }
+
+impl ObjectID<UserDefinedTrapID> for UserDefinedTrap<'_> {
+    fn to_id(&self) -> UserDefinedTrapID {
+        UserDefinedTrapID { id: self.id }
+    }
+}

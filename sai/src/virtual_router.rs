@@ -119,3 +119,9 @@ impl<'a> VirtualRouter<'a> {
         })
     }
 }
+
+impl ObjectID<VirtualRouterID> for VirtualRouter<'_> {
+    fn to_id(&self) -> VirtualRouterID {
+        VirtualRouterID { id: self.id }
+    }
+}

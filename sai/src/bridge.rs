@@ -88,3 +88,9 @@ impl<'a> Bridge<'a> {
         Ok(ret)
     }
 }
+
+impl ObjectID<BridgeID> for Bridge<'_> {
+    fn to_id(&self) -> BridgeID {
+        BridgeID { id: self.id }
+    }
+}
