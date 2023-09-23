@@ -35,7 +35,7 @@ impl From<VirtualRouter<'_>> for VirtualRouterID {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct VirtualRouter<'a> {
     pub(crate) id: sai_object_id_t,
     pub(crate) switch_id: sai_object_id_t,

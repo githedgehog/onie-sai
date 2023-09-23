@@ -30,7 +30,7 @@ impl From<Port<'_>> for PortID {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Port<'a> {
     pub(crate) id: sai_object_id_t,
     pub(crate) sai: &'a SAI,

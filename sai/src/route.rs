@@ -8,47 +8,47 @@ use sai_sys::*;
 // * @objects SAI_OBJECT_TYPE_NEXT_HOP, SAI_OBJECT_TYPE_NEXT_HOP_GROUP, SAI_OBJECT_TYPE_ROUTER_INTERFACE, SAI_OBJECT_TYPE_PORT
 // SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID,
 #[derive(Clone, Copy)]
-pub struct RouteEntryNextHopID {
+pub struct NextHopID {
     id: sai_object_id_t,
 }
 
-impl std::fmt::Debug for RouteEntryNextHopID {
+impl std::fmt::Debug for NextHopID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "oid:{:#x}", self.id)
     }
 }
 
-impl std::fmt::Display for RouteEntryNextHopID {
+impl std::fmt::Display for NextHopID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "oid:{:#x}", self.id)
     }
 }
 
-impl From<RouteEntryNextHopID> for sai_object_id_t {
-    fn from(value: RouteEntryNextHopID) -> Self {
+impl From<NextHopID> for sai_object_id_t {
+    fn from(value: NextHopID) -> Self {
         value.id
     }
 }
 
-impl From<PortID> for RouteEntryNextHopID {
+impl From<PortID> for NextHopID {
     fn from(value: PortID) -> Self {
         Self { id: value.id }
     }
 }
 
-impl From<Port<'_>> for RouteEntryNextHopID {
+impl From<Port<'_>> for NextHopID {
     fn from(value: Port<'_>) -> Self {
         Self { id: value.id }
     }
 }
 
-impl From<RouterInterfaceID> for RouteEntryNextHopID {
+impl From<RouterInterfaceID> for NextHopID {
     fn from(value: RouterInterfaceID) -> Self {
         Self { id: value.id }
     }
 }
 
-impl From<RouterInterface<'_>> for RouteEntryNextHopID {
+impl From<RouterInterface<'_>> for NextHopID {
     fn from(value: RouterInterface<'_>) -> Self {
         Self { id: value.id }
     }
@@ -76,8 +76,8 @@ impl From<RouterInterface<'_>> for RouteEntryNextHopID {
 #[derive(Clone, Copy, Debug)]
 pub enum RouteEntryAttribute {
     PacketAction(PacketAction),
-    UserDefinedTrap(hostif::HostIfUserDefinedTrapID),
-    NextHopID(RouteEntryNextHopID),
+    UserDefinedTrap(hostif::user_defined_trap::UserDefinedTrapID),
+    NextHopID(NextHopID),
     MetaData(u32),
     AddrFamily(sai_ip_addr_family_t),
     CounterID(CounterID),
@@ -114,7 +114,7 @@ impl From<RouteEntryAttribute> for sai_attribute_t {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct RouteEntry<'a> {
     pub(crate) entry: sai_route_entry_t,
     pub(crate) sai: &'a SAI,

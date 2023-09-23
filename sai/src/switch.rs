@@ -1,8 +1,8 @@
 use crate::{
     bridge::Bridge,
     hostif::{
-        HostIf, HostIfAttribute, HostIfTableEntry, HostIfTableEntryAttribute, HostIfTrap,
-        HostIfTrapAttribute, HostIfTrapGroup,
+        table_entry::TableEntry, table_entry::TableEntryAttribute, trap::Trap, trap::TrapAttribute,
+        trap_group::TrapGroup, HostIf, HostIfAttribute,
     },
     port::Port,
     virtual_router::VirtualRouter,
@@ -212,7 +212,7 @@ impl<'a> Switch<'a> {
         })
     }
 
-    pub fn get_default_hostif_trap_group(&self) -> Result<HostIfTrapGroup<'a>, Error> {
+    pub fn get_default_hostif_trap_group(&self) -> Result<TrapGroup<'a>, Error> {
         // check that API is available/callable
         let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
         let get_switch_attribute = switch_api
@@ -229,16 +229,13 @@ impl<'a> Switch<'a> {
             return Err(Error::SAI(Status::from(st)));
         }
 
-        Ok(HostIfTrapGroup {
+        Ok(TrapGroup {
             id: unsafe { attr.value.oid },
             sai: self.sai,
         })
     }
 
-    pub fn create_hostif_trap(
-        &self,
-        attrs: Vec<HostIfTrapAttribute>,
-    ) -> Result<HostIfTrap<'a>, Error> {
+    pub fn create_hostif_trap(&self, attrs: Vec<TrapAttribute>) -> Result<Trap<'a>, Error> {
         // check that API is available/callable
         let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
         let create_hostif_trap = hostif_api
@@ -267,7 +264,7 @@ impl<'a> Switch<'a> {
             return Err(Error::SAI(Status::from(st)));
         }
 
-        Ok(HostIfTrap {
+        Ok(Trap {
             id: oid,
             sai: self.sai,
         })
@@ -275,8 +272,8 @@ impl<'a> Switch<'a> {
 
     pub fn create_hostif_table_entry(
         &self,
-        attrs: Vec<HostIfTableEntryAttribute>,
-    ) -> Result<HostIfTableEntry<'a>, Error> {
+        attrs: Vec<TableEntryAttribute>,
+    ) -> Result<TableEntry<'a>, Error> {
         // check that API is available/callable
         let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
         let create_hostif_table_entry = hostif_api
@@ -293,7 +290,7 @@ impl<'a> Switch<'a> {
             return Err(Error::SAI(Status::from(st)));
         }
 
-        Ok(HostIfTableEntry {
+        Ok(TableEntry {
             id: oid,
             sai: self.sai,
         })

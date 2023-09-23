@@ -3,17 +3,19 @@ use std::process::ExitCode;
 use std::str::FromStr;
 
 use ipnet::IpNet;
-use sai::bridge::BridgePortType;
+use sai::bridge;
+use sai::hostif::table_entry::ChannelType;
+use sai::hostif::table_entry::TableEntryAttribute;
+use sai::hostif::table_entry::TableEntryType;
+use sai::hostif::trap::TrapAttribute;
+use sai::hostif::trap::TrapType;
+use sai::hostif::trap_group;
 use sai::hostif::HostIf;
 use sai::hostif::HostIfAttribute;
 use sai::hostif::HostIfID;
-use sai::hostif::HostIfTableEntryAttribute;
-use sai::hostif::HostIfTableEntryChannelType;
-use sai::hostif::HostIfTableEntryType;
-use sai::hostif::HostIfTrapAttribute;
-use sai::hostif::HostIfTrapType;
 use sai::hostif::HostIfType;
-use sai::hostif::HostIfVlanTag;
+use sai::hostif::VlanTag;
+use sai::port::PortID;
 use sai::route::RouteEntryAttribute;
 use sai::router_interface::RouterInterfaceAttribute;
 use sai::router_interface::RouterInterfaceType;
@@ -122,7 +124,7 @@ fn main() -> ExitCode {
             for bridge_port in ports {
                 match bridge_port.get_type() {
                     // we only go ahead when this is a real port
-                    Ok(BridgePortType::Port) => {}
+                    Ok(bridge::port::Type::Port) => {}
                     Ok(v) => {
                         println!(
                             "INFO: not removing bridge port {} of type: {:?}",
@@ -158,10 +160,11 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let default_trap_group_id = trap_group::TrapGroupID::from(default_trap_group.clone());
     let _ip2me_trap = match switch.create_hostif_trap(vec![
-        HostIfTrapAttribute::TrapType(HostIfTrapType::IP2ME),
-        HostIfTrapAttribute::PacketAction(PacketAction::Trap),
-        HostIfTrapAttribute::TrapGroup(default_trap_group.into()),
+        TrapAttribute::TrapType(TrapType::IP2ME),
+        TrapAttribute::PacketAction(PacketAction::Trap),
+        TrapAttribute::TrapGroup(default_trap_group_id),
     ]) {
         Ok(v) => v,
         Err(e) => {
@@ -170,9 +173,9 @@ fn main() -> ExitCode {
         }
     };
     let _arp_req_trap = match switch.create_hostif_trap(vec![
-        HostIfTrapAttribute::TrapType(HostIfTrapType::ARPRequest),
-        HostIfTrapAttribute::PacketAction(PacketAction::Copy),
-        HostIfTrapAttribute::TrapGroup(default_trap_group.into()),
+        TrapAttribute::TrapType(TrapType::ARPRequest),
+        TrapAttribute::PacketAction(PacketAction::Copy),
+        TrapAttribute::TrapGroup(default_trap_group_id),
     ]) {
         Ok(v) => v,
         Err(e) => {
@@ -181,9 +184,9 @@ fn main() -> ExitCode {
         }
     };
     let _arp_resp_trap = match switch.create_hostif_trap(vec![
-        HostIfTrapAttribute::TrapType(HostIfTrapType::ARPResponse),
-        HostIfTrapAttribute::PacketAction(PacketAction::Copy),
-        HostIfTrapAttribute::TrapGroup(default_trap_group.into()),
+        TrapAttribute::TrapType(TrapType::ARPResponse),
+        TrapAttribute::PacketAction(PacketAction::Copy),
+        TrapAttribute::TrapGroup(default_trap_group_id),
     ]) {
         Ok(v) => v,
         Err(e) => {
@@ -192,8 +195,8 @@ fn main() -> ExitCode {
         }
     };
     let _default_table_entry = match switch.create_hostif_table_entry(vec![
-        HostIfTableEntryAttribute::Type(HostIfTableEntryType::Wildcard),
-        HostIfTableEntryAttribute::ChannelType(HostIfTableEntryChannelType::NetdevPhysicalPort),
+        TableEntryAttribute::Type(TableEntryType::Wildcard),
+        TableEntryAttribute::ChannelType(ChannelType::NetdevPhysicalPort),
     ]) {
         Ok(v) => v,
         Err(e) => {
@@ -213,19 +216,20 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let cpu_port_id = PortID::from(cpu_port);
 
     // create host interface for it
     let cpu_intf = match switch.create_hostif(vec![
         HostIfAttribute::Name("CPU".to_string()),
         HostIfAttribute::Type(HostIfType::Netdev),
-        HostIfAttribute::ObjectID(cpu_port.into()),
+        HostIfAttribute::ObjectID(cpu_port_id.into()),
         HostIfAttribute::OperStatus(true),
     ]) {
         Ok(v) => v,
         Err(e) => {
             println!(
                 "ERROR: failed to create host interface for CPU port {}: {:?}",
-                cpu_port, e
+                cpu_port_id, e
             );
             return ExitCode::FAILURE;
         }
@@ -272,7 +276,7 @@ fn main() -> ExitCode {
         IpNet::from_str("10.10.10.1/32").unwrap(),
         vec![
             RouteEntryAttribute::PacketAction(PacketAction::Forward),
-            RouteEntryAttribute::NextHopID(cpu_port.into()),
+            RouteEntryAttribute::NextHopID(cpu_port_id.into()),
         ],
     ) {
         Ok(v) => v,
@@ -299,10 +303,11 @@ fn main() -> ExitCode {
 
     let mut hostifs: Vec<HostIf> = Vec::with_capacity(ports.len());
     for (i, port) in ports.into_iter().enumerate() {
+        let port_id = PortID::from(port.clone());
         // create host interface
         let hostif = match switch.create_hostif(vec![
             HostIfAttribute::Type(HostIfType::Netdev),
-            HostIfAttribute::ObjectID(port.into()),
+            HostIfAttribute::ObjectID(port_id.into()),
             HostIfAttribute::Name(format!("Ethernet{}", i)),
         ]) {
             Ok(v) => v,
@@ -314,7 +319,7 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
-        hostifs.push(hostif);
+        hostifs.push(hostif.clone());
 
         // check supported speeds, and set port to 10G if possible
         match port.get_supported_speeds() {
@@ -360,7 +365,7 @@ fn main() -> ExitCode {
         }
 
         // allow vlan tags on host interfaces
-        match hostif.set_vlan_tag(HostIfVlanTag::Original) {
+        match hostif.set_vlan_tag(VlanTag::Original) {
             Ok(_) => {
                 println!(
                     "INFO: set vlan tag to keep original for host interface {}",
@@ -418,7 +423,7 @@ fn main() -> ExitCode {
     // shutdown: remove things again
     hostifs.push(cpu_intf);
     for hostif in hostifs {
-        let id = HostIfID::from(hostif);
+        let id = HostIfID::from(hostif.clone());
         match hostif.remove() {
             Ok(_) => {
                 println!("INFO: successfully removed host interface {}", id);
