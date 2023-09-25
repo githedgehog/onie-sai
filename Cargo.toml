@@ -5,4 +5,5 @@ members = [
     "sai",
     "onie-sai-rpc",
     "onie-said",
+    "onie-saictl",
 ]

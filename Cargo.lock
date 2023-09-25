@@ -392,6 +392,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "onie-saictl"
+version = "0.1.0"
+dependencies = [
+ "onie-sai-rpc",
+ "ttrpc",
+]
+
+[[package]]
 name = "onie-said"
 version = "0.1.0"
 dependencies = [

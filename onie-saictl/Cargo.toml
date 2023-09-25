@@ -1,0 +1,10 @@
+[package]
+name = "onie-saictl"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ttrpc = "0.8.1"
+onie-sai-rpc = { version = "0.1.0", path = "../onie-sai-rpc" }
