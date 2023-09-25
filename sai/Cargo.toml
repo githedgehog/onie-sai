@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 ipnet = "2.8.0"
+log = "0.4.20"
 sai-sys = { version = "0.1.0", path = "../sai-sys" }

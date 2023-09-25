@@ -618,7 +618,9 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if switch_api_ptr_orig != switch_api_ptr {
-                // TODO: print debug
+                log::debug!(
+                    "sai_api_query(SAI_API_SWITCH) updated pointer away from our own table"
+                );
             }
             self.switch_api_ptr = Some(switch_api_ptr);
         }
@@ -634,7 +636,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if vlan_api_ptr_orig != vlan_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_VLAN) updated pointer away from our own table");
             }
             self.vlan_api_ptr = Some(vlan_api_ptr);
         }
@@ -650,7 +652,9 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if bridge_api_ptr_orig != bridge_api_ptr {
-                // TODO: print debug
+                log::debug!(
+                    "sai_api_query(SAI_API_BRIDGE) updated pointer away from our own table"
+                );
             }
             self.bridge_api_ptr = Some(bridge_api_ptr);
         }
@@ -666,7 +670,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if port_api_ptr_orig != port_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_PORT) updated pointer away from our own table");
             }
             self.port_api_ptr = Some(port_api_ptr);
         }
@@ -682,7 +686,9 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if hostif_api_ptr_orig == hostif_api_ptr {
-                // TODO: print debug
+                log::debug!(
+                    "sai_api_query(SAI_API_HOSTIF) updated pointer away from our own table"
+                );
             }
             self.hostif_api_ptr = Some(hostif_api_ptr);
         }
@@ -703,7 +709,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if router_interface_api_ptr_orig != router_interface_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_ROUTER_INTERFACE) updated pointer away from our own table");
             }
             self.router_interface_api_ptr = Some(router_interface_api_ptr);
         }
@@ -719,7 +725,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if route_api_ptr_orig != route_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_ROUTE) updated pointer away from our own table");
             }
             self.route_api_ptr = Some(route_api_ptr);
         }
