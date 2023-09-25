@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package grpc;
+
+service OnieSai {
+    rpc Version(VersionRequest) returns (VersionResponse);
+}
+
+message VersionRequest {
+    string blah = 1;
+}
+
+message VersionResponse {
+    string onie_said_version = 1;
+    string sai_version = 2;
+}

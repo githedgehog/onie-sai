@@ -1,7 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "sai",
     "sai-sys",
-    "said",
+    "sai",
+    "onie-sai-rpc",
+    "onie-said",
 ]
