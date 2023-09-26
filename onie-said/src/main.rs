@@ -23,8 +23,14 @@ use sai::PacketAction;
 use sai::SAI;
 
 fn main() -> ExitCode {
+    // initialize logger, and log at info level if RUST_LOG is not set
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
+    // get SAI API version
     if let Ok(version) = SAI::api_version() {
-        println!("INFO: SAI version: {}", version);
+        log::info!("SAI version: {}", version);
     }
 
     // our profile
@@ -37,14 +43,14 @@ fn main() -> ExitCode {
     let sai_api = match SAI::new(profile) {
         Ok(sai) => sai,
         Err(e) => {
-            println!("ERROR: failed to initialize SAI: {:?}", e);
+            log::error!("failed to initialize SAI: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
-    println!("INFO: successfully initialized SAI");
+    log::info!("successfully initialized SAI");
 
     // if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
-    //     println!("ERROR: failed to set log level for all APIs: {:?}", e);
+    //     log::error!("failed to set log level for all APIs: {:?}", e);
     // }
 
     // now create switch
@@ -55,46 +61,44 @@ fn main() -> ExitCode {
     ]) {
         Ok(sw_id) => sw_id,
         Err(e) => {
-            println!("ERROR: failed to create switch: {:?}", e);
+            log::error!("failed to create switch: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
-    println!("INFO: successfully created switch: {:?}", switch);
+    log::info!("successfully created switch: {:?}", switch);
 
     // port state change callback
     if let Err(e) = switch.set_port_state_change_callback(Box::new(|v| {
         v.iter()
-            .for_each(|n| println!("INFO: Port State Change Event: {:?}", n));
+            .for_each(|n| log::info!("Port State Change Event: {:?}", n));
     })) {
-        println!("ERROR: failed to set port state change callback: {:?}", e);
+        log::error!("failed to set port state change callback: {:?}", e);
     } else {
-        println!("INFO: successfully set port state change callback");
+        log::info!("successfully set port state change callback");
     }
 
     // remove default vlan members
     let default_vlan = match switch.get_default_vlan() {
         Ok(vlan) => vlan,
         Err(e) => {
-            println!("ERROR: failed to get default VLAN: {:?}", e);
+            log::error!("failed to get default VLAN: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
-    println!(
-        "INFO: default VLAN of switch {} is: {:?}",
-        switch, default_vlan
-    );
+    log::info!("default VLAN of switch {} is: {:?}", switch, default_vlan);
     match default_vlan.get_members() {
         Err(e) => {
-            println!(
-                "ERROR: failed to get VLAN members for default VLAN {}: {:?}",
-                default_vlan, e
+            log::error!(
+                "failed to get VLAN members for default VLAN {}: {:?}",
+                default_vlan,
+                e
             );
         }
         Ok(members) => {
             for member in members {
-                println!("INFO: Removing VLAN member {}...", member);
+                log::info!("Removing VLAN member {}...", member);
                 if let Err(e) = member.remove() {
-                    println!("ERROR: failed to remove VLAN member: {:?}", e);
+                    log::error!("failed to remove VLAN member: {:?}", e);
                 }
             }
         }
@@ -104,19 +108,21 @@ fn main() -> ExitCode {
     let default_bridge = match switch.get_default_bridge() {
         Ok(bridge) => bridge,
         Err(e) => {
-            println!("ERROR: failed to get dfeault bridge: {:?}", e);
+            log::error!("failed to get dfeault bridge: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
-    println!(
-        "INFO default bridge of switch {} is: {:?}",
-        switch, default_bridge
+    log::info!(
+        "default bridge of switch {} is: {:?}",
+        switch,
+        default_bridge
     );
     match default_bridge.get_ports() {
         Err(e) => {
-            println!(
-                "ERROR: failed to get bridge ports for default bridge {}: {:?}",
-                default_bridge, e
+            log::error!(
+                "failed to get bridge ports for default bridge {}: {:?}",
+                default_bridge,
+                e
             );
         }
         Ok(ports) => {
@@ -125,24 +131,22 @@ fn main() -> ExitCode {
                     // we only go ahead when this is a real port
                     Ok(bridge::port::Type::Port) => {}
                     Ok(v) => {
-                        println!(
-                            "INFO: not removing bridge port {} of type: {:?}",
-                            bridge_port, v
-                        );
+                        log::info!("not removing bridge port {} of type: {:?}", bridge_port, v);
                         continue;
                     }
                     Err(e) => {
-                        println!(
-                            "ERROR: failed to get bridge porty type of bridge port {}: {:?}",
-                            bridge_port, e
+                        log::error!(
+                            "failed to get bridge porty type of bridge port {}: {:?}",
+                            bridge_port,
+                            e
                         );
                         continue;
                     }
                 }
 
-                println!("INFO: removing bridge port {}...", bridge_port);
+                log::info!("removing bridge port {}...", bridge_port);
                 if let Err(e) = bridge_port.remove() {
-                    println!("ERROR: failed to remove bridge port: {:?}", e);
+                    log::error!("failed to remove bridge port: {:?}", e);
                 }
             }
         }
@@ -152,10 +156,7 @@ fn main() -> ExitCode {
     let default_trap_group = match switch.get_default_hostif_trap_group() {
         Ok(group) => group,
         Err(e) => {
-            println!(
-                "ERROR: failed to get default host interface trap group: {:?}",
-                e
-            );
+            log::error!("failed to get default host interface trap group: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -167,7 +168,7 @@ fn main() -> ExitCode {
     ]) {
         Ok(v) => v,
         Err(e) => {
-            println!("ERROR: failed to create ip2me trap: {:?}", e);
+            log::error!("failed to create ip2me trap: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -178,7 +179,7 @@ fn main() -> ExitCode {
     ]) {
         Ok(v) => v,
         Err(e) => {
-            println!("ERROR: failed to create ip2me trap: {:?}", e);
+            log::error!("failed to create ip2me trap: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -189,7 +190,7 @@ fn main() -> ExitCode {
     ]) {
         Ok(v) => v,
         Err(e) => {
-            println!("ERROR: failed to create ip2me trap: {:?}", e);
+            log::error!("failed to create ip2me trap: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -199,8 +200,8 @@ fn main() -> ExitCode {
     ]) {
         Ok(v) => v,
         Err(e) => {
-            println!(
-                "ERROR: failed to create default host interface table entry: {:?}",
+            log::error!(
+                "failed to create default host interface table entry: {:?}",
                 e
             );
             return ExitCode::FAILURE;
@@ -211,7 +212,7 @@ fn main() -> ExitCode {
     let cpu_port = match switch.get_cpu_port() {
         Ok(v) => v,
         Err(e) => {
-            println!("ERROR: failed go get CPU port: {:?}", e);
+            log::error!("failed go get CPU port: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -226,9 +227,10 @@ fn main() -> ExitCode {
     ]) {
         Ok(v) => v,
         Err(e) => {
-            println!(
-                "ERROR: failed to create host interface for CPU port {}: {:?}",
-                cpu_port_id, e
+            log::error!(
+                "failed to create host interface for CPU port {}: {:?}",
+                cpu_port_id,
+                e
             );
             return ExitCode::FAILURE;
         }
@@ -238,7 +240,7 @@ fn main() -> ExitCode {
     let default_virtual_router = match switch.get_default_virtual_router() {
         Ok(v) => v,
         Err(e) => {
-            println!("ERROR: failed to get default virtual router: {:?}", e);
+            log::error!("failed to get default virtual router: {:?}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -251,9 +253,10 @@ fn main() -> ExitCode {
     ]) {
         Ok(v) => v,
         Err(e) => {
-            println!(
-                "ERROR: failed to get create loopback interface for virtual router {}: {:?}",
-                default_virtual_router, e
+            log::error!(
+                "failed to get create loopback interface for virtual router {}: {:?}",
+                default_virtual_router,
+                e
             );
             return ExitCode::FAILURE;
         }
@@ -264,9 +267,10 @@ fn main() -> ExitCode {
     ) {
         Ok(v) => v,
         Err(e) => {
-            println!(
-                "ERROR: failed to create default route entry for virtual router {}: {:?}",
-                default_virtual_router, e
+            log::error!(
+                "failed to create default route entry for virtual router {}: {:?}",
+                default_virtual_router,
+                e
             );
             return ExitCode::FAILURE;
         }
@@ -280,9 +284,10 @@ fn main() -> ExitCode {
     ) {
         Ok(v) => v,
         Err(e) => {
-            println!(
-                "ERROR: failed to create route entry for ourselves for virtual router {}: {:?}",
-                default_virtual_router, e
+            log::error!(
+                "failed to create route entry for ourselves for virtual router {}: {:?}",
+                default_virtual_router,
+                e
             );
             return ExitCode::FAILURE;
         }
@@ -292,10 +297,7 @@ fn main() -> ExitCode {
     let ports = match switch.get_ports() {
         Ok(v) => v,
         Err(e) => {
-            println!(
-                "ERROR: failed to get port list from switch {}: {:?}",
-                switch, e
-            );
+            log::error!("failed to get port list from switch {}: {:?}", switch, e);
             return ExitCode::FAILURE;
         }
     };
@@ -311,9 +313,11 @@ fn main() -> ExitCode {
         ]) {
             Ok(v) => v,
             Err(e) => {
-                println!(
-                    "ERROR: failed to create host interface for port {} on switch {}: {:?}",
-                    port, switch, e
+                log::error!(
+                    "failed to create host interface for port {} on switch {}: {:?}",
+                    port,
+                    switch,
+                    e
                 );
                 return ExitCode::FAILURE;
             }
@@ -323,26 +327,25 @@ fn main() -> ExitCode {
         // check supported speeds, and set port to 10G if possible
         match port.get_supported_speeds() {
             Err(e) => {
-                println!(
-                    "ERROR: failed to query port {} for supported speeds: {:?}",
-                    port, e
+                log::error!(
+                    "failed to query port {} for supported speeds: {:?}",
+                    port,
+                    e
                 );
             }
             Ok(speeds) => {
                 if !speeds.contains(&10000) {
-                    println!(
-                        "WARN: port {} does not support 10G, only {:?}",
-                        port, speeds
-                    )
+                    log::warn!("port {} does not support 10G, only {:?}", port, speeds)
                 } else {
                     match port.set_speed(10000) {
                         Ok(_) => {
-                            println!("INFO: set port speed to 10G for port {}", port);
+                            log::info!("set port speed to 10G for port {}", port);
                         }
                         Err(e) => {
-                            println!(
-                                "ERROR: failed to set port speed to 10G for port {}: {:?}",
-                                port, e
+                            log::error!(
+                                "failed to set port speed to 10G for port {}: {:?}",
+                                port,
+                                e
                             );
                         }
                     }
@@ -353,12 +356,13 @@ fn main() -> ExitCode {
         // set port up
         match port.set_admin_state(true) {
             Ok(_) => {
-                println!("INFO: set admin state to true for port {}", port);
+                log::info!("set admin state to true for port {}", port);
             }
             Err(e) => {
-                println!(
-                    "ERROR: failed to set admin state to true for port {}: {:?}",
-                    port, e
+                log::error!(
+                    "failed to set admin state to true for port {}: {:?}",
+                    port,
+                    e
                 );
             }
         }
@@ -366,15 +370,16 @@ fn main() -> ExitCode {
         // allow vlan tags on host interfaces
         match hostif.set_vlan_tag(VlanTag::Original) {
             Ok(_) => {
-                println!(
-                    "INFO: set vlan tag to keep original for host interface {}",
+                log::info!(
+                    "set vlan tag to keep original for host interface {}",
                     hostif
                 );
             }
             Err(e) => {
-                println!(
-                    "ERROR: failed to set vlan tag to keep original for host interface {}: {:?}",
-                    hostif, e
+                log::error!(
+                    "failed to set vlan tag to keep original for host interface {}: {:?}",
+                    hostif,
+                    e
                 );
             }
         }
@@ -382,15 +387,13 @@ fn main() -> ExitCode {
         // bring host interface up
         match hostif.set_oper_status(true) {
             Ok(_) => {
-                println!(
-                    "INFO: set oper status to true for host interface {}",
-                    hostif
-                );
+                log::info!("set oper status to true for host interface {}", hostif);
             }
             Err(e) => {
-                println!(
-                    "ERROR: failed to set oper status to true for host interface {}: {:?}",
-                    hostif, e
+                log::error!(
+                    "failed to set oper status to true for host interface {}: {:?}",
+                    hostif,
+                    e
                 );
             }
         }
@@ -404,10 +407,10 @@ fn main() -> ExitCode {
             RouterInterfaceAttribute::NATZoneID(0),
         ]) {
             Ok(v) => {
-                println!("INFO: successfully created router interface {}", v);
+                log::info!("successfully created router interface {}", v);
             }
             Err(e) => {
-                println!("ERROR: failed create router interface: {:?}", e);
+                log::error!("failed create router interface: {:?}", e);
             }
         }
     }
@@ -415,7 +418,7 @@ fn main() -> ExitCode {
     match switch.enable_shell() {
         Ok(_) => {}
         Err(e) => {
-            println!("ERROR: failed to enter switch shell: {:?}", e);
+            log::error!("failed to enter switch shell: {:?}", e);
         }
     }
 
@@ -425,24 +428,24 @@ fn main() -> ExitCode {
         let id = hostif.to_id();
         match hostif.remove() {
             Ok(_) => {
-                println!("INFO: successfully removed host interface {}", id);
+                log::info!("successfully removed host interface {}", id);
             }
             Err(e) => {
-                println!("ERROR: failed to remove host interface {}: {:?}", id, e);
+                log::error!("failed to remove host interface {}: {:?}", id, e);
             }
         }
     }
 
     match switch.remove() {
         Ok(_) => {
-            println!("INFO: successfully removed switch");
+            log::info!("successfully removed switch");
         }
         Err(e) => {
-            println!("ERROR: failed to remove switch: {:?}", e);
+            log::error!("failed to remove switch: {:?}", e);
         }
     }
 
-    println!("INFO: Success");
+    log::info!("Success");
 
     return ExitCode::SUCCESS;
 }

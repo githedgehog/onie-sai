@@ -5,22 +5,27 @@ use ttrpc::context::{self, Context};
 use ttrpc::Client;
 
 fn main() {
-    println!("INFO: connecting to onie-said at: {}...", SOCK_ADDR);
+    // initialize logger, and log at info level if RUST_LOG is not set
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
+    log::info!("connecting to onie-said at: {}...", SOCK_ADDR);
     let c = Client::connect(SOCK_ADDR).unwrap();
     let osc = onie_sai_ttrpc::OnieSaiClient::new(c);
 
     let req = onie_sai::VersionRequest::new();
-    println!("INFO: making request to onie-said: {:?}...", req);
+    log::info!("making request to onie-said: {:?}...", req);
     let resp = match osc.version(default_ctx(), &req) {
         Err(e) => {
-            println!("ERROR: request to onie-said failed: {:?}", e);
+            log::error!("request to onie-said failed: {:?}", e);
             return;
         }
         Ok(x) => x,
     };
-    println!("INFO: response from onie-said: {:?}", resp);
+    log::info!("response from onie-said: {:?}", resp);
 
-    println!("INFO: Success");
+    log::info!("Success");
 }
 
 fn default_ctx() -> Context {
