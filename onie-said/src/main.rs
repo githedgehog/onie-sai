@@ -1,32 +1,67 @@
-use std::ffi::CString;
-use std::process::ExitCode;
-use std::str::FromStr;
+mod oniesai;
+mod rpc;
 
-use ipnet::IpNet;
-use sai::bridge;
-use sai::hostif::table_entry::ChannelType;
-use sai::hostif::table_entry::TableEntryAttribute;
-use sai::hostif::table_entry::TableEntryType;
-use sai::hostif::trap::TrapAttribute;
-use sai::hostif::trap::TrapType;
-use sai::hostif::HostIf;
-use sai::hostif::HostIfAttribute;
-use sai::hostif::HostIfType;
-use sai::hostif::VlanTag;
-use sai::port::PortID;
-use sai::route::RouteEntryAttribute;
-use sai::router_interface::RouterInterfaceAttribute;
-use sai::router_interface::RouterInterfaceType;
-use sai::switch::SwitchAttribute;
-use sai::ObjectID;
-use sai::PacketAction;
+use std::ffi::CString;
+use std::path::PathBuf;
+use std::process::ExitCode;
+
+use clap::{Parser, ValueEnum};
+use log::LevelFilter;
+
+use macaddr::MacAddr6;
+
 use sai::SAI;
 
+use crate::oniesai::Processor;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Changes the log level setting
+    #[arg(long, value_enum, default_value_t=LogLevel::Warn)]
+    log_level: LogLevel,
+
+    #[arg(long, default_value_t=MacAddr6::new(0xee, 0xba, 0x4a, 0xb9, 0xb1, 0x24))]
+    mac_addr: MacAddr6,
+
+    #[arg(long, default_value = "/root/saictl/etc/config.bcm")]
+    init_config_file: PathBuf,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum LogLevel {
+    /// A level lower than all log levels.
+    Off,
+    /// Corresponds to the `Error` log level.
+    Error,
+    /// Corresponds to the `Warn` log level.
+    Warn,
+    /// Corresponds to the `Info` log level.
+    Info,
+    /// Corresponds to the `Debug` log level.
+    Debug,
+    /// Corresponds to the `Trace` log level.
+    Trace,
+}
+
+impl From<LogLevel> for LevelFilter {
+    fn from(value: LogLevel) -> Self {
+        match value {
+            LogLevel::Off => LevelFilter::Off,
+            LogLevel::Error => LevelFilter::Error,
+            LogLevel::Warn => LevelFilter::Warn,
+            LogLevel::Info => LevelFilter::Info,
+            LogLevel::Debug => LevelFilter::Debug,
+            LogLevel::Trace => LevelFilter::Trace,
+        }
+    }
+}
+
 fn main() -> ExitCode {
-    // initialize logger, and log at info level if RUST_LOG is not set
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    );
+    let cli = Cli::parse();
+    env_logger::builder()
+        .filter_level(LevelFilter::from(cli.log_level))
+        .init();
 
     // get SAI API version
     if let Ok(version) = SAI::api_version() {
@@ -41,7 +76,7 @@ fn main() -> ExitCode {
 
     // init SAI
     let sai_api = match SAI::new(profile) {
-        Ok(sai) => sai,
+        Ok(sai_api) => sai_api,
         Err(e) => {
             log::error!("failed to initialize SAI: {:?}", e);
             return ExitCode::FAILURE;
@@ -49,401 +84,17 @@ fn main() -> ExitCode {
     };
     log::info!("successfully initialized SAI");
 
-    // if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
-    //     log::error!("failed to set log level for all APIs: {:?}", e);
-    // }
-
-    // now create switch
-    let mac_address = [0x1c, 0x72, 0x1d, 0xec, 0x44, 0xa0];
-    let switch = match sai_api.switch_create(vec![
-        SwitchAttribute::InitSwitch(true),
-        SwitchAttribute::SrcMacAddress(mac_address),
-    ]) {
-        Ok(sw_id) => sw_id,
-        Err(e) => {
-            log::error!("failed to create switch: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    log::info!("successfully created switch: {:?}", switch);
-
-    // port state change callback
-    if let Err(e) = switch.set_port_state_change_callback(Box::new(|v| {
-        v.iter()
-            .for_each(|n| log::info!("Port State Change Event: {:?}", n));
-    })) {
-        log::error!("failed to set port state change callback: {:?}", e);
-    } else {
-        log::info!("successfully set port state change callback");
+    if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
+        log::error!("failed to set log level for all APIs: {:?}", e);
     }
 
-    // remove default vlan members
-    let default_vlan = match switch.get_default_vlan() {
-        Ok(vlan) => vlan,
+    let _proc = match Processor::new(&sai_api, cli.mac_addr.into_array()) {
+        Ok(proc) => proc,
         Err(e) => {
-            log::error!("failed to get default VLAN: {:?}", e);
+            log::error!("failed to initialize ONIE SAI processor: {}", e);
             return ExitCode::FAILURE;
         }
     };
-    log::info!("default VLAN of switch {} is: {:?}", switch, default_vlan);
-    match default_vlan.get_members() {
-        Err(e) => {
-            log::error!(
-                "failed to get VLAN members for default VLAN {}: {:?}",
-                default_vlan,
-                e
-            );
-        }
-        Ok(members) => {
-            for member in members {
-                log::info!("Removing VLAN member {}...", member);
-                if let Err(e) = member.remove() {
-                    log::error!("failed to remove VLAN member: {:?}", e);
-                }
-            }
-        }
-    };
-
-    // remove default bridge ports
-    let default_bridge = match switch.get_default_bridge() {
-        Ok(bridge) => bridge,
-        Err(e) => {
-            log::error!("failed to get dfeault bridge: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    log::info!(
-        "default bridge of switch {} is: {:?}",
-        switch,
-        default_bridge
-    );
-    match default_bridge.get_ports() {
-        Err(e) => {
-            log::error!(
-                "failed to get bridge ports for default bridge {}: {:?}",
-                default_bridge,
-                e
-            );
-        }
-        Ok(ports) => {
-            for bridge_port in ports {
-                match bridge_port.get_type() {
-                    // we only go ahead when this is a real port
-                    Ok(bridge::port::Type::Port) => {}
-                    Ok(v) => {
-                        log::info!("not removing bridge port {} of type: {:?}", bridge_port, v);
-                        continue;
-                    }
-                    Err(e) => {
-                        log::error!(
-                            "failed to get bridge porty type of bridge port {}: {:?}",
-                            bridge_port,
-                            e
-                        );
-                        continue;
-                    }
-                }
-
-                log::info!("removing bridge port {}...", bridge_port);
-                if let Err(e) = bridge_port.remove() {
-                    log::error!("failed to remove bridge port: {:?}", e);
-                }
-            }
-        }
-    };
-
-    // program traps
-    let default_trap_group = match switch.get_default_hostif_trap_group() {
-        Ok(group) => group,
-        Err(e) => {
-            log::error!("failed to get default host interface trap group: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    let default_trap_group_id = default_trap_group.to_id();
-    let _ip2me_trap = match switch.create_hostif_trap(vec![
-        TrapAttribute::TrapType(TrapType::IP2ME),
-        TrapAttribute::PacketAction(PacketAction::Trap),
-        TrapAttribute::TrapGroup(default_trap_group_id),
-    ]) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("failed to create ip2me trap: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    let _arp_req_trap = match switch.create_hostif_trap(vec![
-        TrapAttribute::TrapType(TrapType::ARPRequest),
-        TrapAttribute::PacketAction(PacketAction::Copy),
-        TrapAttribute::TrapGroup(default_trap_group_id),
-    ]) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("failed to create ip2me trap: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    let _arp_resp_trap = match switch.create_hostif_trap(vec![
-        TrapAttribute::TrapType(TrapType::ARPResponse),
-        TrapAttribute::PacketAction(PacketAction::Copy),
-        TrapAttribute::TrapGroup(default_trap_group_id),
-    ]) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("failed to create ip2me trap: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    let _default_table_entry = match switch.create_hostif_table_entry(vec![
-        TableEntryAttribute::Type(TableEntryType::Wildcard),
-        TableEntryAttribute::ChannelType(ChannelType::NetdevPhysicalPort),
-    ]) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!(
-                "failed to create default host interface table entry: {:?}",
-                e
-            );
-            return ExitCode::FAILURE;
-        }
-    };
-
-    // get CPU port
-    let cpu_port = match switch.get_cpu_port() {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("failed go get CPU port: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-    let cpu_port_id = PortID::from(cpu_port);
-
-    // create host interface for it
-    let cpu_intf = match switch.create_hostif(vec![
-        HostIfAttribute::Name("CPU".to_string()),
-        HostIfAttribute::Type(HostIfType::Netdev),
-        HostIfAttribute::ObjectID(cpu_port_id.into()),
-        HostIfAttribute::OperStatus(true),
-    ]) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!(
-                "failed to create host interface for CPU port {}: {:?}",
-                cpu_port_id,
-                e
-            );
-            return ExitCode::FAILURE;
-        }
-    };
-
-    // get the default virtual router
-    let default_virtual_router = match switch.get_default_virtual_router() {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("failed to get default virtual router: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
-
-    // prep the router: create loopback interface
-    // create initial routes
-    let _lo_rif = match default_virtual_router.create_router_interface(vec![
-        RouterInterfaceAttribute::Type(RouterInterfaceType::Loopback),
-        RouterInterfaceAttribute::MTU(9100),
-    ]) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!(
-                "failed to get create loopback interface for virtual router {}: {:?}",
-                default_virtual_router,
-                e
-            );
-            return ExitCode::FAILURE;
-        }
-    };
-    let _default_route_entry = match default_virtual_router.create_route_entry(
-        IpNet::from_str("0.0.0.0/0").unwrap(),
-        vec![RouteEntryAttribute::PacketAction(PacketAction::Drop)],
-    ) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!(
-                "failed to create default route entry for virtual router {}: {:?}",
-                default_virtual_router,
-                e
-            );
-            return ExitCode::FAILURE;
-        }
-    };
-    let _myip_route_entry = match default_virtual_router.create_route_entry(
-        IpNet::from_str("10.10.10.1/32").unwrap(),
-        vec![
-            RouteEntryAttribute::PacketAction(PacketAction::Forward),
-            RouteEntryAttribute::NextHopID(cpu_port_id.into()),
-        ],
-    ) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!(
-                "failed to create route entry for ourselves for virtual router {}: {:?}",
-                default_virtual_router,
-                e
-            );
-            return ExitCode::FAILURE;
-        }
-    };
-
-    // get ports now
-    let ports = match switch.get_ports() {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("failed to get port list from switch {}: {:?}", switch, e);
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let mut hostifs: Vec<HostIf> = Vec::with_capacity(ports.len());
-    for (i, port) in ports.into_iter().enumerate() {
-        let port_id = port.to_id();
-        // create host interface
-        let hostif = match switch.create_hostif(vec![
-            HostIfAttribute::Type(HostIfType::Netdev),
-            HostIfAttribute::ObjectID(port_id.into()),
-            HostIfAttribute::Name(format!("Ethernet{}", i)),
-        ]) {
-            Ok(v) => v,
-            Err(e) => {
-                log::error!(
-                    "failed to create host interface for port {} on switch {}: {:?}",
-                    port,
-                    switch,
-                    e
-                );
-                return ExitCode::FAILURE;
-            }
-        };
-        hostifs.push(hostif.clone());
-
-        // check supported speeds, and set port to 10G if possible
-        match port.get_supported_speeds() {
-            Err(e) => {
-                log::error!(
-                    "failed to query port {} for supported speeds: {:?}",
-                    port,
-                    e
-                );
-            }
-            Ok(speeds) => {
-                if !speeds.contains(&10000) {
-                    log::warn!("port {} does not support 10G, only {:?}", port, speeds)
-                } else {
-                    match port.set_speed(10000) {
-                        Ok(_) => {
-                            log::info!("set port speed to 10G for port {}", port);
-                        }
-                        Err(e) => {
-                            log::error!(
-                                "failed to set port speed to 10G for port {}: {:?}",
-                                port,
-                                e
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        // set port up
-        match port.set_admin_state(true) {
-            Ok(_) => {
-                log::info!("set admin state to true for port {}", port);
-            }
-            Err(e) => {
-                log::error!(
-                    "failed to set admin state to true for port {}: {:?}",
-                    port,
-                    e
-                );
-            }
-        }
-
-        // allow vlan tags on host interfaces
-        match hostif.set_vlan_tag(VlanTag::Original) {
-            Ok(_) => {
-                log::info!(
-                    "set vlan tag to keep original for host interface {}",
-                    hostif
-                );
-            }
-            Err(e) => {
-                log::error!(
-                    "failed to set vlan tag to keep original for host interface {}: {:?}",
-                    hostif,
-                    e
-                );
-            }
-        }
-
-        // bring host interface up
-        match hostif.set_oper_status(true) {
-            Ok(_) => {
-                log::info!("set oper status to true for host interface {}", hostif);
-            }
-            Err(e) => {
-                log::error!(
-                    "failed to set oper status to true for host interface {}: {:?}",
-                    hostif,
-                    e
-                );
-            }
-        }
-
-        // create router interface
-        match default_virtual_router.create_router_interface(vec![
-            RouterInterfaceAttribute::SrcMacAddress(mac_address),
-            RouterInterfaceAttribute::Type(RouterInterfaceType::Port),
-            RouterInterfaceAttribute::PortID(port.into()),
-            RouterInterfaceAttribute::MTU(9100),
-            RouterInterfaceAttribute::NATZoneID(0),
-        ]) {
-            Ok(v) => {
-                log::info!("successfully created router interface {}", v);
-            }
-            Err(e) => {
-                log::error!("failed create router interface: {:?}", e);
-            }
-        }
-    }
-
-    match switch.enable_shell() {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("failed to enter switch shell: {:?}", e);
-        }
-    }
-
-    // shutdown: remove things again
-    hostifs.push(cpu_intf);
-    for hostif in hostifs {
-        let id = hostif.to_id();
-        match hostif.remove() {
-            Ok(_) => {
-                log::info!("successfully removed host interface {}", id);
-            }
-            Err(e) => {
-                log::error!("failed to remove host interface {}: {:?}", id, e);
-            }
-        }
-    }
-
-    match switch.remove() {
-        Ok(_) => {
-            log::info!("successfully removed switch");
-        }
-        Err(e) => {
-            log::error!("failed to remove switch: {:?}", e);
-        }
-    }
 
     log::info!("Success");
 

@@ -173,6 +173,14 @@ impl From<Status> for InitError {
     }
 }
 
+impl std::fmt::Display for InitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for InitError {}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     SwitchAlreadyCreated,
@@ -186,6 +194,14 @@ impl From<Status> for Error {
         Error::SAI(value)
     }
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Error {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
