@@ -14,6 +14,9 @@ use sai::SAI;
 
 use crate::oniesai::Processor;
 
+use ctrlc;
+use std::sync::mpsc::channel;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
@@ -96,7 +99,27 @@ fn main() -> ExitCode {
         }
     };
 
-    log::info!("Success");
+    let (ctrlc_tx, ctrlc_rx) = channel();
+    match ctrlc::set_handler(move || {
+        ctrlc_tx
+            .send(())
+            .expect("could not send signal on termination channel.")
+    }) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!(
+                "failed to set signal handler for SIGINT, SIGTERM and SIGHUP: {:?}",
+                e
+            );
+            return ExitCode::FAILURE;
+        }
+    }
 
+    log::info!("ONIE SAI daemon started. Waiting for termination signal...");
+    ctrlc_rx
+        .recv()
+        .expect("could not receive from termination channel.");
+
+    log::info!("Success");
     return ExitCode::SUCCESS;
 }
