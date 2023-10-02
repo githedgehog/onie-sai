@@ -16,3 +16,4 @@ sai = { version = "0.1.0", path = "../sai" }
 ttrpc = "0.8.1"
 onie-sai-rpc = { version = "0.1.0", path = "../onie-sai-rpc" }
 ctrlc = { version = "3.4.1", features = ["termination"] }
+thiserror = "1.0.49"

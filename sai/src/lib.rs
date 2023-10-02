@@ -238,6 +238,14 @@ pub enum Status {
     Unknown(i32),
 }
 
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Status {}
+
 impl From<sai_status_t> for Status {
     fn from(value: sai_status_t) -> Self {
         // TODO: figure out why `bindgen` is not generating consts for those

@@ -4,7 +4,10 @@ mod rpc;
 use std::ffi::CString;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::process::Termination;
+use std::thread;
 
+use anyhow::Context;
 use clap::{Parser, ValueEnum};
 use log::LevelFilter;
 
@@ -29,6 +32,23 @@ struct Cli {
 
     #[arg(long, default_value = "/root/saictl/etc/config.bcm")]
     init_config_file: PathBuf,
+}
+
+impl Cli {
+    fn sai_profile(&self) -> anyhow::Result<Vec<(CString, CString)>> {
+        let init_config_file =
+            self.init_config_file
+                .as_os_str()
+                .to_str()
+                .ok_or(anyhow::anyhow!(
+                    "init config file is not a valid unicode string"
+                ))?;
+
+        Ok(vec![(
+            CString::from_vec_with_nul(sai::SAI_KEY_INIT_CONFIG_FILE.to_vec())?,
+            CString::new(init_config_file)?,
+        )])
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -60,66 +80,87 @@ impl From<LogLevel> for LevelFilter {
     }
 }
 
-fn main() -> ExitCode {
+struct App(anyhow::Result<()>);
+
+impl Termination for App {
+    fn report(self) -> ExitCode {
+        match self.0 {
+            Ok(_) => ExitCode::SUCCESS,
+            Err(e) => {
+                log::error!("Unrecoverable application error: {:?}. Exiting...", e);
+                ExitCode::FAILURE
+            }
+        }
+    }
+}
+
+fn main() -> App {
+    App(app())
+}
+
+fn app() -> anyhow::Result<()> {
+    // parse flags and initialize logger
     let cli = Cli::parse();
     env_logger::builder()
         .filter_level(LevelFilter::from(cli.log_level))
         .init();
+
+    // initialize signal handling
+    let (ctrlc_tx, ctrlc_rx) = channel();
+    ctrlc::set_handler(move || {
+        ctrlc_tx
+            .send(())
+            .expect("could not send signal on termination channel.")
+    })
+    .context("failed to set signal handler for SIGINT, SIGTERM and SIGHUP")?;
 
     // get SAI API version
     if let Ok(version) = SAI::api_version() {
         log::info!("SAI version: {}", version);
     }
 
-    // our profile
-    let profile = vec![(
-        CString::from_vec_with_nul(sai::SAI_KEY_INIT_CONFIG_FILE.to_vec()).unwrap(),
-        CString::new("/root/saictl/etc/config.bcm").unwrap(),
-    )];
-
-    // init SAI
-    let sai_api = match SAI::new(profile) {
-        Ok(sai_api) => sai_api,
-        Err(e) => {
-            log::error!("failed to initialize SAI: {:?}", e);
-            return ExitCode::FAILURE;
-        }
-    };
+    // construct our profile from the CLI arguments and initialize SAI
+    let profile = cli.sai_profile()?;
+    let sai_api = SAI::new(profile).context("failed to initialize SAI")?;
     log::info!("successfully initialized SAI");
 
     if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
         log::error!("failed to set log level for all APIs: {:?}", e);
     }
 
-    let _proc = match Processor::new(&sai_api, cli.mac_addr.into_array()) {
-        Ok(proc) => proc,
-        Err(e) => {
-            log::error!("failed to initialize ONIE SAI processor: {}", e);
-            return ExitCode::FAILURE;
-        }
-    };
+    // this initializes the switch, and prepares the system for receiving processing requests either from RPC, or the other threads
+    let proc = Processor::new(&sai_api, cli.mac_addr.into_array())
+        .context("failed to initialize ONIE SAI processor")?;
 
-    let (ctrlc_tx, ctrlc_rx) = channel();
-    match ctrlc::set_handler(move || {
-        ctrlc_tx
-            .send(())
-            .expect("could not send signal on termination channel.")
-    }) {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!(
-                "failed to set signal handler for SIGINT, SIGTERM and SIGHUP: {:?}",
+    // move the signal handling to its own thread
+    // send a shutdown request to the processor when we receive it
+    let ctrlc_proc_tx = proc.get_sender();
+    thread::spawn(move || {
+        log::info!("ONIE SAI daemon started. Waiting for termination signal...");
+        ctrlc_rx
+            .recv()
+            .expect("could not receive from termination channel.");
+        if let Err(e) = ctrlc_proc_tx.send(oniesai::ProcessRequest::Shutdown) {
+            log::warn!(
+                "failed to send shutdown request from termination thread: {:?}",
                 e
             );
-            return ExitCode::FAILURE;
+        } else {
+            log::info!("sent shutdown signal to ONIE SAI processor...");
         }
-    }
+    });
 
-    log::info!("ONIE SAI daemon started. Waiting for termination signal...");
-    ctrlc_rx
-        .recv()
-        .expect("could not receive from termination channel.");
+    // initialize the ttrpc server
+    let rpc_server = rpc::start_rpc_server(proc.get_sender())?;
+
+    // this blocks until processing is all done
+    // process consumes the processor, so it will be dropped immediately after
+    // which will trigger the cleanup
+    proc.process();
+
+    // stop ttrpc server as well
+    rpc_server.shutdown();
 
     log::info!("Success");
-    return ExitCode::SUCCESS;
+    Ok(())
 }

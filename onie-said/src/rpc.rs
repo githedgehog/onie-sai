@@ -1,3 +1,5 @@
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -7,36 +9,53 @@ use ttrpc::Server;
 use onie_sai_rpc::onie_sai;
 use onie_sai_rpc::onie_sai_ttrpc;
 
-use sai::SAI;
+use crate::oniesai::ProcessError;
+use crate::oniesai::ProcessRequest;
 
-struct OnieSaiServer {}
+struct OnieSaiServer {
+    proc_tx: Sender<ProcessRequest>,
+}
 
 impl onie_sai_ttrpc::OnieSai for OnieSaiServer {
     fn version(
         &self,
         _ctx: &::ttrpc::TtrpcContext,
-        _: onie_sai::VersionRequest,
+        req: onie_sai::VersionRequest,
     ) -> ::ttrpc::Result<onie_sai::VersionResponse> {
-        let sai_version = match SAI::api_version() {
-            Err(e) => {
-                return Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
-                    ttrpc::Code::INTERNAL,
-                    format!("failed to query SAI API version from SAI: {:?}", e),
-                )))
-            }
-            Ok(v) => v.to_string(),
-        };
-        let resp = onie_sai::VersionResponse {
-            onie_said_version: "0.1.0".to_string(),
-            sai_version: sai_version,
-            ..Default::default()
-        };
+        let (tx, rx) = channel();
+        self.proc_tx
+            .send(ProcessRequest::Version((req, tx)))
+            .map_err(map_tx_error)?;
+        let resp = rx.recv().map_err(map_rx_error)?;
+        let resp = resp.map_err(map_process_error)?;
         Ok(resp)
     }
 }
 
-pub(crate) fn start_rpc_server() -> Result<Server> {
-    let service = Box::new(OnieSaiServer {}) as Box<dyn onie_sai_ttrpc::OnieSai + Send + Sync>;
+fn map_tx_error<T: std::fmt::Debug>(e: T) -> ttrpc::error::Error {
+    ttrpc::Error::RpcStatus(ttrpc::get_status(
+        ttrpc::Code::INTERNAL,
+        format!("failed to submit request to SAI processor: {:?}", e),
+    ))
+}
+
+fn map_rx_error<T: std::fmt::Debug>(e: T) -> ttrpc::error::Error {
+    ttrpc::Error::RpcStatus(ttrpc::get_status(
+        ttrpc::Code::INTERNAL,
+        format!("failed to receive response from SAI processor: {:?}", e),
+    ))
+}
+
+fn map_process_error(e: ProcessError) -> ttrpc::error::Error {
+    ttrpc::Error::RpcStatus(ttrpc::get_status(
+        ttrpc::Code::INTERNAL,
+        format!("processor failed to process request: {}", e),
+    ))
+}
+
+pub(crate) fn start_rpc_server(proc_tx: Sender<ProcessRequest>) -> Result<Server> {
+    let service = Box::new(OnieSaiServer { proc_tx: proc_tx })
+        as Box<dyn onie_sai_ttrpc::OnieSai + Send + Sync>;
     let service = Arc::new(service);
     let onie_sai_service = onie_sai_ttrpc::create_onie_sai(service);
 

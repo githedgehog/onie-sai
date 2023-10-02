@@ -1,7 +1,11 @@
 use std::str::FromStr;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 
 use anyhow::anyhow;
 use ipnet::IpNet;
+use onie_sai_rpc::onie_sai;
 use sai::bridge;
 use sai::hostif::table_entry::ChannelType;
 use sai::hostif::table_entry::TableEntryAttribute;
@@ -23,9 +27,29 @@ use sai::ObjectID;
 use sai::PacketAction;
 use sai::SAI;
 
-use anyhow::{Context, Result};
+use anyhow::Context;
 use sai::sai_mac_t;
 use sai::virtual_router::VirtualRouter;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ProcessError {
+    #[error("SAI status returned unsuccessful")]
+    SAIStatus(#[from] sai::Status),
+    #[error("SAI command failed")]
+    SAIError(#[from] sai::Error),
+}
+
+pub(crate) enum ProcessRequest {
+    Shutdown,
+    Version(
+        (
+            onie_sai::VersionRequest,
+            Sender<Result<onie_sai::VersionResponse, ProcessError>>,
+        ),
+    ),
+}
 
 pub(crate) struct Processor<'a> {
     switch: Switch<'a>,
@@ -33,10 +57,12 @@ pub(crate) struct Processor<'a> {
     cpu_port_id: PortID,
     cpu_hostif: HostIf<'a>,
     ports: Vec<Port<'a>>,
+    rx: Receiver<ProcessRequest>,
+    tx: Sender<ProcessRequest>,
 }
 
 impl<'a> Processor<'a> {
-    pub(crate) fn new(sai_api: &'a SAI, mac_address: sai_mac_t) -> Result<Self> {
+    pub(crate) fn new(sai_api: &'a SAI, mac_address: sai_mac_t) -> anyhow::Result<Self> {
         // now create switch
         let switch: Switch<'a> = sai_api
             .switch_create(vec![
@@ -187,13 +213,57 @@ impl<'a> Processor<'a> {
             .get_ports()
             .context(format!("failed to get port list from switch {}", switch))?;
 
+        let (tx, rx) = channel();
         Ok(Processor {
             switch: switch,
             virtual_router: default_virtual_router,
             cpu_port_id: cpu_port_id,
             cpu_hostif: cpu_intf,
             ports: ports,
+            rx: rx,
+            tx: tx,
         })
+    }
+
+    pub(crate) fn get_sender(&self) -> Sender<ProcessRequest> {
+        self.tx.clone()
+    }
+
+    pub(crate) fn process(self) {
+        while let Ok(req) = self.rx.recv() {
+            match req {
+                ProcessRequest::Shutdown => return,
+                ProcessRequest::Version((r, resp_tx)) => {
+                    let resp = self.process_verion_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "processor: failed to send version response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
+            }
+        }
+    }
+
+    fn process_verion_request(
+        &self,
+        _: onie_sai::VersionRequest,
+    ) -> Result<onie_sai::VersionResponse, ProcessError> {
+        match SAI::api_version() {
+            Err(e) => Err(ProcessError::SAIStatus(e)),
+            Ok(v) => Ok(onie_sai::VersionResponse {
+                onie_said_version: "0.1.0".to_string(),
+                sai_version: v.to_string(),
+                ..Default::default()
+            }),
+        }
+    }
+}
+
+impl<'a> Drop for Processor<'a> {
+    fn drop(&mut self) {
+        log::info!("Shutting down ONIE SAI processor...");
     }
 }
 
