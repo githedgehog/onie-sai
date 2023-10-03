@@ -324,7 +324,7 @@ impl<'a> Switch<'a> {
         })
     }
 
-    pub fn create_hostif(&self, attrs: Vec<HostIfAttribute>) -> Result<HostIf, Error> {
+    pub fn create_hostif(&self, attrs: Vec<HostIfAttribute>) -> Result<HostIf<'a>, Error> {
         // check that API is available/callable
         let hostif_api = self.sai.hostif_api().ok_or(Error::APIUnavailable)?;
         let create_hostif = hostif_api
@@ -345,7 +345,7 @@ impl<'a> Switch<'a> {
         })
     }
 
-    pub fn get_default_virtual_router(&self) -> Result<VirtualRouter, Error> {
+    pub fn get_default_virtual_router(&self) -> Result<VirtualRouter<'a>, Error> {
         let switch_api = self.sai.switch_api().ok_or(Error::APIUnavailable)?;
         let get_switch_attribute = switch_api
             .get_switch_attribute

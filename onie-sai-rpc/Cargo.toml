@@ -1,11 +1,13 @@
 [package]
-name = "sai"
+name = "onie-sai-rpc"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipnet = "2.8.0"
-log = "0.4.20"
-sai-sys = { version = "0.1.0", path = "../sai-sys" }
+protobuf = "3.2.0"
+ttrpc = "0.8.1"
+
+[build-dependencies]
+ttrpc-codegen = "0.4.2"

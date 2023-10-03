@@ -173,6 +173,14 @@ impl From<Status> for InitError {
     }
 }
 
+impl std::fmt::Display for InitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for InitError {}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     SwitchAlreadyCreated,
@@ -186,6 +194,14 @@ impl From<Status> for Error {
         Error::SAI(value)
     }
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Error {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
@@ -221,6 +237,14 @@ pub enum Status {
     AttributeNotSupported(i32),
     Unknown(i32),
 }
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for Status {}
 
 impl From<sai_status_t> for Status {
     fn from(value: sai_status_t) -> Self {
@@ -618,7 +642,9 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if switch_api_ptr_orig != switch_api_ptr {
-                // TODO: print debug
+                log::debug!(
+                    "sai_api_query(SAI_API_SWITCH) updated pointer away from our own table"
+                );
             }
             self.switch_api_ptr = Some(switch_api_ptr);
         }
@@ -634,7 +660,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if vlan_api_ptr_orig != vlan_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_VLAN) updated pointer away from our own table");
             }
             self.vlan_api_ptr = Some(vlan_api_ptr);
         }
@@ -650,7 +676,9 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if bridge_api_ptr_orig != bridge_api_ptr {
-                // TODO: print debug
+                log::debug!(
+                    "sai_api_query(SAI_API_BRIDGE) updated pointer away from our own table"
+                );
             }
             self.bridge_api_ptr = Some(bridge_api_ptr);
         }
@@ -666,7 +694,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if port_api_ptr_orig != port_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_PORT) updated pointer away from our own table");
             }
             self.port_api_ptr = Some(port_api_ptr);
         }
@@ -682,7 +710,9 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if hostif_api_ptr_orig == hostif_api_ptr {
-                // TODO: print debug
+                log::debug!(
+                    "sai_api_query(SAI_API_HOSTIF) updated pointer away from our own table"
+                );
             }
             self.hostif_api_ptr = Some(hostif_api_ptr);
         }
@@ -703,7 +733,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if router_interface_api_ptr_orig != router_interface_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_ROUTER_INTERFACE) updated pointer away from our own table");
             }
             self.router_interface_api_ptr = Some(router_interface_api_ptr);
         }
@@ -719,7 +749,7 @@ impl SAI {
                 return Err(Status::from(st));
             }
             if route_api_ptr_orig != route_api_ptr {
-                // TODO: print debug
+                log::debug!("sai_api_query(SAI_API_ROUTE) updated pointer away from our own table");
             }
             self.route_api_ptr = Some(route_api_ptr);
         }

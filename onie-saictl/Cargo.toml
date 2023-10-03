@@ -1,10 +1,12 @@
 [package]
-name = "said"
+name = "onie-saictl"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ipnet = "2.8.0"
-sai = { version = "0.1.0", path = "../sai" }
+ttrpc = "0.8.1"
+onie-sai-rpc = { version = "0.1.0", path = "../onie-sai-rpc" }
+log = "0.4.20"
+env_logger = "0.10.0"

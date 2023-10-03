@@ -122,22 +122,24 @@ pub struct RouteEntry<'a> {
 
 impl std::fmt::Debug for RouteEntry<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO
         write!(
             f,
-            "RouteEntry(switch_id:oid:{:#x}, vr_id:oid:{:#x})",
-            self.entry.switch_id, self.entry.vr_id
+            "RouteEntry(switch_id:oid:{:#x}, vr_id:oid:{:#x}), destination:{:?}",
+            self.entry.switch_id,
+            self.entry.vr_id,
+            IpNet::from(self.entry.destination)
         )
     }
 }
 
 impl std::fmt::Display for RouteEntry<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO
         write!(
             f,
-            "RouteEntry: switch_id:oid:{:#x}, vr_id:oid:{:#x})",
-            self.entry.switch_id, self.entry.vr_id
+            "RouteEntry: switch_id:oid:{:#x}, vr_id:oid:{:#x}, destination:{}",
+            self.entry.switch_id,
+            self.entry.vr_id,
+            IpNet::from(self.entry.destination)
         )
     }
 }

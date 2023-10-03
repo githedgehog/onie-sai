@@ -2,7 +2,12 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+
 use ipnet::IpNet;
+use ipnet::Ipv4Net;
+use ipnet::Ipv6Net;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
@@ -28,6 +33,42 @@ impl From<IpNet> for sai_ip_prefix_t {
                     ip6: v.netmask().octets(),
                 },
             },
+        }
+    }
+}
+
+impl From<sai_ip_prefix_t> for IpNet {
+    fn from(value: sai_ip_prefix_t) -> Self {
+        match value.addr_family {
+            _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV4 => {
+                let addr: Ipv4Addr = From::from(unsafe { value.addr.ip4 });
+                let mask: Ipv4Addr = From::from(unsafe { value.mask.ip4 });
+                let mask_prefix = match ipnet::ipv4_mask_to_prefix(mask) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        panic!("the IPv4 mask within sai_ip_prefix_t produces an invalid prefix length error: {:?}", e);
+                    }
+                };
+                // the unwrap is safe as the ipv4_mask_to_prefix is already performing the same check
+                IpNet::V4(Ipv4Net::new(addr, mask_prefix).unwrap())
+            }
+            _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV6 => {
+                let addr: Ipv6Addr = From::from(unsafe { value.addr.ip6 });
+                let mask: Ipv6Addr = From::from(unsafe { value.mask.ip6 });
+                let mask_prefix = match ipnet::ipv6_mask_to_prefix(mask) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        panic!("the IPv6 mask within sai_ip_prefix_t produces an invalid prefix lenght error: {:?}", e);
+                    }
+                };
+                IpNet::V6(Ipv6Net::new(addr, mask_prefix).unwrap())
+            }
+            unknown_addr_family => {
+                panic!(
+                    "unknown addr_family within sai_ip_prefix_t: {}",
+                    unknown_addr_family
+                );
+            }
         }
     }
 }
