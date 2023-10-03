@@ -1,3 +1,5 @@
+mod port;
+
 use std::str::FromStr;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
@@ -16,7 +18,7 @@ use sai::hostif::HostIf;
 use sai::hostif::HostIfAttribute;
 use sai::hostif::HostIfType;
 use sai::hostif::VlanTag;
-use sai::port::Port;
+use sai::port::OperStatus;
 use sai::port::PortID;
 use sai::route::RouteEntryAttribute;
 use sai::router_interface::RouterInterfaceAttribute;
@@ -33,8 +35,10 @@ use sai::virtual_router::VirtualRouter;
 
 use thiserror::Error;
 
+use self::port::PhysicalPort;
+
 #[derive(Error, Debug)]
-pub enum ProcessError {
+pub(crate) enum ProcessError {
     #[error("SAI status returned unsuccessful")]
     SAIStatus(#[from] sai::Status),
     #[error("SAI command failed")]
@@ -49,6 +53,7 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::VersionResponse, ProcessError>>,
         ),
     ),
+    LogicalPortStateChange((PortID, OperStatus)),
 }
 
 pub(crate) struct Processor<'a> {
@@ -56,7 +61,7 @@ pub(crate) struct Processor<'a> {
     virtual_router: VirtualRouter<'a>,
     cpu_port_id: PortID,
     cpu_hostif: HostIf<'a>,
-    ports: Vec<Port<'a>>,
+    ports: Vec<PhysicalPort<'a>>,
     rx: Receiver<ProcessRequest>,
     tx: Sender<ProcessRequest>,
 }
@@ -72,11 +77,25 @@ impl<'a> Processor<'a> {
             .context("failed to create switch")?;
         log::info!("successfully created switch: {:?}", switch);
 
+        // the processor channel
+        let (tx, rx) = channel();
+        let psc_cb_tx = tx.clone();
+
         // port state change callback
         switch
-            .set_port_state_change_callback(Box::new(|v| {
-                v.iter()
-                    .for_each(|n| log::info!("Port State Change Event: {:?}", n));
+            .set_port_state_change_callback(Box::new(move |notifications| {
+                for notification in notifications {
+                    let port_id = PortID::from(notification);
+                    let port_state = OperStatus::from(notification);
+                    log::info!(
+                        "Port State Change Event: port_id = {:?}, port_state = {:?}",
+                        port_id,
+                        port_state
+                    );
+                    if let Err(e) = psc_cb_tx.send(ProcessRequest::LogicalPortStateChange((port_id, port_state))) {
+                        log::error!("Port State Change Event: failed to submit port state change event to processor (port_id = {:?}, port_state = {:?}): {}", port_id, port_state, e);
+                    }
+                }
             }))
             .context("failed to set port state change callback")?;
 
@@ -213,7 +232,9 @@ impl<'a> Processor<'a> {
             .get_ports()
             .context(format!("failed to get port list from switch {}", switch))?;
 
-        let (tx, rx) = channel();
+        let ports = PhysicalPort::from_ports(ports)
+            .context("failed to create physical ports from SAI ports")?;
+
         Ok(Processor {
             switch: switch,
             virtual_router: default_virtual_router,
@@ -234,7 +255,7 @@ impl<'a> Processor<'a> {
             match req {
                 ProcessRequest::Shutdown => return,
                 ProcessRequest::Version((r, resp_tx)) => {
-                    let resp = self.process_verion_request(r);
+                    let resp = self.process_version_request(r);
                     if let Err(e) = resp_tx.send(resp) {
                         log::error!(
                             "processor: failed to send version response to rpc server: {:?}",
@@ -242,11 +263,14 @@ impl<'a> Processor<'a> {
                         );
                     };
                 }
+                ProcessRequest::LogicalPortStateChange((port_id, port_state)) => {
+                    self.process_logical_port_state_change(port_id, port_state)
+                }
             }
         }
     }
 
-    fn process_verion_request(
+    fn process_version_request(
         &self,
         _: onie_sai::VersionRequest,
     ) -> Result<onie_sai::VersionResponse, ProcessError> {
@@ -259,11 +283,76 @@ impl<'a> Processor<'a> {
             }),
         }
     }
+
+    fn process_logical_port_state_change(&self, port_id: PortID, port_state: OperStatus) {
+        let mut found = false;
+        for phy_port in self.ports.iter() {
+            for log_port in phy_port.ports.iter() {
+                if log_port.port == port_id {
+                    found = true;
+                    match log_port.hif.as_ref() {
+                        Some(hif) => {
+                            let hif_oper_state = bool::from(port_state);
+                            match hif.intf.set_oper_status(hif_oper_state) {
+                                Ok(_) => log::info!("processor: set host interface {} operational status to {} for port {}", hif.intf, hif_oper_state, port_id),
+                                Err(e) => log::error!("processor: failed to set host interface {} operational status to {} for port {}: {:?}", hif, hif_oper_state, port_id, e),
+                            }
+                        }
+                        None => log::warn!(
+                            "processor: port {} has no associated host interface created yet",
+                            port_id
+                        ),
+                    }
+                }
+            }
+        }
+        if !found {
+            log::warn!(
+                "processor: port {} not found during port state change event",
+                port_id
+            );
+        }
+    }
 }
 
 impl<'a> Drop for Processor<'a> {
     fn drop(&mut self) {
+        // TODO: the `clone()`s here are ugly, but there is no real good other solution (that I know of)
         log::info!("Shutting down ONIE SAI processor...");
+
+        // removing CPU host interface
+        let cpu_hostif_id = self.cpu_hostif.to_id();
+        match self.cpu_hostif.clone().remove() {
+            Ok(_) => log::info!("processor: removed CPU host interface {}", cpu_hostif_id),
+            Err(e) => log::error!(
+                "processor: failed to remove CPU host interface {}: {:?}",
+                cpu_hostif_id,
+                e
+            ),
+        };
+
+        // removing host interfaces for all ports
+        for phy_port in self.ports.clone() {
+            for port in phy_port.ports {
+                let port_id = port.port.to_id();
+                if let Some(hif) = port.hif {
+                    let hif_id = hif.intf.to_id();
+                    match hif.intf.remove() {
+                        Ok(_) => log::info!(
+                            "processor: removed host interface {} for port {}",
+                            hif_id,
+                            port_id
+                        ),
+                        Err(e) => log::error!(
+                            "processor: failed to remove host interface {} for port {}: {:?}",
+                            hif_id,
+                            port_id,
+                            e
+                        ),
+                    }
+                }
+            }
+        }
     }
 }
 

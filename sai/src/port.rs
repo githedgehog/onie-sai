@@ -1,6 +1,114 @@
 use super::*;
 use sai_sys::*;
 
+#[derive(Clone, Copy, Debug)]
+pub enum OperStatus {
+    Unknown,
+    Up,
+    Down,
+    Testing,
+    NotPresent,
+}
+
+impl From<OperStatus> for i32 {
+    fn from(value: OperStatus) -> Self {
+        match value {
+            OperStatus::Unknown => _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_UNKNOWN as i32,
+            OperStatus::Up => _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_UP as i32,
+            OperStatus::Down => _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_DOWN as i32,
+            OperStatus::Testing => _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_TESTING as i32,
+            OperStatus::NotPresent => {
+                _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_NOT_PRESENT as i32
+            }
+        }
+    }
+}
+
+impl From<i32> for OperStatus {
+    fn from(value: i32) -> Self {
+        match value {
+            x if x == sai_sys::_sai_port_oper_status_t_SAI_PORT_OPER_STATUS_UNKNOWN as i32 => {
+                OperStatus::Unknown
+            }
+            x if x == _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_UP as i32 => OperStatus::Up,
+            x if x == _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_DOWN as i32 => OperStatus::Down,
+            x if x == _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_TESTING as i32 => {
+                OperStatus::Testing
+            }
+            x if x == _sai_port_oper_status_t_SAI_PORT_OPER_STATUS_NOT_PRESENT as i32 => {
+                OperStatus::NotPresent
+            }
+            _ => OperStatus::Unknown,
+        }
+    }
+}
+
+impl From<sai_port_oper_status_notification_t> for OperStatus {
+    fn from(value: sai_port_oper_status_notification_t) -> Self {
+        OperStatus::from(value.port_state as i32)
+    }
+}
+
+impl From<OperStatus> for bool {
+    fn from(value: OperStatus) -> Self {
+        match value {
+            OperStatus::Up => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum BreakoutModeType {
+    OneLane,
+    TwoLanes,
+    FourLanes,
+    Unknown(i32),
+}
+
+impl From<BreakoutModeType> for i32 {
+    fn from(value: BreakoutModeType) -> Self {
+        match value {
+            BreakoutModeType::OneLane => {
+                _sai_port_breakout_mode_type_t_SAI_PORT_BREAKOUT_MODE_TYPE_1_LANE as i32
+            }
+            BreakoutModeType::TwoLanes => {
+                _sai_port_breakout_mode_type_t_SAI_PORT_BREAKOUT_MODE_TYPE_2_LANE as i32
+            }
+            BreakoutModeType::FourLanes => {
+                _sai_port_breakout_mode_type_t_SAI_PORT_BREAKOUT_MODE_TYPE_4_LANE as i32
+            }
+            BreakoutModeType::Unknown(v) => v,
+        }
+    }
+}
+
+impl From<i32> for BreakoutModeType {
+    fn from(value: i32) -> Self {
+        match value {
+            x if x
+                == sai_sys::_sai_port_breakout_mode_type_t_SAI_PORT_BREAKOUT_MODE_TYPE_1_LANE
+                    as i32 =>
+            {
+                BreakoutModeType::OneLane
+            }
+            x if x
+                == sai_sys::_sai_port_breakout_mode_type_t_SAI_PORT_BREAKOUT_MODE_TYPE_2_LANE
+                    as i32 =>
+            {
+                BreakoutModeType::TwoLanes
+            }
+            x if x
+                == sai_sys::_sai_port_breakout_mode_type_t_SAI_PORT_BREAKOUT_MODE_TYPE_4_LANE
+                    as i32 =>
+            {
+                BreakoutModeType::FourLanes
+            }
+            x => BreakoutModeType::Unknown(x),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct PortID {
     pub(crate) id: sai_object_id_t,
@@ -27,6 +135,24 @@ impl From<PortID> for sai_object_id_t {
 impl From<Port<'_>> for PortID {
     fn from(value: Port) -> Self {
         Self { id: value.id }
+    }
+}
+
+impl From<sai_port_oper_status_notification_t> for PortID {
+    fn from(value: sai_port_oper_status_notification_t) -> Self {
+        Self { id: value.port_id }
+    }
+}
+
+impl PartialEq<PortID> for Port<'_> {
+    fn eq(&self, other: &PortID) -> bool {
+        self.id == other.id
+    }
+}
+
+impl PartialEq<Port<'_>> for PortID {
+    fn eq(&self, other: &Port<'_>) -> bool {
+        self.id == other.id
     }
 }
 
@@ -78,6 +204,91 @@ impl<'a> Port<'a> {
         for i in 0..count {
             let speed: u32 = unsafe { *list.offset(i as isize) };
             ret.push(speed);
+        }
+        Ok(ret)
+    }
+
+    pub fn get_supported_breakout_modes(&self) -> Result<Vec<BreakoutModeType>, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut breakout_mode_types: Vec<i32> = vec![0i32; 4];
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_SUPPORTED_BREAKOUT_MODE_TYPE,
+            value: sai_attribute_value_t {
+                s32list: sai_s32_list_t {
+                    count: breakout_mode_types.len() as u32,
+                    list: breakout_mode_types.as_mut_ptr(),
+                },
+            },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // iterate over the returned list and build the vector for return
+        let count = unsafe { attr.value.s32list.count };
+        let list = unsafe { attr.value.s32list.list };
+        let mut ret: Vec<BreakoutModeType> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let breakout_mode_type: i32 = unsafe { *list.offset(i as isize) };
+            ret.push(BreakoutModeType::from(breakout_mode_type));
+        }
+        Ok(ret)
+    }
+
+    pub fn get_current_breakout_mode(&self) -> Result<BreakoutModeType, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_CURRENT_BREAKOUT_MODE_TYPE,
+            value: sai_attribute_value_t { s32: 0 },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(BreakoutModeType::from(unsafe { attr.value.s32 }))
+    }
+
+    pub fn get_hw_lanes(&self) -> Result<Vec<u32>, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut lanes: Vec<u32> = vec![0u32; 16];
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_HW_LANE_LIST,
+            value: sai_attribute_value_t {
+                u32list: sai_u32_list_t {
+                    count: lanes.len() as u32,
+                    list: lanes.as_mut_ptr(),
+                },
+            },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        // iterate over the returned list and build the vector for return
+        let count = unsafe { attr.value.u32list.count };
+        let list = unsafe { attr.value.u32list.list };
+        let mut ret: Vec<u32> = Vec::with_capacity(count as usize);
+        for i in 0..count {
+            let lane: u32 = unsafe { *list.offset(i as isize) };
+            ret.push(lane);
         }
         Ok(ret)
     }
