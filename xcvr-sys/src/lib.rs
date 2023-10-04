@@ -3,3 +3,6 @@
 #![allow(non_snake_case)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+/// Status success
+pub const XCVR_STATUS_SUCCESS: i32 = 0;

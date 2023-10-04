@@ -3,16 +3,15 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    println!("cargo:rerun-if-changed=wrapper.h");
     println!(
-        "cargo:rustc-link-search=native={}",
+        "cargo:rerun-if-changed={}",
         Path::new(&cargo_manifest_dir)
             .parent()
             .unwrap()
-            .join("lib")
+            .join("include/xcvr/xcvr.h")
             .display()
     );
-    // println!("cargo:rustc-link-lib=xcvr");
-    println!("cargo:rerun-if-changed=wrapper.h");
 
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
@@ -20,6 +19,7 @@ fn main() {
         .clang_arg("-I../include/xcvr")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .derive_default(true)
+        .blocklist_item("XCVR_STATUS_SUCCESS")
         .generate()
         .expect("Unable to generate bindings");
 

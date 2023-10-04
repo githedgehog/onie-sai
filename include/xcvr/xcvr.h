@@ -23,28 +23,28 @@ typedef int32_t xcvr_status_t;
 */
 typedef uint16_t idx_t;
 
-/* Status success */
-#define XCVR_STATUS_SUCCESS                       = 0x00000000L
-/* Status error: General error */
-#define XCVR_STATUS_ERROR_GENERAL                 = -0x00000001L
-/* Status error: Blocking EEPROM from being read */
-#define XCVR_STATUS_ERROR_BLOCKING                = -0x00000002L
-/* Status error: Power budget exceeded */
-#define XCVR_STATUS_ERROR_POWER_BUDGET_EXCEEDED   = -0x00000004L
-/* Status error: Bus stuck (I2C data or clock shorted) */
-#define XCVR_STATUS_ERROR_I2C_STUCK               = -0x00000008L
-/* Status error: Bad or unsupported EEPROM */
-#define XCVR_STATUS_ERROR_BAD_EEPROM              = -0x00000010L
-/* Status error: Unsupported cable */
-#define XCVR_STATUS_ERROR_UNSUPPORTED_CABLE       = -0x00000020L
-/* Status error: High temperature */
-#define XCVR_STATUS_ERROR_HIGH_TEMP               = -0x00000040L
-/* Status error: Bad cable (module/cable is shorted) */
-#define XCVR_STATUS_ERROR_BAD_CABLE               = -0x00000080L
-/* Status error: Unsupported platform */
-#define XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM    = -0x00000100L
-/* Status error: Unimplemented */
-#define XCVR_STATUS_ERROR_UNIMPLEMENTED           = -0xFFFFFFFFL
+/** Status success */
+#define XCVR_STATUS_SUCCESS                         (0x00000000L)
+/** Status error: General error */
+#define XCVR_STATUS_ERROR_GENERAL                  (-0x00000001L)
+/** Status error: Blocking EEPROM from being read */
+#define XCVR_STATUS_ERROR_BLOCKING                 (-0x00000002L)
+/** Status error: Power budget exceeded */
+#define XCVR_STATUS_ERROR_POWER_BUDGET_EXCEEDED    (-0x00000004L)
+/** Status error: Bus stuck (I2C data or clock shorted) */
+#define XCVR_STATUS_ERROR_I2C_STUCK                (-0x00000008L)
+/** Status error: Bad or unsupported EEPROM */
+#define XCVR_STATUS_ERROR_BAD_EEPROM               (-0x00000010L)
+/** Status error: Unsupported cable */
+#define XCVR_STATUS_ERROR_UNSUPPORTED_CABLE        (-0x00000020L)
+/** Status error: High temperature */
+#define XCVR_STATUS_ERROR_HIGH_TEMP                (-0x00000040L)
+/** Status error: Bad cable (module/cable is shorted) */
+#define XCVR_STATUS_ERROR_BAD_CABLE                (-0x00000080L)
+/** Status error: Unsupported platform */
+#define XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM     (-0x00000100L)
+/** Status error: Unimplemented */
+#define XCVR_STATUS_ERROR_UNIMPLEMENTED            (-0x80000000L)
 
 /**
  * @brief The port types of a transceiver. These map to the SONiC

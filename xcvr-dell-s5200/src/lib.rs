@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::os::raw::c_char;
 
 use xcvr_sys::idx_t;
 use xcvr_sys::xcvr_port_type_t;
@@ -15,12 +16,12 @@ static SUPPORTED_PLATFORMS: [&[u8; 31]; 3] = [
 ];
 
 #[no_mangle]
-pub extern "C" fn xcvr_library_name() -> *const ::std::os::raw::c_char {
-    LIBRARY_NAME.as_ptr() as *const ::std::os::raw::c_char
+pub extern "C" fn xcvr_library_name() -> *const c_char {
+    LIBRARY_NAME.as_ptr() as *const c_char
 }
 
 #[no_mangle]
-pub extern "C" fn xcvr_is_supported_platform(platform: *const ::std::os::raw::c_char) -> bool {
+pub extern "C" fn xcvr_is_supported_platform(platform: *const c_char) -> bool {
     if platform.is_null() {
         return false;
     }
@@ -36,7 +37,7 @@ pub extern "C" fn xcvr_is_supported_platform(platform: *const ::std::os::raw::c_
 
 #[no_mangle]
 pub extern "C" fn xcvr_supported_platforms(
-    supported_platforms: *mut *const ::std::os::raw::c_char,
+    supported_platforms: *mut *const c_char,
     supported_platforms_count: *mut usize,
 ) {
     if supported_platforms.is_null() {
@@ -48,12 +49,12 @@ pub extern "C" fn xcvr_supported_platforms(
     }
 
     unsafe { *supported_platforms_count = SUPPORTED_PLATFORMS.len() };
-    unsafe { *supported_platforms = SUPPORTED_PLATFORMS.as_ptr() as *const ::std::os::raw::c_char };
+    unsafe { *supported_platforms = SUPPORTED_PLATFORMS.as_ptr() as *const c_char };
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_num_physical_ports(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     num: *mut idx_t,
 ) -> xcvr_status_t {
     0
@@ -61,7 +62,7 @@ pub extern "C" fn xcvr_num_physical_ports(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_presence(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     is_present: *mut bool,
 ) -> xcvr_status_t {
@@ -70,7 +71,7 @@ pub extern "C" fn xcvr_get_presence(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_supported_port_types(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     supported_port_types: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
@@ -79,7 +80,7 @@ pub extern "C" fn xcvr_get_supported_port_types(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_inserted_port_type(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     supported_port_types: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
@@ -88,7 +89,7 @@ pub extern "C" fn xcvr_get_inserted_port_type(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_oper_status(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     oper_status: *mut bool,
 ) -> xcvr_status_t {
@@ -97,7 +98,7 @@ pub extern "C" fn xcvr_get_oper_status(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_reset_status(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     reset_status: *mut bool,
 ) -> xcvr_status_t {
@@ -105,16 +106,13 @@ pub extern "C" fn xcvr_get_reset_status(
 }
 
 #[no_mangle]
-pub extern "C" fn xcvr_reset(
-    platform: *const ::std::os::raw::c_char,
-    index: idx_t,
-) -> xcvr_status_t {
+pub extern "C" fn xcvr_reset(platform: *const c_char, index: idx_t) -> xcvr_status_t {
     0
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_low_power_mode(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     low_power_mode: *mut bool,
 ) -> xcvr_status_t {
@@ -123,7 +121,7 @@ pub extern "C" fn xcvr_get_low_power_mode(
 
 #[no_mangle]
 pub extern "C" fn xcvr_set_low_power_mode(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     low_power_mode: bool,
 ) -> xcvr_status_t {
@@ -132,7 +130,7 @@ pub extern "C" fn xcvr_set_low_power_mode(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_transceiver_info(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     transceiver_info: *mut xcvr_transceiver_info_t,
 ) -> xcvr_status_t {
@@ -141,7 +139,7 @@ pub extern "C" fn xcvr_get_transceiver_info(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_transceiver_status(
-    platform: *const ::std::os::raw::c_char,
+    platform: *const c_char,
     index: idx_t,
     transceiver_status: *mut xcvr_transceiver_status_t,
 ) -> xcvr_status_t {
@@ -150,7 +148,8 @@ pub extern "C" fn xcvr_get_transceiver_status(
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::CString, mem::MaybeUninit, ptr::null_mut};
+    use std::ffi::CString;
+    use std::mem::MaybeUninit;
 
     use super::*;
 
