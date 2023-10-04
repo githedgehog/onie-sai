@@ -74,7 +74,7 @@ typedef enum _xcvr_port_type_t {
  * suggestion. While this is not ideal to have such a large struct, we'll be
  * able to adjust this down the road.
 */
-typedef struct _xcvr_info_t {
+typedef struct _xcvr_transceiver_info_t {
     /** type of SFP */
     char type[255];
     /** type of SFP, abbreviated */
@@ -109,7 +109,7 @@ typedef struct _xcvr_info_t {
     char vendor_oui[255];
     /** supported applications advertisement */
     char application_advertisement[255];
-} xcvr_info_t;
+} xcvr_transceiver_info_t;
 
 /**
  * @brief The transceiver status information
@@ -118,7 +118,7 @@ typedef struct _xcvr_info_t {
  * suggestion. While this is not ideal to have such a large struct, we'll be
  * able to adjust this down the road.
 */
-typedef struct _xcvr_status_t {
+typedef struct _xcvr_transceiver_status_t {
         /** current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault) */
         char module_state[255];
         /** reason of entering the module fault state */
@@ -297,7 +297,7 @@ typedef struct _xcvr_status_t {
         bool postfecberhighwarning_flag;
         /** postfec ber low warning flag */
         bool postfecberlowwarning_flag;
-} xcvr_status_t;
+} xcvr_transceiver_status_t;
 
 /**
  * @brief Identifies the implementing library.
@@ -431,7 +431,7 @@ xcvr_status_t xcvr_set_low_power_mode(
 xcvr_status_t xcvr_get_transceiver_info(
     _In_ const char *platform,
     _In_ idx_t index,
-    _Out_ xcvr_info_t *transceiver_info
+    _Out_ xcvr_transceiver_info_t *transceiver_info
 );
 
 /**
@@ -440,7 +440,7 @@ xcvr_status_t xcvr_get_transceiver_info(
 xcvr_status_t xcvr_get_transceiver_status(
     _In_ const char *platform,
     _In_ idx_t index,
-    _Out_ xcvr_status_t *transceiver_status
+    _Out_ xcvr_transceiver_status_t *transceiver_status
 );
 
 #endif /* __XCVR_H_ */

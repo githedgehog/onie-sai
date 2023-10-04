@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "sai-sys",
     "sai",
+    "xcvr-sys",
+    "xcvr-dell-s5200",
     "onie-sai-rpc",
     "onie-said",
     "onie-saictl",
