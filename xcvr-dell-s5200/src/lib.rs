@@ -57,7 +57,7 @@ pub extern "C" fn xcvr_num_physical_ports(
     platform: *const c_char,
     num: *mut idx_t,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
@@ -66,7 +66,7 @@ pub extern "C" fn xcvr_get_presence(
     index: idx_t,
     is_present: *mut bool,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
@@ -75,7 +75,7 @@ pub extern "C" fn xcvr_get_supported_port_types(
     index: idx_t,
     supported_port_types: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
@@ -84,7 +84,7 @@ pub extern "C" fn xcvr_get_inserted_port_type(
     index: idx_t,
     supported_port_types: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
@@ -93,7 +93,7 @@ pub extern "C" fn xcvr_get_oper_status(
     index: idx_t,
     oper_status: *mut bool,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
@@ -102,48 +102,48 @@ pub extern "C" fn xcvr_get_reset_status(
     index: idx_t,
     reset_status: *mut bool,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
-pub extern "C" fn xcvr_reset(platform: *const c_char, index: idx_t) -> xcvr_status_t {
-    0
+pub extern "C" fn xcvr_reset(_platform: *const c_char, _index: idx_t) -> xcvr_status_t {
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_low_power_mode(
-    platform: *const c_char,
-    index: idx_t,
-    low_power_mode: *mut bool,
+    _platform: *const c_char,
+    _index: idx_t,
+    _low_power_mode: *mut bool,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_set_low_power_mode(
-    platform: *const c_char,
-    index: idx_t,
-    low_power_mode: bool,
+    _platform: *const c_char,
+    _index: idx_t,
+    _low_power_mode: bool,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_transceiver_info(
-    platform: *const c_char,
-    index: idx_t,
-    transceiver_info: *mut xcvr_transceiver_info_t,
+    _platform: *const c_char,
+    _index: idx_t,
+    _transceiver_info: *mut xcvr_transceiver_info_t,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_transceiver_status(
-    platform: *const c_char,
-    index: idx_t,
-    transceiver_status: *mut xcvr_transceiver_status_t,
+    _platform: *const c_char,
+    _index: idx_t,
+    _transceiver_status: *mut xcvr_transceiver_status_t,
 ) -> xcvr_status_t {
-    0
+    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
 
 #[cfg(test)]
