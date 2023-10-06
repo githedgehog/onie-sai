@@ -718,3 +718,51 @@ impl<'a> PlatformContext for PlatformLibrary<'a> {
         Ok(TransceiverStatus::from(v))
     }
 }
+
+pub struct FallbackPlatformLibrary {}
+
+impl PlatformContext for FallbackPlatformLibrary {
+    fn num_physical_ports(&self) -> Result<idx_t, Error> {
+        Ok(0)
+    }
+
+    fn get_presence(&self, _port_index: idx_t) -> Result<bool, Error> {
+        Ok(true)
+    }
+
+    fn get_supported_port_types(&self, _port_index: idx_t) -> Result<Vec<PortType>, Error> {
+        Ok(vec![])
+    }
+
+    fn get_inserted_port_type(&self, _port_index: idx_t) -> Result<PortType, Error> {
+        Ok(PortType::SFP)
+    }
+
+    fn get_oper_status(&self, _port_index: idx_t) -> Result<bool, Error> {
+        Ok(true)
+    }
+
+    fn get_reset_status(&self, _port_index: idx_t) -> Result<bool, Error> {
+        Ok(false)
+    }
+
+    fn reset(&self, _port_index: idx_t) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn get_low_power_mode(&self, _port_index: idx_t) -> Result<bool, Error> {
+        Ok(false)
+    }
+
+    fn set_low_power_mode(&self, _port_index: idx_t, _low_power_mode: bool) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn get_transceiver_info(&self, _port_index: idx_t) -> Result<TransceiverInfo, Error> {
+        Ok(TransceiverInfo::default())
+    }
+
+    fn get_transceiver_status(&self, _port_index: idx_t) -> Result<TransceiverStatus, Error> {
+        Ok(TransceiverStatus::default())
+    }
+}

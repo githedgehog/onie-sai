@@ -1,10 +1,16 @@
 mod oniesai;
 mod rpc;
 
+use std::env;
 use std::ffi::CString;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::process::Termination;
+use std::sync::OnceLock;
 use std::thread;
 
 use anyhow::Context;
@@ -30,8 +36,45 @@ struct Cli {
     #[arg(long, default_value_t=MacAddr6::new(0xee, 0xba, 0x4a, 0xb9, 0xb1, 0x24))]
     mac_addr: MacAddr6,
 
-    #[arg(long, default_value = "/root/saictl/etc/config.bcm")]
+    #[arg(long, default_value = arg_platform())]
+    platform: String,
+
+    #[arg(long, default_value = arg_init_config_file())]
     init_config_file: PathBuf,
+}
+
+static PLATFORM: OnceLock<String> = OnceLock::new();
+
+fn arg_platform() -> String {
+    PLATFORM
+        .get_or_init(|| {
+            // check if the environment variable is set first
+            if let Ok(v) = env::var("onie_platform") {
+                return v;
+            }
+
+            // if not, then we are going to parse /etc/machine.conf
+            if let Ok(file) = File::open("/etc/machine.conf") {
+                let reader = BufReader::new(file);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        if let Some((k, v)) = line.split_once("=") {
+                            if k.trim() == "onie_platform" {
+                                return v.trim().to_string();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // if we are here, then we could not determine the platform
+            String::new()
+        })
+        .to_string()
+}
+
+fn arg_init_config_file() -> String {
+    format!("/etc/onie-said/{}.bcm", arg_platform())
 }
 
 impl Cli {
@@ -105,6 +148,11 @@ fn app() -> anyhow::Result<()> {
         .filter_level(LevelFilter::from(cli.log_level))
         .init();
 
+    // validation of some of the arguments
+    if cli.platform.is_empty() {
+        return Err(anyhow::anyhow!("no platform detected"));
+    }
+
     // initialize signal handling
     let (ctrlc_tx, ctrlc_rx) = channel();
     ctrlc::set_handler(move || {
@@ -113,6 +161,53 @@ fn app() -> anyhow::Result<()> {
             .expect("could not send signal on termination channel.")
     })
     .context("failed to set signal handler for SIGINT, SIGTERM and SIGHUP")?;
+
+    // load our platform specific library
+    let platform_lib_path = format!("/usr/lib/onie-said/{}.so", cli.platform);
+    let platform_lib_loader = xcvr::LibraryLoader::new(Path::new(platform_lib_path.as_str()))
+        .map_err(|e| {
+            log::error!(
+                "platform library {}: failed to load: {}",
+                platform_lib_path,
+                e
+            )
+        })
+        .ok();
+    let platform_lib_lib = match platform_lib_loader.as_ref() {
+        Some(l) => l
+            .lib()
+            .map_err(|e| {
+                log::error!(
+                    "platform library {}: failed to initialize: {}",
+                    platform_lib_path,
+                    e
+                )
+            })
+            .ok(),
+        None => None,
+    };
+    let platform_lib_ctx = match platform_lib_lib.as_ref() {
+        Some(l) => l
+            .platform_lib(&cli.platform)
+            .map_err(|e| {
+                log::error!(
+                    "platform library {}: failed to return context: {}",
+                    platform_lib_path,
+                    e
+                )
+            })
+            .ok(),
+        None => None,
+    };
+
+    // now we are either using the platform specific library or the fallback
+    let platform_ctx: Box<dyn xcvr::PlatformContext> = match platform_lib_ctx {
+        Some(l) => Box::new(l),
+        None => {
+            log::warn!("platform library: using fallback implementation");
+            Box::new(xcvr::FallbackPlatformLibrary {})
+        }
+    };
 
     // get SAI API version
     if let Ok(version) = SAI::api_version() {

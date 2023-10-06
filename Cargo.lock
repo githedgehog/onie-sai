@@ -589,6 +589,7 @@ dependencies = [
  "sai",
  "thiserror",
  "ttrpc",
+ "xcvr",
 ]
 
 [[package]]
