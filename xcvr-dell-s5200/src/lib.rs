@@ -7,6 +7,10 @@ use xcvr_sys::xcvr_status_t;
 use xcvr_sys::xcvr_transceiver_info_t;
 use xcvr_sys::xcvr_transceiver_status_t;
 
+mod s5212;
+mod s5232;
+mod s5248;
+
 static LIBRARY_NAME: &[u8; 16] = b"xcvr-dell-s5200\0";
 
 static SUPPORTED_PLATFORMS: [&[u8; 31]; 3] = [
@@ -57,7 +61,28 @@ pub extern "C" fn xcvr_num_physical_ports(
     platform: *const c_char,
     num: *mut idx_t,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    if num.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => {
+            unsafe { *num = s5212::xcvr_num_physical_ports() };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        }
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => {
+            unsafe { *num = s5232::xcvr_num_physical_ports() };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        }
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => {
+            unsafe { *num = s5248::xcvr_num_physical_ports() };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        }
+        _ => xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM,
+    }
 }
 
 #[no_mangle]
@@ -66,7 +91,27 @@ pub extern "C" fn xcvr_get_presence(
     index: idx_t,
     is_present: *mut bool,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    if is_present.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_presence,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_presence,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_presence,
+        _ => |_: u16| -> Result<bool, xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index)
+        .map(|v| {
+            unsafe { *is_present = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
@@ -75,7 +120,27 @@ pub extern "C" fn xcvr_get_supported_port_types(
     index: idx_t,
     supported_port_types: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    if supported_port_types.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_supported_port_types,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_supported_port_types,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_supported_port_types,
+        _ => |_: u16| -> Result<xcvr_port_type_t, xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index)
+        .map(|v| {
+            unsafe { *supported_port_types = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
