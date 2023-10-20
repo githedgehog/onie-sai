@@ -46,7 +46,7 @@ impl From<xcvr_status_t> for Status {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PortType {
     RJ45,
     SFP,
@@ -112,46 +112,46 @@ impl From<xcvr_port_type_t> for PortType {
 impl PortType {
     pub fn from_mask(mask: xcvr_port_type_t) -> Vec<Self> {
         let mut ret: Vec<Self> = Vec::new();
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_RJ45 == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_RJ45 != 0 {
             ret.push(PortType::RJ45);
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP != 0 {
             ret.push(PortType::SFP)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_XFP == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_XFP != 0 {
             ret.push(PortType::XFP)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP_PLUS == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP_PLUS != 0 {
             ret.push(PortType::SFPPlus)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP != 0 {
             ret.push(PortType::QSFP)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_CFP == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_CFP != 0 {
             ret.push(PortType::CFP)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP_PLUS == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP_PLUS != 0 {
             ret.push(PortType::QSFPPlus)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP28 == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP28 != 0 {
             ret.push(PortType::QSFP28)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP28 == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP28 != 0 {
             ret.push(PortType::SFP28)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_CFP2 == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_CFP2 != 0 {
             ret.push(PortType::CFP2)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP56 == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP56 != 0 {
             ret.push(PortType::QSFP56)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFPDD == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFPDD != 0 {
             ret.push(PortType::QSFPDD)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_OSFP == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_OSFP != 0 {
             ret.push(PortType::OSFP)
         }
-        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP_DD == 1 {
+        if mask & xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP_DD != 0 {
             ret.push(PortType::SFPDD)
         }
         ret
@@ -644,6 +644,7 @@ impl<'a> PlatformContext for PlatformLibrary<'a> {
         if ret != XCVR_STATUS_SUCCESS {
             return Err(Error::Status(Status::from(ret)));
         }
+
         Ok(PortType::from_mask(v))
     }
 
@@ -764,5 +765,25 @@ impl PlatformContext for FallbackPlatformLibrary {
 
     fn get_transceiver_status(&self, _port_index: idx_t) -> Result<TransceiverStatus, Error> {
         Ok(TransceiverStatus::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn port_type_from_mask() {
+        let have = PortType::from_mask(
+            xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_SFP
+                | xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP,
+        );
+        let want = vec![PortType::SFP, PortType::QSFP];
+        let count = have
+            .iter()
+            .zip(want.iter())
+            .filter(|&(a, b)| a == b)
+            .count();
+        assert_eq!(count, want.len());
     }
 }
