@@ -6,6 +6,7 @@ members = [
     "xcvr-sys",
     "xcvr",
     "xcvr-dell-s5200",
+    "xcvrctl",
     "onie-sai-rpc",
     "onie-said",
     "onie-saictl",

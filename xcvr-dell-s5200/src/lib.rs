@@ -145,9 +145,9 @@ pub extern "C" fn xcvr_get_supported_port_types(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_inserted_port_type(
-    platform: *const c_char,
-    index: idx_t,
-    supported_port_types: *mut xcvr_port_type_t,
+    _platform: *const c_char,
+    _index: idx_t,
+    _supported_port_types: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
     xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
 }
@@ -158,7 +158,27 @@ pub extern "C" fn xcvr_get_oper_status(
     index: idx_t,
     oper_status: *mut bool,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    if oper_status.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_oper_status,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_oper_status,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_oper_status,
+        _ => |_: u16| -> Result<bool, xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index)
+        .map(|v| {
+            unsafe { *oper_status = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
@@ -167,30 +187,98 @@ pub extern "C" fn xcvr_get_reset_status(
     index: idx_t,
     reset_status: *mut bool,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    if reset_status.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_reset_status,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_reset_status,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_reset_status,
+        _ => |_: u16| -> Result<bool, xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index)
+        .map(|v| {
+            unsafe { *reset_status = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
-pub extern "C" fn xcvr_reset(_platform: *const c_char, _index: idx_t) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+pub extern "C" fn xcvr_reset(platform: *const c_char, index: idx_t) -> xcvr_status_t {
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_reset,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_reset,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_reset,
+        _ => |_: u16| -> Result<(), xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index)
+        .map(|_| xcvr_sys::XCVR_STATUS_SUCCESS)
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_low_power_mode(
-    _platform: *const c_char,
-    _index: idx_t,
-    _low_power_mode: *mut bool,
+    platform: *const c_char,
+    index: idx_t,
+    low_power_mode: *mut bool,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    if low_power_mode.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_low_power_mode,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_low_power_mode,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_low_power_mode,
+        _ => |_: u16| -> Result<bool, xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index)
+        .map(|v| {
+            unsafe { *low_power_mode = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
 pub extern "C" fn xcvr_set_low_power_mode(
-    _platform: *const c_char,
-    _index: idx_t,
-    _low_power_mode: bool,
+    platform: *const c_char,
+    index: idx_t,
+    low_power_mode: bool,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_set_low_power_mode,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_set_low_power_mode,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_set_low_power_mode,
+        _ => |_: u16, _: bool| -> Result<(), xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index, low_power_mode)
+        .map(|_| xcvr_sys::XCVR_STATUS_SUCCESS)
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
