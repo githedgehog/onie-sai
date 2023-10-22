@@ -145,11 +145,31 @@ pub extern "C" fn xcvr_get_supported_port_types(
 
 #[no_mangle]
 pub extern "C" fn xcvr_get_inserted_port_type(
-    _platform: *const c_char,
-    _index: idx_t,
-    _supported_port_types: *mut xcvr_port_type_t,
+    platform: *const c_char,
+    index: idx_t,
+    inserted_port_type: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if platform.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+    }
+    if inserted_port_type.is_null() {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+    let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
+    let f = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_inserted_port_type,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_inserted_port_type,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_inserted_port_type,
+        _ => |_: u16| -> Result<xcvr_port_type_t, xcvr_status_t> {
+            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
+        },
+    };
+    f(index)
+        .map(|v| {
+            unsafe { *inserted_port_type = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
