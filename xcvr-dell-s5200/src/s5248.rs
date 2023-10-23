@@ -21,18 +21,8 @@ pub(super) fn xcvr_get_supported_port_types(
     }
 }
 
-pub(super) fn xcvr_get_inserted_port_type(
-    _index: idx_t,
-) -> Result<xcvr_port_type_t, xcvr_status_t> {
-    Err(xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED)
-}
-
 pub(super) fn xcvr_get_presence(_index: idx_t) -> Result<bool, xcvr_status_t> {
     Err(xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED)
-}
-
-pub(super) fn xcvr_get_oper_status(index: idx_t) -> Result<bool, xcvr_status_t> {
-    xcvr_get_reset_status(index).map(|v| !v)
 }
 
 pub(super) fn xcvr_get_reset_status(_index: idx_t) -> Result<bool, xcvr_status_t> {

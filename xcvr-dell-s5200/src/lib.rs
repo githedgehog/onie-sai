@@ -7,6 +7,7 @@ use xcvr_sys::xcvr_status_t;
 use xcvr_sys::xcvr_transceiver_info_t;
 use xcvr_sys::xcvr_transceiver_status_t;
 
+mod common;
 mod s5212;
 mod s5232;
 mod s5248;
@@ -156,15 +157,15 @@ pub extern "C" fn xcvr_get_inserted_port_type(
         return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
     }
     let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
-    let f = match platform_bytes {
-        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_inserted_port_type,
-        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_inserted_port_type,
-        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_inserted_port_type,
-        _ => |_: u16| -> Result<xcvr_port_type_t, xcvr_status_t> {
-            Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
-        },
+    let num_physical_ports = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_num_physical_ports,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_num_physical_ports,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_num_physical_ports,
+        _ => {
+            return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+        }
     };
-    f(index)
+    common::xcvr_get_inserted_port_type(num_physical_ports, index)
         .map(|v| {
             unsafe { *inserted_port_type = v };
             xcvr_sys::XCVR_STATUS_SUCCESS
@@ -186,14 +187,16 @@ pub extern "C" fn xcvr_get_oper_status(
     }
     let platform_bytes = unsafe { CStr::from_ptr(platform) }.to_bytes_with_nul();
     let f = match platform_bytes {
-        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_oper_status,
-        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_oper_status,
-        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_oper_status,
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => s5212::xcvr_get_reset_status,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => s5232::xcvr_get_reset_status,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_reset_status,
         _ => |_: u16| -> Result<bool, xcvr_status_t> {
             Err(xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM)
         },
     };
     f(index)
+        // NOTE: the operational status is the reverse of the reset status for the whole S5200 series.
+        .map(|v| !v)
         .map(|v| {
             unsafe { *oper_status = v };
             xcvr_sys::XCVR_STATUS_SUCCESS
