@@ -200,12 +200,23 @@ fn app() -> anyhow::Result<()> {
             None
         };
 
+        let inserted_port_type = if present {
+            Some(
+                platform_ctx
+                    .get_inserted_port_type(idx)
+                    .context("failed to get inserted port type")?,
+            )
+        } else {
+            None
+        };
+
         // simply log it
         log::info!(
-            "port {}: present: {}, supported port types: {:?}, oper status: {:?}, reset status: {:?}, low power mode: {:?}",
+            "port {}: present: {}, supported port types: {:?}, inserted port type: {:?}, oper status: {:?}, reset status: {:?}, low power mode: {:?}",
             idx,
             present,
             supported_port_types,
+            inserted_port_type,
             oper_status,
             reset_status,
             low_power_mode,
