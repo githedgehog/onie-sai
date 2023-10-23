@@ -1,46 +1,25 @@
-mod oniesai;
-mod rpc;
-
-use std::env;
-use std::ffi::CString;
-use std::fs::File;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::ExitCode;
-use std::process::Termination;
-use std::sync::OnceLock;
-use std::thread;
-
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
 use log::LevelFilter;
 
-use macaddr::MacAddr6;
-
-use sai::SAI;
-
-use crate::oniesai::Processor;
-
-use ctrlc;
-use std::sync::mpsc::channel;
+use std::env;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::Path;
+use std::process::ExitCode;
+use std::process::Termination;
+use std::sync::OnceLock;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Changes the log level setting
-    #[arg(long, value_enum, default_value_t=LogLevel::Warn)]
+    #[arg(long, value_enum, default_value_t=LogLevel::Debug)]
     log_level: LogLevel,
-
-    #[arg(long, default_value_t=MacAddr6::new(0xee, 0xba, 0x4a, 0xb9, 0xb1, 0x24))]
-    mac_addr: MacAddr6,
 
     #[arg(long, default_value = arg_platform())]
     platform: String,
-
-    #[arg(long, default_value = arg_init_config_file())]
-    init_config_file: PathBuf,
 }
 
 static PLATFORM: OnceLock<String> = OnceLock::new();
@@ -71,27 +50,6 @@ fn arg_platform() -> String {
             String::new()
         })
         .to_string()
-}
-
-fn arg_init_config_file() -> String {
-    format!("/etc/platform/{}/config.bcm", arg_platform())
-}
-
-impl Cli {
-    fn sai_profile(&self) -> anyhow::Result<Vec<(CString, CString)>> {
-        let init_config_file =
-            self.init_config_file
-                .as_os_str()
-                .to_str()
-                .ok_or(anyhow::anyhow!(
-                    "init config file is not a valid unicode string"
-                ))?;
-
-        Ok(vec![(
-            CString::from_vec_with_nul(sai::SAI_KEY_INIT_CONFIG_FILE.to_vec())?,
-            CString::new(init_config_file)?,
-        )])
-    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -153,15 +111,6 @@ fn app() -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("no platform detected"));
     }
 
-    // initialize signal handling
-    let (ctrlc_tx, ctrlc_rx) = channel();
-    ctrlc::set_handler(move || {
-        ctrlc_tx
-            .send(())
-            .expect("could not send signal on termination channel.")
-    })
-    .context("failed to set signal handler for SIGINT, SIGTERM and SIGHUP")?;
-
     // load our platform specific library
     let platform_lib_path = format!("/usr/lib/platform/{}.so", cli.platform);
     let platform_lib_loader = xcvr::LibraryLoader::new(Path::new(platform_lib_path.as_str()))
@@ -209,53 +158,69 @@ fn app() -> anyhow::Result<()> {
         }
     };
 
-    // get SAI API version
-    if let Ok(version) = SAI::api_version() {
-        log::info!("SAI version: {}", version);
-    }
+    let num_ports = platform_ctx
+        .num_physical_ports()
+        .context("failed to get number of physical ports")?;
 
-    // construct our profile from the CLI arguments and initialize SAI
-    let profile = cli.sai_profile()?;
-    let sai_api = SAI::new(profile).context("failed to initialize SAI")?;
-    log::info!("successfully initialized SAI");
+    for idx in 0..num_ports {
+        let supported_port_types = platform_ctx
+            .get_supported_port_types(idx)
+            .context("failed to get supported port types")?;
+        let present = platform_ctx
+            .get_presence(idx)
+            .context("failed to get port presence")?;
 
-    if let Err(e) = SAI::log_set_all(sai::LogLevel::Info) {
-        log::error!("failed to set log level for all APIs: {:?}", e);
-    }
-
-    // this initializes the switch, and prepares the system for receiving processing requests either from RPC, or the other threads
-    let proc = Processor::new(&sai_api, cli.mac_addr.into_array())
-        .context("failed to initialize ONIE SAI processor")?;
-
-    // move the signal handling to its own thread
-    // send a shutdown request to the processor when we receive it
-    let ctrlc_proc_tx = proc.get_sender();
-    thread::spawn(move || {
-        log::info!("ONIE SAI daemon started. Waiting for termination signal...");
-        ctrlc_rx
-            .recv()
-            .expect("could not receive from termination channel.");
-        if let Err(e) = ctrlc_proc_tx.send(oniesai::ProcessRequest::Shutdown) {
-            log::warn!(
-                "failed to send shutdown request from termination thread: {:?}",
-                e
-            );
+        let oper_status = if present {
+            Some(
+                platform_ctx
+                    .get_oper_status(idx)
+                    .context("failed to get port operational status")?,
+            )
         } else {
-            log::info!("sent shutdown signal to ONIE SAI processor...");
-        }
-    });
+            None
+        };
 
-    // initialize the ttrpc server
-    let rpc_server = rpc::start_rpc_server(proc.get_sender())?;
+        let reset_status = if present {
+            Some(
+                platform_ctx
+                    .get_reset_status(idx)
+                    .context("failed to get port reset status")?,
+            )
+        } else {
+            None
+        };
 
-    // this blocks until processing is all done
-    // process consumes the processor, so it will be dropped immediately after
-    // which will trigger the cleanup
-    proc.process();
+        let low_power_mode = if present {
+            Some(
+                platform_ctx
+                    .get_low_power_mode(idx)
+                    .context("failed to get port low power mode")?,
+            )
+        } else {
+            None
+        };
 
-    // stop ttrpc server as well
-    rpc_server.shutdown();
+        let inserted_port_type = if present {
+            Some(
+                platform_ctx
+                    .get_inserted_port_type(idx)
+                    .context("failed to get inserted port type")?,
+            )
+        } else {
+            None
+        };
 
-    log::info!("Success");
+        // simply log it
+        log::info!(
+            "port {}: present: {}, supported port types: {:?}, inserted port type: {:?}, oper status: {:?}, reset status: {:?}, low power mode: {:?}",
+            idx,
+            present,
+            supported_port_types,
+            inserted_port_type,
+            oper_status,
+            reset_status,
+            low_power_mode,
+        );
+    }
     Ok(())
 }
