@@ -4,13 +4,59 @@ package grpc;
 
 service OnieSai {
     rpc Version(VersionRequest) returns (VersionResponse);
+    rpc PortList(PortListRequest) returns (PortListResponse);
+    rpc AutoDiscovery(AutoDiscoveryRequest) returns (AutoDiscoveryResponse);
+    rpc Shell(ShellRequest) returns (ShellResponse);
 }
 
-message VersionRequest {
-    string blah = 1;
-}
+message VersionRequest {}
 
 message VersionResponse {
     string onie_said_version = 1;
     string sai_version = 2;
 }
+
+message PortListRequest {}
+
+message PortListResponse {
+    repeated Port port_list = 1;
+}
+
+message Port {
+    uint32 id = 1;
+    optional string name = 2;
+    repeated uint32 hw_lanes = 3;
+    bool xcvr_present = 4;
+    optional bool xcvr_oper_status = 5;
+    optional string xcvr_inserted_type = 6;
+    repeated string xcvr_supported_types = 7;
+    repeated LogicalPort ports = 8;
+}
+
+message LogicalPort {
+    string oid = 1;
+    repeated uint32 hw_lanes = 2;
+    bool oper_status = 3;
+    bool admin_state = 4;
+    uint32 speed = 5;
+    uint32 oper_speed = 6;
+    repeated uint32 supported_speeds = 7;
+    optional HostInterface host_intf = 8;
+}
+
+message HostInterface {
+    string name = 1;
+    bool oper_status = 2;
+}
+
+message AutoDiscoveryRequest {
+    optional bool enable = 1;
+}
+
+message AutoDiscoveryResponse {
+    bool enabled = 1;
+}
+
+message ShellRequest {}
+
+message ShellResponse {}

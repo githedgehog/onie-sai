@@ -21,6 +21,7 @@ use macaddr::MacAddr6;
 
 use sai::SAI;
 
+use crate::oniesai::PlatformContextHolder;
 use crate::oniesai::Processor;
 
 use ctrlc;
@@ -201,11 +202,11 @@ fn app() -> anyhow::Result<()> {
     };
 
     // now we are either using the platform specific library or the fallback
-    let platform_ctx: Box<dyn xcvr::PlatformContext> = match platform_lib_ctx {
-        Some(l) => Box::new(l),
+    let platform_ctx: PlatformContextHolder = match platform_lib_ctx {
+        Some(l) => PlatformContextHolder::new(l),
         None => {
             log::warn!("platform library: using fallback implementation");
-            Box::new(xcvr::FallbackPlatformLibrary {})
+            PlatformContextHolder::new(xcvr::FallbackPlatformLibrary {})
         }
     };
 
@@ -224,7 +225,7 @@ fn app() -> anyhow::Result<()> {
     }
 
     // this initializes the switch, and prepares the system for receiving processing requests either from RPC, or the other threads
-    let proc = Processor::new(&sai_api, cli.mac_addr.into_array())
+    let proc = Processor::new(&sai_api, cli.mac_addr.into_array(), platform_ctx)
         .context("failed to initialize ONIE SAI processor")?;
 
     // move the signal handling to its own thread
