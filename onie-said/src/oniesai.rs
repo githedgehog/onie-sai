@@ -1,5 +1,6 @@
 mod port;
 
+use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
@@ -37,6 +38,25 @@ use thiserror::Error;
 
 use self::port::PhysicalPort;
 
+#[derive(Clone)]
+pub(crate) struct PlatformContextHolder<'a> {
+    obj: Rc<dyn xcvr::PlatformContext + 'a>,
+}
+
+impl<'a> PlatformContextHolder<'a> {
+    pub(crate) fn new<T: xcvr::PlatformContext + 'a>(object: T) -> Self {
+        Self {
+            obj: Rc::new(object),
+        }
+    }
+}
+
+impl std::fmt::Debug for PlatformContextHolder<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PlatformContextHolder")
+    }
+}
+
 #[derive(Error, Debug)]
 pub(crate) enum ProcessError {
     #[error("SAI status returned unsuccessful")]
@@ -53,21 +73,45 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::VersionResponse, ProcessError>>,
         ),
     ),
+    Shell(
+        (
+            onie_sai::ShellRequest,
+            Sender<Result<onie_sai::ShellResponse, ProcessError>>,
+        ),
+    ),
+    PortList(
+        (
+            onie_sai::PortListRequest,
+            Sender<Result<onie_sai::PortListResponse, ProcessError>>,
+        ),
+    ),
+    AutoDiscoveryStatus(
+        (
+            onie_sai::AutoDiscoveryRequest,
+            Sender<Result<onie_sai::AutoDiscoveryResponse, ProcessError>>,
+        ),
+    ),
     LogicalPortStateChange((PortID, OperStatus)),
 }
 
-pub(crate) struct Processor<'a> {
+pub(crate) struct Processor<'a, 'b> {
+    auto_discovery: bool,
+    platform_ctx: PlatformContextHolder<'b>,
     switch: Switch<'a>,
     virtual_router: VirtualRouter<'a>,
     cpu_port_id: PortID,
     cpu_hostif: HostIf<'a>,
-    ports: Vec<PhysicalPort<'a>>,
+    ports: Vec<PhysicalPort<'a, 'b>>,
     rx: Receiver<ProcessRequest>,
     tx: Sender<ProcessRequest>,
 }
 
-impl<'a> Processor<'a> {
-    pub(crate) fn new(sai_api: &'a SAI, mac_address: sai_mac_t) -> anyhow::Result<Self> {
+impl<'a, 'b> Processor<'a, 'b> {
+    pub(crate) fn new(
+        sai_api: &'a SAI,
+        mac_address: sai_mac_t,
+        platform_ctx: PlatformContextHolder<'b>,
+    ) -> anyhow::Result<Self> {
         // now create switch
         let switch: Switch<'a> = sai_api
             .switch_create(vec![
@@ -232,10 +276,12 @@ impl<'a> Processor<'a> {
             .get_ports()
             .context(format!("failed to get port list from switch {}", switch))?;
 
-        let ports = PhysicalPort::from_ports(ports)
+        let ports = PhysicalPort::from_ports(platform_ctx.clone(), ports)
             .context("failed to create physical ports from SAI ports")?;
 
         Ok(Processor {
+            auto_discovery: true,
+            platform_ctx: platform_ctx,
             switch: switch,
             virtual_router: default_virtual_router,
             cpu_port_id: cpu_port_id,
@@ -251,11 +297,12 @@ impl<'a> Processor<'a> {
     }
 
     pub(crate) fn process(self) {
-        while let Ok(req) = self.rx.recv() {
+        let mut p = self;
+        while let Ok(req) = p.rx.recv() {
             match req {
                 ProcessRequest::Shutdown => return,
                 ProcessRequest::Version((r, resp_tx)) => {
-                    let resp = self.process_version_request(r);
+                    let resp = p.process_version_request(r);
                     if let Err(e) = resp_tx.send(resp) {
                         log::error!(
                             "processor: failed to send version response to rpc server: {:?}",
@@ -263,8 +310,35 @@ impl<'a> Processor<'a> {
                         );
                     };
                 }
+                ProcessRequest::Shell((r, resp_tx)) => {
+                    let resp = p.process_shell_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "processor: failed to send shell response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
+                ProcessRequest::PortList((r, resp_tx)) => {
+                    let resp = p.process_port_list_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "processor: failed to send port list response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
+                ProcessRequest::AutoDiscoveryStatus((r, resp_tx)) => {
+                    let resp = p.process_auto_discovery_status_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "processor: failed to send auto discovery status response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
                 ProcessRequest::LogicalPortStateChange((port_id, port_state)) => {
-                    self.process_logical_port_state_change(port_id, port_state)
+                    p.process_logical_port_state_change(port_id, port_state)
                 }
             }
         }
@@ -281,6 +355,52 @@ impl<'a> Processor<'a> {
                 sai_version: v.to_string(),
                 ..Default::default()
             }),
+        }
+    }
+
+    fn process_shell_request(
+        &self,
+        _: onie_sai::ShellRequest,
+    ) -> Result<onie_sai::ShellResponse, ProcessError> {
+        log::warn!("processor: shell requested, this blocks the processor thread!");
+        self.switch
+            .enable_shell()
+            .map_err(|e| ProcessError::SAIError(e))?;
+        Ok(onie_sai::ShellResponse {
+            ..Default::default()
+        })
+    }
+
+    fn process_port_list_request(
+        &self,
+        _: onie_sai::PortListRequest,
+    ) -> Result<onie_sai::PortListResponse, ProcessError> {
+        let mut ports = Vec::with_capacity(self.ports.len());
+        for phy_port in self.ports.iter() {
+            ports.push(phy_port.into());
+        }
+        Ok(onie_sai::PortListResponse {
+            port_list: ports,
+            ..Default::default()
+        })
+    }
+
+    fn process_auto_discovery_status_request(
+        &mut self,
+        req: onie_sai::AutoDiscoveryRequest,
+    ) -> Result<onie_sai::AutoDiscoveryResponse, ProcessError> {
+        match req.enable {
+            None => Ok(onie_sai::AutoDiscoveryResponse {
+                enabled: self.auto_discovery,
+                ..Default::default()
+            }),
+            Some(enable) => {
+                self.auto_discovery = enable;
+                Ok(onie_sai::AutoDiscoveryResponse {
+                    enabled: self.auto_discovery,
+                    ..Default::default()
+                })
+            }
         }
     }
 
@@ -315,7 +435,7 @@ impl<'a> Processor<'a> {
     }
 }
 
-impl<'a> Drop for Processor<'a> {
+impl<'a, 'b> Drop for Processor<'a, 'b> {
     fn drop(&mut self) {
         // TODO: the `clone()`s here are ugly, but there is no real good other solution (that I know of)
         log::info!("Shutting down ONIE SAI processor...");

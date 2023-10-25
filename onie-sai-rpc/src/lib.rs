@@ -13,3 +13,10 @@ pub fn remove_sock_addr_if_exist() -> Result<()> {
 }
 
 include!(concat!(env!("OUT_DIR"), "/mod.rs"));
+
+pub fn wrap_message_field<T>(obj: Option<T>) -> protobuf::MessageField<T> {
+    match obj {
+        Some(obj) => protobuf::MessageField::some(obj),
+        None => protobuf::MessageField::none(),
+    }
+}

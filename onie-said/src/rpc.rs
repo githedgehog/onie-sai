@@ -19,12 +19,54 @@ struct OnieSaiServer {
 impl onie_sai_ttrpc::OnieSai for OnieSaiServer {
     fn version(
         &self,
-        _ctx: &::ttrpc::TtrpcContext,
+        _ctx: &ttrpc::TtrpcContext,
         req: onie_sai::VersionRequest,
-    ) -> ::ttrpc::Result<onie_sai::VersionResponse> {
+    ) -> ttrpc::Result<onie_sai::VersionResponse> {
         let (tx, rx) = channel();
         self.proc_tx
             .send(ProcessRequest::Version((req, tx)))
+            .map_err(map_tx_error)?;
+        let resp = rx.recv().map_err(map_rx_error)?;
+        let resp = resp.map_err(map_process_error)?;
+        Ok(resp)
+    }
+
+    fn shell(
+        &self,
+        _ctx: &ttrpc::TtrpcContext,
+        req: onie_sai::ShellRequest,
+    ) -> ttrpc::Result<onie_sai::ShellResponse> {
+        let (tx, rx) = channel();
+        self.proc_tx
+            .send(ProcessRequest::Shell((req, tx)))
+            .map_err(map_tx_error)?;
+        let resp = rx.recv().map_err(map_rx_error)?;
+        let resp = resp.map_err(map_process_error)?;
+        Ok(resp)
+    }
+
+    fn port_list(
+        &self,
+        _ctx: &ttrpc::TtrpcContext,
+        req: onie_sai::PortListRequest,
+    ) -> ttrpc::Result<onie_sai::PortListResponse> {
+        let (tx, rx) = channel();
+        self.proc_tx
+            .send(ProcessRequest::PortList((req, tx)))
+            .map_err(map_tx_error)?;
+        let resp = rx.recv().map_err(map_rx_error)?;
+        let resp = resp.map_err(map_process_error)?;
+        Ok(resp)
+    }
+
+    fn auto_discovery(
+        &self,
+        _ctx: &ttrpc::TtrpcContext,
+        req: onie_sai::AutoDiscoveryRequest,
+    ) -> ttrpc::Result<onie_sai::AutoDiscoveryResponse> {
+        let (tx, rx) = channel();
+        self.proc_tx
+            .send(ProcessRequest::AutoDiscoveryStatus((req, tx)))
             .map_err(map_tx_error)?;
         let resp = rx.recv().map_err(map_rx_error)?;
         let resp = resp.map_err(map_process_error)?;
