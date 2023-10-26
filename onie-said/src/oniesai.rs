@@ -1,10 +1,17 @@
 mod port;
 
+use std::fs::File;
+use std::io::ErrorKind;
+use std::io::Read;
+use std::io::Write;
+use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
+use std::thread;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use ipnet::IpNet;
@@ -61,8 +68,12 @@ impl std::fmt::Debug for PlatformContextHolder<'_> {
 pub(crate) enum ProcessError {
     #[error("SAI status returned unsuccessful")]
     SAIStatus(#[from] sai::Status),
+
     #[error("SAI command failed")]
     SAIError(#[from] sai::Error),
+
+    #[error("Shell Command IO Error")]
+    ShellIOError(anyhow::Error),
 }
 
 pub(crate) enum ProcessRequest {
@@ -104,6 +115,8 @@ pub(crate) struct Processor<'a, 'b> {
     ports: Vec<PhysicalPort<'a, 'b>>,
     rx: Receiver<ProcessRequest>,
     tx: Sender<ProcessRequest>,
+    stdin_write: File,
+    stdout_read: File,
 }
 
 impl<'a, 'b> Processor<'a, 'b> {
@@ -111,6 +124,8 @@ impl<'a, 'b> Processor<'a, 'b> {
         sai_api: &'a SAI,
         mac_address: sai_mac_t,
         platform_ctx: PlatformContextHolder<'b>,
+        stdin_write: File,
+        stdout_read: File,
     ) -> anyhow::Result<Self> {
         // now create switch
         let switch: Switch<'a> = sai_api
@@ -289,6 +304,8 @@ impl<'a, 'b> Processor<'a, 'b> {
             ports: ports,
             rx: rx,
             tx: tx,
+            stdin_write: stdin_write,
+            stdout_read: stdout_read,
         })
     }
 
@@ -360,8 +377,90 @@ impl<'a, 'b> Processor<'a, 'b> {
 
     fn process_shell_request(
         &self,
-        _: onie_sai::ShellRequest,
+        req: onie_sai::ShellRequest,
     ) -> Result<onie_sai::ShellResponse, ProcessError> {
+        let mut conn = UnixStream::connect(&req.socket.as_str())
+            .context(format!(
+                "failed to connect to socket at {}",
+                &req.socket.as_str()
+            ))
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        conn.set_nonblocking(true)
+            .context("failed to set non-blocking mode")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        let mut conn_writer = conn
+            .try_clone()
+            .context("failed to clone stream")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+
+        // this thread reads from the connection and writes to the stdin data pump
+        let mut stdin_write = self
+            .stdin_write
+            .try_clone()
+            .context("failed to clone stdin")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        thread::spawn(move || {
+            let mut buf = [0u8; 1024];
+            loop {
+                match conn.read(&mut buf) {
+                    Ok(n) => {
+                        if n == 0 {
+                            // EOF
+                            break;
+                        }
+                        if let Err(e) = stdin_write.write_all(buf[..n].as_ref()) {
+                            log::error!("shell: failed to write to stdin: {:?}", e);
+                            break;
+                        }
+                    }
+                    Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                        // Non-blocking mode, no data available yet
+                        thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                    Err(e) => {
+                        log::error!("shell: failed to read from socket: {:?}", e);
+                        break;
+                    }
+                }
+            }
+            log::debug!("shell: stdin thread exiting");
+        });
+
+        // this thread reads from the stdout data pump and writes to the connection
+        let mut stdout_read = self
+            .stdout_read
+            .try_clone()
+            .context("failed to clone stdout")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        thread::spawn(move || {
+            let mut buf = [0u8; 1024];
+            loop {
+                match stdout_read.read(&mut buf) {
+                    Ok(n) => {
+                        if n == 0 {
+                            // EOF
+                            break;
+                        }
+                        if let Err(e) = conn_writer.write_all(&buf[..n]) {
+                            log::error!("shell: failed to write to socket: {:?}", e);
+                            break;
+                        }
+                    }
+                    Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                        // Non-blocking mode, no data available yet
+                        thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                    Err(e) => {
+                        log::error!("shell: failed to read from stdout: {:?}", e);
+                        break;
+                    }
+                }
+            }
+            log::debug!("shell: stdout thread exiting");
+        });
+
         log::warn!("processor: shell requested, this blocks the processor thread!");
         self.switch
             .enable_shell()
