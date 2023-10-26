@@ -428,6 +428,13 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
         let mut buf = [0u8; 1024];
         let mut send_to_child = false;
         loop {
+            // now check if we need to flip to send to the child
+            // because the shell was enabled or vice versa
+            if let Ok(shell_enable) = rx.try_recv() {
+                send_to_child = shell_enable;
+                log::debug!("wrapper: stdout thread: shell_enable {}", shell_enable);
+            }
+
             let n = match child_stdout.read(&mut buf) {
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
@@ -449,11 +456,6 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                 break;
             }
 
-            // we have read something, now check if we need to flip to send to the child
-            // because the shell was enabled
-            if let Ok(shell_enable) = rx.try_recv() {
-                send_to_child = shell_enable;
-            }
             if send_to_child {
                 if let Err(e) = pipe_stdout_write.write_all(&buf[..n]) {
                     log::error!(
@@ -498,6 +500,7 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
             // check if we got the shell enable markers
             if &buf[..n] == b"SAI_SHELL_ENABLE".as_slice() {
                 // we received the shell enable command, send it to the other thread
+                log::debug!("shell: stdin thread: SAI_SHELL_ENABLE received");
                 if let Err(e) = tx.send(true) {
                     log::error!(
                         "wrapper: failed to send shell enable command to stdout thread: {:?}",
@@ -507,6 +510,7 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                 continue;
             } else if &buf[..n] == b"SAI_SHELL_DISABLE".as_slice() {
                 // we received the shell disable command, send it to the other thread
+                log::debug!("shell: stdin thread: SAI_SHELL_DISABLE received");
                 if let Err(e) = tx.send(false) {
                     log::error!(
                         "wrapper: failed to send shell disable command to other thread: {:?}",

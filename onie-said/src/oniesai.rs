@@ -410,6 +410,7 @@ impl<'a, 'b> Processor<'a, 'b> {
             .context("failed to flush shell enable marker to stdin")
             .map_err(|e| ProcessError::ShellIOError(e))?;
         thread::sleep(Duration::from_millis(10));
+        log::debug!("shell: SAI_SHELL_ENABLE sent");
 
         // this thread reads from the connection and writes to the stdin data pump
         let mut stdin_write = self
@@ -530,7 +531,7 @@ impl<'a, 'b> Processor<'a, 'b> {
             .flush()
             .context("failed to flush shell disable marker to stdin")
             .map_err(|e| ProcessError::ShellIOError(e))?;
-        thread::sleep(Duration::from_millis(10));
+        log::debug!("shell: SAI_SHELL_DISABLE sent");
 
         // this warning matches the one above, tell the users that we are unblocked again
         log::warn!("processor: shell finished, processor thread unblocked!");
