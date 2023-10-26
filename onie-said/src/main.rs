@@ -417,7 +417,7 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                     continue;
                 }
                 Err(e) => {
-                    eprintln!(
+                    log::error!(
                         "wrapper: failed to read from stdout of child process: {:?}",
                         e
                     );
@@ -429,7 +429,7 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                 break;
             }
             if let Err(e) = pipe_stdout_write.write_all(&buf[..n]) {
-                eprintln!(
+                log::error!(
                     "wrapper: failed to write to dedicated pipe for stdout: {:?}",
                     e
                 );
@@ -451,7 +451,7 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                     continue;
                 }
                 Err(e) => {
-                    eprintln!(
+                    log::error!(
                         "wrapper: failed to read from dedicated pipe for stdin: {:?}",
                         e
                     );
@@ -463,7 +463,7 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                 break;
             }
             if let Err(e) = child_stdin.write_all(&buf[..n]) {
-                eprintln!(
+                log::error!(
                     "wrapper: failed to write to stdin of child process: {:?}",
                     e
                 );
