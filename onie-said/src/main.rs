@@ -9,6 +9,7 @@ use std::io::BufReader;
 use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Write;
+use std::os::fd::AsRawFd;
 use std::os::fd::FromRawFd;
 use std::path::Path;
 use std::path::PathBuf;
@@ -399,20 +400,39 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
         .stdin
         .take()
         .context("wrapper: failed to open stdin of child process")?;
+    let child_stdin_fd = child_stdin.as_raw_fd();
+    let ret = unsafe { libc::fcntl(child_stdin_fd, libc::F_SETFL, libc::O_NONBLOCK) };
+    if ret < 0 {
+        return Err(anyhow::anyhow!(
+            "wrapper: failed to set child stdin fd to non-blocking: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
     let mut child_stdout = child_process
         .stdout
         .take()
         .context("wrapper: failed to open stdout of child process")?;
+    let child_stdout_fd = child_stdout.as_raw_fd();
+    let ret = unsafe { libc::fcntl(child_stdout_fd, libc::F_SETFL, libc::O_NONBLOCK) };
+    if ret < 0 {
+        return Err(anyhow::anyhow!(
+            "wrapper: failed to set child stdout fd to non-blocking: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
 
     // this thread will read from the stdout of the child process and write it back to the child process
     // on the dedicated pipe, where the child can read it from the fd which is in PIPE_STDOUT_READ of its process
+    let (tx, rx) = std::sync::mpsc::channel::<bool>();
     thread::spawn(move || {
         let mut buf = [0u8; 1024];
+        let mut send_to_child = false;
         loop {
             let n = match child_stdout.read(&mut buf) {
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                     // Non-blocking mode, no data available yet
+                    // NOTE: I believe child_stdout will always be a blocking read, so this is useless
                     thread::sleep(Duration::from_millis(10));
                     continue;
                 }
@@ -428,12 +448,24 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                 // EOF, end thread
                 break;
             }
-            if let Err(e) = pipe_stdout_write.write_all(&buf[..n]) {
-                log::error!(
-                    "wrapper: failed to write to dedicated pipe for stdout: {:?}",
-                    e
-                );
-                continue;
+
+            // we have read something, now check if we need to flip to send to the child
+            // because the shell was enabled
+            if let Ok(shell_enable) = rx.try_recv() {
+                send_to_child = shell_enable;
+            }
+            if send_to_child {
+                if let Err(e) = pipe_stdout_write.write_all(&buf[..n]) {
+                    log::error!(
+                        "wrapper: failed to write to dedicated pipe for stdout: {:?}",
+                        e
+                    );
+                    continue;
+                }
+            } else {
+                let mut stdout = std::io::stdout().lock();
+                let _ = stdout.write_all(&buf[..n]);
+                let _ = stdout.flush();
             }
         }
     });
@@ -462,6 +494,29 @@ fn wrapper(cli: Cli) -> anyhow::Result<()> {
                 // EOF, end thread
                 break;
             }
+
+            // check if we got the shell enable markers
+            if &buf[..n] == b"SAI_SHELL_ENABLE".as_slice() {
+                // we received the shell enable command, send it to the other thread
+                if let Err(e) = tx.send(true) {
+                    log::error!(
+                        "wrapper: failed to send shell enable command to stdout thread: {:?}",
+                        e
+                    );
+                }
+                continue;
+            } else if &buf[..n] == b"SAI_SHELL_DISABLE".as_slice() {
+                // we received the shell disable command, send it to the other thread
+                if let Err(e) = tx.send(false) {
+                    log::error!(
+                        "wrapper: failed to send shell disable command to other thread: {:?}",
+                        e
+                    );
+                }
+                continue;
+            }
+
+            // apart from those markers we send everything to the child process
             if let Err(e) = child_stdin.write_all(&buf[..n]) {
                 log::error!(
                     "wrapper: failed to write to stdin of child process: {:?}",

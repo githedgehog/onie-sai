@@ -283,13 +283,16 @@ fn shell_command(osc: OnieSaiClient) -> anyhow::Result<()> {
         conn.flush().context("failed to flush write to socket")?;
     }
     log::debug!("shell command finished");
+
+    // sync with threads before returning
     rpc_thread
         .join()
         .map_err(|e| anyhow::anyhow!("RPC thread paniced: {:?}", e))?;
     log::debug!("RPC thread exited");
-    stdout_thread_tx
-        .send(())
-        .context("failed to send exit to stdout thread")?;
+
+    // this thread might be dead, so the channel might be closed already
+    // the error can be ignored
+    let _ = stdout_thread_tx.send(());
     stdout_thread
         .join()
         .map_err(|e| anyhow::anyhow!("stdout thread paniced: {:?}", e))?;

@@ -394,6 +394,23 @@ impl<'a, 'b> Processor<'a, 'b> {
             .context("failed to clone stream")
             .map_err(|e| ProcessError::ShellIOError(e))?;
 
+        // enable shell IO
+        thread::sleep(Duration::from_millis(10));
+        let mut stdin_write_enabler = self
+            .stdin_write
+            .try_clone()
+            .context("failed to clone stdin")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        stdin_write_enabler
+            .write(b"SAI_SHELL_ENABLE")
+            .context("failed to write shell enable marker to stdin")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        stdin_write_enabler
+            .flush()
+            .context("failed to flush shell enable marker to stdin")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        thread::sleep(Duration::from_millis(10));
+
         // this thread reads from the connection and writes to the stdin data pump
         let mut stdin_write = self
             .stdin_write
@@ -414,10 +431,6 @@ impl<'a, 'b> Processor<'a, 'b> {
                             // EOF
                             break;
                         }
-                        log::debug!(
-                            "stdin receive: {}",
-                            String::from_utf8_lossy(buf[..n].as_ref())
-                        );
                         if let Err(e) = stdin_write.write_all(buf[..n].as_ref()) {
                             log::error!("shell: failed to write to stdin: {:?}", e);
                             break;
@@ -506,6 +519,18 @@ impl<'a, 'b> Processor<'a, 'b> {
             .join()
             .map_err(|e| anyhow::anyhow!("stdin thread paniced: {:?}", e))
             .map_err(|e| ProcessError::ShellIOError(e))?;
+
+        // disable shell IO again
+        thread::sleep(Duration::from_millis(10));
+        stdin_write_enabler
+            .write(b"SAI_SHELL_DISABLE")
+            .context("failed to write shell disable marker to stdin")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        stdin_write_enabler
+            .flush()
+            .context("failed to flush shell disable marker to stdin")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        thread::sleep(Duration::from_millis(10));
 
         // this warning matches the one above, tell the users that we are unblocked again
         log::warn!("processor: shell finished, processor thread unblocked!");
