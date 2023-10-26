@@ -1,11 +1,21 @@
 use onie_sai_rpc::onie_sai;
 use onie_sai_rpc::onie_sai_ttrpc;
+use onie_sai_rpc::onie_sai_ttrpc::OnieSaiClient;
 use onie_sai_rpc::SOCK_ADDR;
 use ttrpc::context::{self, Context};
 use ttrpc::Client;
 
+use std::io::stdin;
+use std::io::stdout;
+use std::io::BufRead;
+use std::io::Read;
+use std::io::Write;
+use std::os::unix::net::UnixListener;
 use std::process::ExitCode;
 use std::process::Termination;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 use anyhow::Context as AnyhowContext;
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -147,12 +157,7 @@ fn app() -> anyhow::Result<()> {
             );
         }
         Commands::Shell => {
-            let req = onie_sai::ShellRequest::new();
-            log::info!("making request to onie-said: {:?}...", req);
-            let resp = osc
-                .shell(default_ctx(), &req)
-                .context("request to onie-said failed")?;
-            log::info!("response from onie-said: {:?}", resp);
+            shell_command(osc)?;
         }
     }
 
@@ -168,4 +173,131 @@ fn default_ctx() -> Context {
     );
 
     ctx
+}
+
+const SHELL_PROMPT: &str = "sai-shell> ";
+const SHELL_SOCKET: &str = "/run/onie-saictl-shell.socket";
+
+fn shell_command(osc: OnieSaiClient) -> anyhow::Result<()> {
+    // start listener that listens on SHELL_SOCKET that onie-said will connect to
+    let _ = std::fs::remove_file(SHELL_SOCKET);
+    let listener = UnixListener::bind(SHELL_SOCKET).context(format!(
+        "failed to bind to shell socket at {}",
+        SHELL_SOCKET
+    ))?;
+
+    // now send request to onie-said to start shell
+    let rpc_thread = thread::spawn(move || {
+        let req = onie_sai::ShellRequest {
+            socket: SHELL_SOCKET.to_string(),
+            ..Default::default()
+        };
+        log::info!("making request to onie-said: {:?}...", req);
+        let resp = osc
+            .shell(default_ctx(), &req)
+            .expect("request to onie-said failed");
+        log::info!("response from onie-said: {:?}", resp);
+    });
+
+    // wait for onie-said to connect
+    let (mut conn, _) = listener
+        .accept()
+        .context("failed to accept incoming connection")?;
+
+    // set the connection to nonblocking
+    conn.set_nonblocking(true)
+        .context("failed to set socket to nonblocking")?;
+
+    // Clone the connection to handle input and output separately
+    let mut conn_reader = conn.try_clone().context("failed to clone socket")?;
+
+    // Spawn a separate thread to handle input from the socket and send it to stdout
+    let (stdout_thread_tx, stdout_thread_rx) = mpsc::channel::<()>();
+    let stdout_thread = thread::spawn(move || {
+        let mut buffer = [0; 1024];
+        let mut need_to_write_prompt = true;
+        let mut need_to_exit_thread = false;
+        loop {
+            if let Ok(_) = stdout_thread_rx.try_recv() {
+                need_to_exit_thread = true;
+            }
+            match conn_reader.read(&mut buffer) {
+                Ok(n) => {
+                    if n == 0 {
+                        // EOF
+                        break;
+                    }
+                    // Write received data to stdout - ignore errors here
+                    {
+                        let mut stdout = stdout().lock();
+                        let _ = stdout.write_all(&buffer[0..n]);
+                        let _ = stdout.flush();
+                    }
+                    need_to_write_prompt = true;
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    // Non-blocking mode, no data available yet
+                    if need_to_exit_thread {
+                        break;
+                    }
+                    if need_to_write_prompt {
+                        write_prompt();
+                        need_to_write_prompt = false;
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+                Err(e) => {
+                    log::error!(
+                        "Error reading from socket, closing stdout writer thread: {:?}",
+                        e
+                    );
+                    break;
+                }
+            }
+        }
+        log::debug!("stdout thread exiting");
+    });
+
+    // now read input from stdin and send it to the socket
+    // NOTE: mheese: don't ask me about the voodoo below.
+    // This is the only way I could get this to work with the initialization prompt already displayed
+    // It is somewhat similar to what bcmshell.py is doin in SONiC, but not identical. They only need
+    // to echo once, we need to echo twice. Also, the thread sleep in between the echoes seems to be essential.
+    let stdin = stdin().lock();
+    for _ in 1..=2 {
+        conn.write_all("echo\n".as_bytes())
+            .context("failed to write to socket")?;
+        conn.flush().context("failed to flush write to socket")?;
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    for line in stdin.lines() {
+        let mut line = line.context("failed to read from stdin")?;
+        line.push('\n');
+        conn.write_all(line.as_bytes())
+            .context("failed to write to socket")?;
+        if line == "quit\n" {
+            break;
+        }
+        conn.flush().context("failed to flush write to socket")?;
+    }
+    log::debug!("shell command finished");
+    rpc_thread
+        .join()
+        .map_err(|e| anyhow::anyhow!("RPC thread paniced: {:?}", e))?;
+    log::debug!("RPC thread exited");
+    stdout_thread_tx
+        .send(())
+        .context("failed to send exit to stdout thread")?;
+    stdout_thread
+        .join()
+        .map_err(|e| anyhow::anyhow!("stdout thread paniced: {:?}", e))?;
+    Ok(())
+}
+
+fn write_prompt() {
+    let mut stdout = stdout().lock();
+    let _ = write!(stdout, "{}", SHELL_PROMPT);
+    let _ = stdout.flush();
 }

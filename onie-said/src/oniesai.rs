@@ -7,6 +7,7 @@ use std::io::Write;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use std::str::FromStr;
+use std::sync::mpsc;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
@@ -399,15 +400,24 @@ impl<'a, 'b> Processor<'a, 'b> {
             .try_clone()
             .context("failed to clone stdin")
             .map_err(|e| ProcessError::ShellIOError(e))?;
-        thread::spawn(move || {
+        let (stdin_thread_tx, stdin_thread_rx) = mpsc::channel::<()>();
+        let stdin_thread = thread::spawn(move || {
             let mut buf = [0u8; 1024];
+            let mut need_to_exit_thread = false;
             loop {
+                if let Ok(_) = stdin_thread_rx.try_recv() {
+                    need_to_exit_thread = true;
+                }
                 match conn.read(&mut buf) {
                     Ok(n) => {
                         if n == 0 {
                             // EOF
                             break;
                         }
+                        log::debug!(
+                            "stdin receive: {}",
+                            String::from_utf8_lossy(buf[..n].as_ref())
+                        );
                         if let Err(e) = stdin_write.write_all(buf[..n].as_ref()) {
                             log::error!("shell: failed to write to stdin: {:?}", e);
                             break;
@@ -415,6 +425,9 @@ impl<'a, 'b> Processor<'a, 'b> {
                     }
                     Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                         // Non-blocking mode, no data available yet
+                        if need_to_exit_thread {
+                            break;
+                        }
                         thread::sleep(Duration::from_millis(10));
                         continue;
                     }
@@ -433,9 +446,14 @@ impl<'a, 'b> Processor<'a, 'b> {
             .try_clone()
             .context("failed to clone stdout")
             .map_err(|e| ProcessError::ShellIOError(e))?;
-        thread::spawn(move || {
+        let (stdout_thread_tx, stdout_thread_rx) = mpsc::channel::<()>();
+        let stdout_thread = thread::spawn(move || {
             let mut buf = [0u8; 1024];
+            let mut need_to_exit_thread = false;
             loop {
+                if let Ok(_) = stdout_thread_rx.try_recv() {
+                    need_to_exit_thread = true;
+                }
                 match stdout_read.read(&mut buf) {
                     Ok(n) => {
                         if n == 0 {
@@ -449,6 +467,9 @@ impl<'a, 'b> Processor<'a, 'b> {
                     }
                     Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                         // Non-blocking mode, no data available yet
+                        if need_to_exit_thread {
+                            break;
+                        }
                         thread::sleep(Duration::from_millis(10));
                         continue;
                     }
@@ -461,10 +482,33 @@ impl<'a, 'b> Processor<'a, 'b> {
             log::debug!("shell: stdout thread exiting");
         });
 
+        // this warning is great because even with default warning level logs
+        // it gives a hint that the processor thread is blocked
         log::warn!("processor: shell requested, this blocks the processor thread!");
         self.switch
             .enable_shell()
             .map_err(|e| ProcessError::SAIError(e))?;
+
+        // wait for all other threads to exit
+        stdout_thread_tx
+            .send(())
+            .context("failed to send exit to stdout thread")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        stdout_thread
+            .join()
+            .map_err(|e| anyhow::anyhow!("stdout thread paniced: {:?}", e))
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        stdin_thread_tx
+            .send(())
+            .context("failed to send exit to stdin thread")
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+        stdin_thread
+            .join()
+            .map_err(|e| anyhow::anyhow!("stdin thread paniced: {:?}", e))
+            .map_err(|e| ProcessError::ShellIOError(e))?;
+
+        // this warning matches the one above, tell the users that we are unblocked again
+        log::warn!("processor: shell finished, processor thread unblocked!");
         Ok(onie_sai::ShellResponse {
             ..Default::default()
         })

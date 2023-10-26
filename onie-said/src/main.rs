@@ -145,17 +145,19 @@ impl Termination for App {
 }
 
 fn main() -> App {
-    // NOTE: wrapper will call app(). See below for details.
-    App(wrapper())
-}
-
-fn app(stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
     // parse flags and initialize logger
+    // NOTE: we need to do this before we call the wrapper
+    // as it will eat help and anything else otherwise
     let cli = Cli::parse();
     env_logger::builder()
         .filter_level(LevelFilter::from(cli.log_level))
         .init();
 
+    // NOTE: wrapper will call app(). See below for details.
+    App(wrapper(cli))
+}
+
+fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
     // validation of some of the arguments
     if cli.platform.is_empty() {
         return Err(anyhow::anyhow!("no platform detected"));
@@ -295,7 +297,7 @@ const PIPE_STDOUT_READ: &str = "PIPE_STDOUT_READ";
 /// server application is not acceptable as it would mean that we need to stop and restart
 /// the application every time we want to access the shell. And that might destroy the
 /// state that we want to debug.
-fn wrapper() -> anyhow::Result<()> {
+fn wrapper(cli: Cli) -> anyhow::Result<()> {
     // First of all, check if we are in the client process.
     // If we are, we read the environment variables which must be set, and we switch to the
     // actual application then
@@ -310,7 +312,7 @@ fn wrapper() -> anyhow::Result<()> {
             .parse()
             .context("PIPE_STDOUT_READ is an invalid fd")?;
         let stdout_read = unsafe { File::from_raw_fd(stdout_read_fd) };
-        return app(stdin_write, stdout_read);
+        return app(cli, stdin_write, stdout_read);
     }
 
     // Get the current program's arguments and environment variables
@@ -335,6 +337,20 @@ fn wrapper() -> anyhow::Result<()> {
             std::io::Error::last_os_error()
         ));
     }
+    let ret = unsafe { libc::fcntl(fds[0], libc::F_SETFL, libc::O_NONBLOCK) };
+    if ret < 0 {
+        return Err(anyhow::anyhow!(
+            "wrapper: failed to set dedicated pipe fd[0] for stdin to non-blocking: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let ret = unsafe { libc::fcntl(fds[1], libc::F_SETFL, libc::O_NONBLOCK) };
+    if ret < 0 {
+        return Err(anyhow::anyhow!(
+            "wrapper: failed to set dedicated pipe fd[1] for stdin to non-blocking: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
     let mut pipe_stdin_read = unsafe { File::from_raw_fd(fds[0]) };
     env_vars.push((PIPE_STDIN_WRITE.to_string(), fds[1].to_string()));
 
@@ -346,6 +362,20 @@ fn wrapper() -> anyhow::Result<()> {
     if ret < 0 {
         return Err(anyhow::anyhow!(
             "wrapper: failed to create dedicate pipe for stdin pump: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let ret = unsafe { libc::fcntl(fds[0], libc::F_SETFL, libc::O_NONBLOCK) };
+    if ret < 0 {
+        return Err(anyhow::anyhow!(
+            "wrapper: failed to set dedicated pipe fd[0] for stdout to non-blocking: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let ret = unsafe { libc::fcntl(fds[1], libc::F_SETFL, libc::O_NONBLOCK) };
+    if ret < 0 {
+        return Err(anyhow::anyhow!(
+            "wrapper: failed to set dedicated pipe fd[1] for stdout to non-blocking: {}",
             std::io::Error::last_os_error()
         ));
     }
@@ -383,7 +413,6 @@ fn wrapper() -> anyhow::Result<()> {
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                     // Non-blocking mode, no data available yet
-                    // NOTE: I don't think we ever hit this case, but it does not hurt to have it
                     thread::sleep(Duration::from_millis(10));
                     continue;
                 }
@@ -418,7 +447,6 @@ fn wrapper() -> anyhow::Result<()> {
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                     // Non-blocking mode, no data available yet
-                    // NOTE: I don't think we ever hit this case, but it does not hurt to have it
                     thread::sleep(Duration::from_millis(10));
                     continue;
                 }
@@ -443,10 +471,6 @@ fn wrapper() -> anyhow::Result<()> {
             }
         }
     });
-
-    // child_stdin
-    //     .write_all("hello\n".as_bytes())
-    //     .expect("msg write failed");
 
     // Check if the process was created successfully
     // Wait for the child process to complete
