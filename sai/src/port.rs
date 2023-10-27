@@ -109,6 +109,67 @@ impl From<i32> for BreakoutModeType {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum AutoNegConfigMode {
+    Disabled,
+    Auto,
+    Slave,
+    Master,
+    Unknown(i32),
+}
+
+impl From<AutoNegConfigMode> for i32 {
+    fn from(value: AutoNegConfigMode) -> Self {
+        match value {
+            AutoNegConfigMode::Disabled => {
+                _sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_DISABLED as i32
+            }
+            AutoNegConfigMode::Auto => {
+                _sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_AUTO as i32
+            }
+            AutoNegConfigMode::Slave => {
+                _sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_SLAVE as i32
+            }
+            AutoNegConfigMode::Master => {
+                _sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_MASTER as i32
+            }
+            AutoNegConfigMode::Unknown(v) => v,
+        }
+    }
+}
+
+impl From<i32> for AutoNegConfigMode {
+    fn from(value: i32) -> Self {
+        match value {
+            x if x
+                == sai_sys::_sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_DISABLED
+                    as i32 =>
+            {
+                AutoNegConfigMode::Disabled
+            }
+            x if x
+                == sai_sys::_sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_AUTO
+                    as i32 =>
+            {
+                AutoNegConfigMode::Auto
+            }
+            x if x
+                == sai_sys::_sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_SLAVE
+                    as i32 =>
+            {
+                AutoNegConfigMode::Slave
+            }
+            x if x
+                == sai_sys::_sai_port_auto_neg_config_mode_t_SAI_PORT_AUTO_NEG_CONFIG_MODE_MASTER
+                    as i32 =>
+            {
+                AutoNegConfigMode::Master
+            }
+            x => AutoNegConfigMode::Unknown(x),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct PortID {
     pub(crate) id: sai_object_id_t,
@@ -175,6 +236,7 @@ impl std::fmt::Display for Port<'_> {
 }
 
 impl<'a> Port<'a> {
+    /// get a list of the supported speeds of the port
     pub fn get_supported_speeds(&self) -> Result<Vec<u32>, Error> {
         let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
         let get_port_attribute = port_api
@@ -206,6 +268,168 @@ impl<'a> Port<'a> {
             ret.push(speed);
         }
         Ok(ret)
+    }
+
+    /// get the operating speed of the port
+    /// NOTE: this is different from the configured port speed
+    pub fn get_oper_speed(&self) -> Result<u32, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_OPER_SPEED,
+            value: sai_attribute_value_t { u32_: 0 },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.u32_ })
+    }
+
+    /// get the configured port speed
+    /// NOTE: this is different from the operating port speed
+    pub fn get_speed(&self) -> Result<u32, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_SPEED,
+            value: sai_attribute_value_t { u32_: 0 },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.u32_ })
+    }
+
+    /// returns true if auto neg mode is supported by this port
+    pub fn get_supported_auto_neg_mode(&self) -> Result<bool, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_SUPPORTED_AUTO_NEG_MODE,
+            value: sai_attribute_value_t { booldata: false },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.booldata })
+    }
+
+    /// returns true if auto neg mode is advertised by this port
+    pub fn get_advertised_auto_neg_mode(&self) -> Result<bool, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_ADVERTISED_AUTO_NEG_MODE,
+            value: sai_attribute_value_t { booldata: false },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.booldata })
+    }
+
+    /// returns true if auto neg mode is advertised by the *remote's* port
+    pub fn get_remote_advertised_auto_neg_mode(&self) -> Result<bool, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_REMOTE_ADVERTISED_AUTO_NEG_MODE,
+            value: sai_attribute_value_t { booldata: false },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.booldata })
+    }
+
+    /// returns true if auto neg mode is activated (configured) for this port
+    pub fn get_auto_neg_mode(&self) -> Result<bool, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_AUTO_NEG_MODE,
+            value: sai_attribute_value_t { booldata: false },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.booldata })
+    }
+
+    /// get auto neg configuration mode for this port
+    pub fn get_auto_neg_config_mode(&self) -> Result<AutoNegConfigMode, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_AUTO_NEG_CONFIG_MODE,
+            value: sai_attribute_value_t { s32: 0 },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(AutoNegConfigMode::from(unsafe { attr.value.s32 }))
+    }
+
+    /// returns true if auto negotiation completed (Auto negotiation (AN) done state)
+    pub fn get_auto_neg_status(&self) -> Result<bool, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_AUTO_NEG_STATUS,
+            value: sai_attribute_value_t { booldata: false },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.booldata })
     }
 
     pub fn get_supported_breakout_modes(&self) -> Result<Vec<BreakoutModeType>, Error> {
@@ -302,6 +526,71 @@ impl<'a> Port<'a> {
         let attr = sai_attribute_t {
             id: _sai_port_attr_t_SAI_PORT_ATTR_SPEED,
             value: sai_attribute_value_t { u32_: speed },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// enables/disables advertisement of auto neg mode for this port
+    /// NOTE: this is different from enabling/disabling auto neg mode for the port (this is just advertising it)!
+    pub fn set_advertised_auto_neg_mode(&self, enable: bool) -> Result<(), Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
+            .set_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_ADVERTISED_AUTO_NEG_MODE,
+            value: sai_attribute_value_t { booldata: enable },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// enables/disables auto neg mode for this port
+    /// NOTE: this is different from auto neg mode advertisement!
+    pub fn set_auto_neg_mode(&self, enable: bool) -> Result<(), Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
+            .set_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_AUTO_NEG_MODE,
+            value: sai_attribute_value_t { booldata: enable },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// enables/disables auto neg mode for this port
+    /// NOTE: this is different from auto neg mode advertisement!
+    pub fn set_auto_neg_config_mode(&self, config_mode: AutoNegConfigMode) -> Result<(), Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
+            .set_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_AUTO_NEG_CONFIG_MODE,
+            value: sai_attribute_value_t {
+                s32: config_mode.into(),
+            },
         };
 
         let st = unsafe { set_port_attribute(self.id, &attr) };
