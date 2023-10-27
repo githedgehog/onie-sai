@@ -1,3 +1,5 @@
+mod sm;
+
 use onie_sai_rpc::{onie_sai, wrap_message_field};
 use thiserror::Error;
 
