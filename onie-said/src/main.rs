@@ -265,6 +265,16 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
     // initialize the ttrpc server
     let rpc_server = rpc::start_rpc_server(proc.get_sender())?;
 
+    // initialize auto discovery poll loop
+    let auto_discovery_proc_tx = proc.get_sender();
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(1));
+        if let Err(e) = auto_discovery_proc_tx.send(oniesai::ProcessRequest::AutoDiscoveryPoll) {
+            log::error!("failed to send auto discovery poll request: {:?}. Aborting auto discovery poll thread.", e);
+            return;
+        }
+    });
+
     // this blocks until processing is all done
     // process consumes the processor, so it will be dropped immediately after
     // which will trigger the cleanup

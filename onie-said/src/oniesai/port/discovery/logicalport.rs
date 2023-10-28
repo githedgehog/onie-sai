@@ -5,19 +5,19 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-pub(super) trait State
+pub(crate) trait State
 where
-    Self: std::fmt::Debug + Display + Copy,
+    Self: std::fmt::Debug + Display + Clone + Copy,
 {
 }
 
-pub(super) trait FromState<S: State>: Sized {
+pub(crate) trait FromState<S: State>: Sized {
     fn from_state<'a>(from: Discovery<S>, port: &Port<'a>) -> Discovery<Self>
     where
         Self: State;
 }
 
-pub(super) trait IntoState<S: State>: Sized {
+pub(crate) trait IntoState<S: State>: Sized {
     fn into_state<'a>(self, port: &Port<'a>) -> Discovery<S>
     where
         S: State;
@@ -32,12 +32,13 @@ where
     }
 }
 
-pub(super) enum Event {
+pub(crate) enum Event {
     NoChange,
     PortUp,
 }
 
-pub(super) enum DiscoveryStateMachine {
+#[derive(Debug, Clone)]
+pub(crate) enum DiscoveryStateMachine {
     Start(Discovery<Start>),
     AutoNeg(Discovery<AutoNeg>),
     Speed(Discovery<Speed>),
@@ -46,7 +47,7 @@ pub(super) enum DiscoveryStateMachine {
 
 impl DiscoveryStateMachine {
     /// initializes a new logical port discovery state machine
-    pub(super) fn new<'a>(
+    pub(crate) fn new<'a>(
         port: &Port<'a>,
         supported_speeds: Vec<u32>,
         speed: u32,
@@ -60,14 +61,14 @@ impl DiscoveryStateMachine {
         ))
     }
 
-    pub(super) fn is_done(&self) -> bool {
+    pub(crate) fn is_done(&self) -> bool {
         match self {
             DiscoveryStateMachine::Done(_) => true,
             _ => false,
         }
     }
 
-    pub(super) fn is_done_and_success(&self) -> bool {
+    pub(crate) fn is_done_and_success(&self) -> bool {
         match self {
             DiscoveryStateMachine::Done(v) => v.state.success,
             _ => false,
@@ -83,7 +84,7 @@ impl DiscoveryStateMachine {
         }
     }
 
-    pub(super) fn step<'a>(self, port: &Port<'a>, ev: Event) -> Self {
+    pub(crate) fn step<'a>(self, port: &Port<'a>, ev: Event) -> Self {
         match ev {
             Event::PortUp => match self {
                 // as soon as we get a port up event, we simply consider this a success
@@ -131,8 +132,8 @@ impl DiscoveryStateMachine {
     }
 }
 
-#[derive(Debug)]
-pub(super) struct Discovery<S: State> {
+#[derive(Debug, Clone)]
+pub(crate) struct Discovery<S: State> {
     transition_ts: SystemTime,
     transition_time: Duration,
     speed: u32,
@@ -538,7 +539,7 @@ impl FromState<AutoNeg> for Done {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Start {}
+pub(crate) struct Start {}
 impl State for Start {}
 impl Display for Start {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -547,7 +548,7 @@ impl Display for Start {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct AutoNeg {}
+pub(crate) struct AutoNeg {}
 impl State for AutoNeg {}
 impl Display for AutoNeg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -556,7 +557,7 @@ impl Display for AutoNeg {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Speed {
+pub(crate) struct Speed {
     index: usize,
 }
 impl State for Speed {}
@@ -567,7 +568,7 @@ impl Display for Speed {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Done {
+pub(crate) struct Done {
     /// Describes if the discovery was successful or not.
     /// If this is false, it means that the whole discovery state machine ran, but the port did not come up.
     success: bool,

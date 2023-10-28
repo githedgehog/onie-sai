@@ -236,6 +236,46 @@ impl std::fmt::Display for Port<'_> {
 }
 
 impl<'a> Port<'a> {
+    /// get the operational status of the port
+    pub fn get_oper_status(&self) -> Result<OperStatus, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_OPER_STATUS,
+            value: sai_attribute_value_t { s32: 0 },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(OperStatus::from(unsafe { attr.value.s32 }))
+    }
+
+    /// get the admin state of the port
+    pub fn get_admin_state(&self) -> Result<bool, Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let get_port_attribute = port_api
+            .get_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_ADMIN_STATE,
+            value: sai_attribute_value_t { booldata: false },
+        };
+
+        let st = unsafe { get_port_attribute(self.id, 1, &mut attr as *mut _) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(unsafe { attr.value.booldata })
+    }
+
     /// get a list of the supported speeds of the port
     pub fn get_supported_speeds(&self) -> Result<Vec<u32>, Error> {
         let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
