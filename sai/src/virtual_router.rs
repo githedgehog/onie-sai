@@ -58,7 +58,7 @@ impl<'a> VirtualRouter<'a> {
     pub fn create_router_interface(
         &self,
         attrs: Vec<RouterInterfaceAttribute>,
-    ) -> Result<RouterInterface, Error> {
+    ) -> Result<RouterInterface<'a>, Error> {
         let router_interface_api = self
             .sai
             .router_interface_api()

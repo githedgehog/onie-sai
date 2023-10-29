@@ -154,6 +154,7 @@ impl From<Switch<'_>> for SwitchID {
     }
 }
 
+#[derive(Clone)]
 pub struct Switch<'a> {
     pub(crate) id: sai_object_id_t,
     pub(crate) sai: &'a SAI,

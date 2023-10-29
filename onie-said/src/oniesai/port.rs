@@ -1,12 +1,21 @@
 pub(crate) mod discovery;
 
 use onie_sai_rpc::wrap_message_field;
+use sai::hostif::HostIfAttribute;
+use sai::hostif::HostIfType;
+use sai::hostif::VlanTag;
+use sai::router_interface::RouterInterface;
+use sai::router_interface::RouterInterfaceAttribute;
+use sai::router_interface::RouterInterfaceType;
+use sai::sai_mac_t;
+use sai::switch::Switch;
+use sai::virtual_router::VirtualRouter;
+use sai::ObjectID;
 use thiserror::Error;
 
 use sai::hostif::HostIf;
 use sai::port::BreakoutModeType;
 use sai::port::Port;
-use sai::router_interface::RouterInterface;
 
 use super::PlatformContextHolder;
 
@@ -36,9 +45,13 @@ impl From<xcvr::Error> for PortError {
 #[derive(Debug, Clone)]
 pub(super) struct PhysicalPort<'a, 'b> {
     xcvr_api: PlatformContextHolder<'b>,
+    switch: Switch<'a>,
+    router: VirtualRouter<'a>,
     pub(super) idx: usize,
     pub(super) ports: Vec<LogicalPort<'a>>,
     pub(super) lanes: Vec<u32>,
+    pub(super) mac_address: sai_mac_t,
+    pub(super) auto_discovery: bool,
     pub(super) current_breakout_mode: BreakoutModeType,
     pub(super) supported_breakout_modes: Vec<BreakoutModeType>,
     pub(super) xcvr_present: bool,
@@ -88,6 +101,9 @@ impl From<&PhysicalPort<'_, '_>> for onie_sai_rpc::onie_sai::Port {
 impl<'a, 'b> PhysicalPort<'a, 'b> {
     pub(super) fn from_ports(
         xcvr_api: PlatformContextHolder<'b>,
+        switch: Switch<'a>,
+        router: VirtualRouter<'a>,
+        mac_address: sai_mac_t,
         ports: Vec<Port<'a>>,
     ) -> Result<Vec<PhysicalPort<'a, 'b>>, PortError> {
         let mut ret: Vec<PhysicalPort<'a, 'b>> = Vec::with_capacity(ports.len());
@@ -114,12 +130,16 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
 
             ret.push(PhysicalPort {
                 xcvr_api: xcvr_api.clone(),
+                switch: switch.clone(),
+                router: router.clone(),
                 xcvr_present: xcvr_present,
                 xcvr_inserted_type: xcvr_inserted_type,
                 xcvr_oper_status: xcvr_oper_status,
                 xcvr_supported_types: xcvr_supported_types,
                 idx: i,
+                auto_discovery: false,
                 lanes: hw_lanes.clone(),
+                mac_address,
                 current_breakout_mode: current_breakout_mode,
                 supported_breakout_modes: supported_breakout_modes,
                 ports: vec![LogicalPort::new(hw_lanes, port)?],
@@ -171,7 +191,87 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         // NOTE: supported types don't change for physical ports ever, so no need to recheck again
     }
 
+    pub(super) fn create_hifs_and_rifs(&mut self) {
+        for (i, port) in self.ports.iter_mut().enumerate() {
+            if port.hif.is_none() {
+                let name = format!("Ethernet{}-{}", self.idx, i);
+                match self.switch.create_hostif(vec![
+                    HostIfAttribute::Name(name.clone()),
+                    HostIfAttribute::Type(HostIfType::Netdev),
+                    HostIfAttribute::ObjectID(port.port.to_id().into()),
+                    HostIfAttribute::VlanTag(VlanTag::Original),
+                    HostIfAttribute::OperStatus(false),
+                ]) {
+                    Ok(hif) => {
+                        port.hif = Some(HostInterface {
+                            intf: hif,
+                            name: name,
+                            oper_status: false,
+                        })
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "Port {}: failed to create host interface {}: {:?}",
+                            name,
+                            port.port,
+                            e
+                        );
+                    }
+                }
+            }
+            if port.rif.is_none() {
+                match self.router.create_router_interface(vec![
+                    RouterInterfaceAttribute::SrcMacAddress(self.mac_address),
+                    RouterInterfaceAttribute::Type(RouterInterfaceType::Port),
+                    RouterInterfaceAttribute::PortID(port.port.to_id().into()),
+                    RouterInterfaceAttribute::MTU(9100),
+                    RouterInterfaceAttribute::NATZoneID(0),
+                ]) {
+                    Ok(rif) => port.rif = Some(rif),
+                    Err(e) => {
+                        log::error!(
+                            "Port {}: failed to create router interface: {:?}",
+                            port.port,
+                            e
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    pub(super) fn remove_hifs_and_rifs(&mut self) {
+        for port in self.ports.iter_mut() {
+            if let Some(hif) = port.hif.take() {
+                match hif.intf.remove() {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!(
+                            "Port {}: failed to remove host interface {}: {:?}",
+                            hif.name,
+                            port.port,
+                            e
+                        );
+                    }
+                }
+            }
+            if let Some(rif) = port.rif.take() {
+                match rif.remove() {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!(
+                            "Port {}: failed to remove router interface: {:?}",
+                            port.port,
+                            e
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     pub(super) fn enable_auto_discovery(&mut self) {
+        self.auto_discovery = true;
         if self.xcvr_present {
             for port in self.ports.iter_mut() {
                 if port.sm.is_none() {
@@ -187,6 +287,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
     }
 
     pub(super) fn disable_auto_discovery(&mut self) {
+        self.auto_discovery = false;
         for port in self.ports.iter_mut() {
             port.sm = None;
         }
@@ -195,6 +296,16 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
     pub(super) fn auto_discovery_poll(&mut self) {
         // poll on xcvr state first
         self.xcvr_reconcile_state();
+
+        // create and/or remove host interfaces and router interfaces
+        // depending on if a transceiver is present or not
+        // NOTE: these functions are safe to be called in cases
+        // when HIFs and RIFs are already created and/or removed
+        if self.xcvr_present {
+            self.create_hifs_and_rifs();
+        } else {
+            self.remove_hifs_and_rifs();
+        }
     }
 }
 

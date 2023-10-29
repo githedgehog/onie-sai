@@ -26,7 +26,6 @@ use sai::hostif::trap::TrapType;
 use sai::hostif::HostIf;
 use sai::hostif::HostIfAttribute;
 use sai::hostif::HostIfType;
-use sai::hostif::VlanTag;
 use sai::port::OperStatus;
 use sai::port::PortID;
 use sai::route::RouteEntryAttribute;
@@ -110,7 +109,6 @@ pub(crate) enum ProcessRequest {
 
 pub(crate) struct Processor<'a, 'b> {
     auto_discovery: bool,
-    platform_ctx: PlatformContextHolder<'b>,
     switch: Switch<'a>,
     virtual_router: VirtualRouter<'a>,
     cpu_port_id: PortID,
@@ -126,6 +124,7 @@ impl<'a, 'b> Processor<'a, 'b> {
     pub(crate) fn new(
         sai_api: &'a SAI,
         mac_address: sai_mac_t,
+        auto_discovery: bool,
         platform_ctx: PlatformContextHolder<'b>,
         stdin_write: File,
         stdout_read: File,
@@ -294,17 +293,24 @@ impl<'a, 'b> Processor<'a, 'b> {
             .get_ports()
             .context(format!("failed to get port list from switch {}", switch))?;
 
-        let mut ports = PhysicalPort::from_ports(platform_ctx.clone(), ports)
-            .context("failed to create physical ports from SAI ports")?;
+        let mut ports = PhysicalPort::from_ports(
+            platform_ctx.clone(),
+            switch.clone(),
+            default_virtual_router.clone(),
+            mac_address,
+            ports,
+        )
+        .context("failed to create physical ports from SAI ports")?;
 
-        // as auto-discovery is enabled by default, we are going to start it now
-        for port in ports.iter_mut() {
-            port.enable_auto_discovery()
+        // if auto-discovery is enabled on startup (the default), we are going to start it now
+        if auto_discovery {
+            for port in ports.iter_mut() {
+                port.enable_auto_discovery()
+            }
         }
 
         Ok(Processor {
-            auto_discovery: true,
-            platform_ctx: platform_ctx,
+            auto_discovery: auto_discovery,
             switch: switch,
             virtual_router: default_virtual_router,
             cpu_port_id: cpu_port_id,

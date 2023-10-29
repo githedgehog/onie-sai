@@ -41,9 +41,15 @@ struct Cli {
     #[arg(long, value_enum, default_value_t=LogLevel::Warn)]
     log_level: LogLevel,
 
+    /// The default MAC address to use in the switch. Pass the correct MAC address from your ONIE syseeprom here.
     #[arg(long, default_value_t=MacAddr6::new(0xee, 0xba, 0x4a, 0xb9, 0xb1, 0x24))]
     mac_addr: MacAddr6,
 
+    /// Whether to enable port auto discovery
+    #[arg(long, default_value_t = true)]
+    auto_discovery: bool,
+
+    /// The platform to use: this should always be auto-detected.
     #[arg(long, default_value = arg_platform())]
     platform: String,
 
@@ -238,6 +244,7 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
     let proc = Processor::new(
         &sai_api,
         cli.mac_addr.into_array(),
+        cli.auto_discovery,
         platform_ctx,
         stdin_write,
         stdout_read,
