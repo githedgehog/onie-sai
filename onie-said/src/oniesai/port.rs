@@ -20,7 +20,7 @@ use sai::port::Port;
 use super::PlatformContextHolder;
 
 #[derive(Debug, Error)]
-pub(super) enum PortError {
+pub(crate) enum PortError {
     #[error("SAI command failed")]
     SAIError(sai::Error),
 
@@ -43,21 +43,21 @@ impl From<xcvr::Error> for PortError {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct PhysicalPort<'a, 'b> {
+pub(crate) struct PhysicalPort<'a, 'b> {
     xcvr_api: PlatformContextHolder<'b>,
     switch: Switch<'a>,
     router: VirtualRouter<'a>,
-    pub(super) idx: usize,
-    pub(super) ports: Vec<LogicalPort<'a>>,
-    pub(super) lanes: Vec<u32>,
-    pub(super) mac_address: sai_mac_t,
-    pub(super) auto_discovery: bool,
-    pub(super) current_breakout_mode: BreakoutModeType,
-    pub(super) supported_breakout_modes: Vec<BreakoutModeType>,
-    pub(super) xcvr_present: bool,
-    pub(super) xcvr_oper_status: Option<bool>,
-    pub(super) xcvr_inserted_type: Option<xcvr::PortType>,
-    pub(super) xcvr_supported_types: Vec<xcvr::PortType>,
+    pub(crate) idx: usize,
+    pub(crate) ports: Vec<LogicalPort<'a>>,
+    pub(crate) lanes: Vec<u32>,
+    pub(crate) mac_address: sai_mac_t,
+    pub(crate) auto_discovery: bool,
+    pub(crate) current_breakout_mode: BreakoutModeType,
+    pub(crate) supported_breakout_modes: Vec<BreakoutModeType>,
+    pub(crate) xcvr_present: bool,
+    pub(crate) xcvr_oper_status: Option<bool>,
+    pub(crate) xcvr_inserted_type: Option<xcvr::PortType>,
+    pub(crate) xcvr_supported_types: Vec<xcvr::PortType>,
 }
 
 // just a convenience conversion method for our RPC
@@ -99,7 +99,7 @@ impl From<&PhysicalPort<'_, '_>> for onie_sai_rpc::onie_sai::Port {
 }
 
 impl<'a, 'b> PhysicalPort<'a, 'b> {
-    pub(super) fn from_ports(
+    pub(crate) fn from_ports(
         xcvr_api: PlatformContextHolder<'b>,
         switch: Switch<'a>,
         router: VirtualRouter<'a>,
@@ -191,7 +191,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         // NOTE: supported types don't change for physical ports ever, so no need to recheck again
     }
 
-    pub(super) fn create_hifs_and_rifs(&mut self) {
+    pub(crate) fn create_hifs_and_rifs(&mut self) {
         for (i, port) in self.ports.iter_mut().enumerate() {
             if port.hif.is_none() {
                 let name = format!("Ethernet{}-{}", self.idx, i);
@@ -240,7 +240,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         }
     }
 
-    pub(super) fn remove_hifs_and_rifs(&mut self) {
+    pub(crate) fn remove_hifs_and_rifs(&mut self) {
         for port in self.ports.iter_mut() {
             if let Some(hif) = port.hif.take() {
                 match hif.intf.remove() {
@@ -270,7 +270,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         }
     }
 
-    pub(super) fn enable_auto_discovery(&mut self) {
+    pub(crate) fn enable_auto_discovery(&mut self) {
         self.auto_discovery = true;
         if self.xcvr_present {
             for port in self.ports.iter_mut() {
@@ -286,14 +286,14 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         }
     }
 
-    pub(super) fn disable_auto_discovery(&mut self) {
+    pub(crate) fn disable_auto_discovery(&mut self) {
         self.auto_discovery = false;
         for port in self.ports.iter_mut() {
             port.sm = None;
         }
     }
 
-    pub(super) fn auto_discovery_poll(&mut self) {
+    pub(crate) fn auto_discovery_poll(&mut self) {
         // poll on xcvr state first
         self.xcvr_reconcile_state();
 
@@ -310,22 +310,22 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct LogicalPort<'a> {
-    pub(super) port: Port<'a>,
-    pub(super) hif: Option<HostInterface<'a>>,
-    pub(super) rif: Option<RouterInterface<'a>>,
-    pub(super) lanes: Vec<u32>,
-    pub(super) oper_status: bool,
-    pub(super) admin_state: bool,
-    pub(super) auto_negotiation: bool,
-    pub(super) speed: u32,
-    pub(super) oper_speed: u32,
-    pub(super) supported_speeds: Vec<u32>,
-    pub(super) sm: Option<discovery::logicalport::DiscoveryStateMachine>,
+pub(crate) struct LogicalPort<'a> {
+    pub(crate) port: Port<'a>,
+    pub(crate) hif: Option<HostInterface<'a>>,
+    pub(crate) rif: Option<RouterInterface<'a>>,
+    pub(crate) lanes: Vec<u32>,
+    pub(crate) oper_status: bool,
+    pub(crate) admin_state: bool,
+    pub(crate) auto_negotiation: bool,
+    pub(crate) speed: u32,
+    pub(crate) oper_speed: u32,
+    pub(crate) supported_speeds: Vec<u32>,
+    pub(crate) sm: Option<discovery::logicalport::DiscoveryStateMachine>,
 }
 
 impl<'a> LogicalPort<'a> {
-    pub(super) fn new(hw_lanes: Vec<u32>, port: Port<'a>) -> Result<Self, PortError> {
+    pub(crate) fn new(hw_lanes: Vec<u32>, port: Port<'a>) -> Result<Self, PortError> {
         let oper_status: bool = port.get_oper_status()?.into();
         let admin_state = port.get_admin_state()?;
         let auto_negotiation = port.get_auto_neg_mode()?;
@@ -347,7 +347,7 @@ impl<'a> LogicalPort<'a> {
         })
     }
 
-    pub(super) fn reconcile_state(&mut self) {
+    pub(crate) fn reconcile_state(&mut self) {
         let _ = self
             .port
             .get_oper_status()
@@ -381,10 +381,10 @@ fn log_port_error(port: &Port<'_>, e: sai::Error) {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct HostInterface<'a> {
-    pub(super) intf: HostIf<'a>,
-    pub(super) name: String,
-    pub(super) oper_status: bool,
+pub(crate) struct HostInterface<'a> {
+    pub(crate) intf: HostIf<'a>,
+    pub(crate) name: String,
+    pub(crate) oper_status: bool,
 }
 
 impl<'a> std::fmt::Display for HostInterface<'a> {
