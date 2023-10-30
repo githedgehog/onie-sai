@@ -362,6 +362,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                                     *sm = sm
                                         .clone()
                                         .step(&port.port, discovery::logicalport::Event::NoChange);
+                                    port.reconcile_state();
                                 }
                             }
                         }
