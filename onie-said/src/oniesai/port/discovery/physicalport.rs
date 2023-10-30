@@ -176,14 +176,22 @@ impl FromState<BreakoutMode> for BreakoutMode {
             Some(v) => *v,
             None => {
                 log::error!(
-                    "Physical Port {}: state machine: {} -> {}: no breakout modes left to try. State machine transition error!",
+                    "Physical Port {}: state machine: {}: no breakout modes left to try. State machine transition error!",
                     port.idx,
                     from.state,
-                    from.state
                 );
                 return from;
             }
         };
+        let new_state = BreakoutMode {
+            mode: next_breakout_mode,
+        };
+        log::debug!(
+            "Physical Port {}: state machine: {} -> {}: starting transition",
+            port.idx,
+            from.state,
+            new_state
+        );
 
         // calculate all the ports that we need to create for the next breakout mode by using the lanes of the port
         let new_ports = match calculate_new_ports(&next_breakout_mode, &port.lanes) {
@@ -193,12 +201,19 @@ impl FromState<BreakoutMode> for BreakoutMode {
                     "Physical Port {}: state machine: {} -> {}: error calculating new ports: {}",
                     port.idx,
                     from.state,
-                    from.state,
+                    new_state,
                     e
                 );
                 return from;
             }
         };
+        log::debug!(
+            "Physical Port {}: state machine: {} -> {}: calculated new ports: {:?}",
+            port.idx,
+            from.state,
+            new_state,
+            new_ports.clone()
+        );
 
         // remove all old ports now
         port.remove_ports();

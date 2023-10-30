@@ -609,6 +609,7 @@ impl<'a, 'b> Processor<'a, 'b> {
     }
 
     fn process_auto_discovery_poll(&mut self) {
+        log::debug!("processor: auto discovery poll");
         for phy_port in self.ports.iter_mut() {
             phy_port.auto_discovery_poll();
         }

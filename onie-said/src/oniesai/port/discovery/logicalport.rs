@@ -251,6 +251,7 @@ impl Discovery<Start> {
         // bring admin state up
         set_admin_state(state, state, port, true);
 
+        log::debug!("Port {} state machine: {}: initialized", port, state);
         Discovery {
             transition_ts: SystemTime::now(),
             transition_time: Duration::from_secs(5),

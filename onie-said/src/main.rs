@@ -280,6 +280,8 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
     // initialize auto discovery poll loop
     let auto_discovery_proc_tx = proc.get_sender();
     thread::spawn(move || loop {
+        // We are going to poll every second
+        // NOTE: this might be too aggressive, we need to look at this again
         thread::sleep(Duration::from_secs(1));
         if let Err(e) = auto_discovery_proc_tx.send(oniesai::ProcessRequest::AutoDiscoveryPoll) {
             log::error!("failed to send auto discovery poll request: {:?}. Aborting auto discovery poll thread.", e);

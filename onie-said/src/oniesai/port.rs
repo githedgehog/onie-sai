@@ -234,6 +234,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                 return;
             }
         };
+        log::debug!("Physical Port {}: port created: {}", self.idx, port.to_id());
 
         // create our "logical port" which will query certain basics
         let port = match LogicalPort::new(
@@ -260,6 +261,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
     }
 
     pub(crate) fn remove_ports(&mut self) {
+        log::debug!("Physical Port {}: removing all logical ports...", self.idx);
         let ports = std::mem::take(&mut self.ports);
         for port in ports.into_iter() {
             port.remove();
@@ -310,6 +312,9 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
 
     pub(crate) fn disable_auto_discovery(&mut self) {
         self.auto_discovery = false;
+        if self.sm.is_some() {
+            log::info!("Physical Port {}: disabling auto discovery. Stopping and removing auto discovery state machine (port breakout discovery: {})", self.idx, self.auto_discovery_with_breakout);
+        }
         self.destroy_state_machines();
     }
 
@@ -466,6 +471,12 @@ impl<'a> LogicalPort<'a> {
                 HostIfAttribute::OperStatus(false),
             ]) {
                 Ok(hif) => {
+                    log::debug!(
+                        "Port {}: successfully created host interface {} ({})",
+                        self.port,
+                        name,
+                        &hif
+                    );
                     self.hif = Some(HostInterface {
                         intf: hif,
                         name: name,
@@ -475,8 +486,8 @@ impl<'a> LogicalPort<'a> {
                 Err(e) => {
                     log::error!(
                         "Port {}: failed to create host interface {}: {:?}",
-                        name,
                         self.port,
+                        name,
                         e
                     );
                 }
@@ -490,7 +501,14 @@ impl<'a> LogicalPort<'a> {
                 RouterInterfaceAttribute::MTU(9100),
                 RouterInterfaceAttribute::NATZoneID(0),
             ]) {
-                Ok(rif) => self.rif = Some(rif),
+                Ok(rif) => {
+                    log::debug!(
+                        "Port {}: successfully created router interface {}",
+                        self.port,
+                        &rif
+                    );
+                    self.rif = Some(rif);
+                }
                 Err(e) => {
                     log::error!(
                         "Port {}: failed to create router interface: {:?}",
@@ -505,7 +523,13 @@ impl<'a> LogicalPort<'a> {
     pub(crate) fn remove_hif_and_rif(&mut self) {
         if let Some(hif) = self.hif.take() {
             match hif.intf.remove() {
-                Ok(_) => {}
+                Ok(_) => {
+                    log::debug!(
+                        "Port {}: successfully removed host interface {}",
+                        self.port,
+                        hif.name
+                    );
+                }
                 Err(e) => {
                     log::error!(
                         "Port {}: failed to remove host interface {}: {:?}",
@@ -518,7 +542,9 @@ impl<'a> LogicalPort<'a> {
         }
         if let Some(rif) = self.rif.take() {
             match rif.remove() {
-                Ok(_) => {}
+                Ok(_) => {
+                    log::debug!("Port {}: successfully removed router interface", self.port);
+                }
                 Err(e) => {
                     log::error!(
                         "Port {}: failed to remove router interface: {:?}",
@@ -535,7 +561,9 @@ impl<'a> LogicalPort<'a> {
         s.remove_hif_and_rif();
         let port_id = s.port.to_id();
         match s.port.remove() {
-            Ok(_) => {}
+            Ok(_) => {
+                log::debug!("Port {}: successfully removed", port_id);
+            }
             Err(e) => {
                 log::error!("Port {}: failed to remove port: {:?}", port_id, e);
             }
