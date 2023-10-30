@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use sai::port::{AutoNegConfigMode, Port};
 use std::{
     fmt::Display,
@@ -75,7 +74,7 @@ impl DiscoveryStateMachine {
         }
     }
 
-    fn can_step(&self) -> bool {
+    pub(crate) fn can_step(&self) -> bool {
         match self {
             DiscoveryStateMachine::Start(s) => s.can_step(),
             DiscoveryStateMachine::AutoNeg(s) => s.can_step(),

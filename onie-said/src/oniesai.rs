@@ -109,6 +109,7 @@ pub(crate) enum ProcessRequest {
 
 pub(crate) struct Processor<'a, 'b> {
     auto_discovery: bool,
+    auto_discovery_with_breakout: bool,
     switch: Switch<'a>,
     virtual_router: VirtualRouter<'a>,
     cpu_port_id: PortID,
@@ -125,6 +126,7 @@ impl<'a, 'b> Processor<'a, 'b> {
         sai_api: &'a SAI,
         mac_address: sai_mac_t,
         auto_discovery: bool,
+        auto_discovery_with_breakout: bool,
         platform_ctx: PlatformContextHolder<'b>,
         stdin_write: File,
         stdout_read: File,
@@ -305,12 +307,13 @@ impl<'a, 'b> Processor<'a, 'b> {
         // if auto-discovery is enabled on startup (the default), we are going to start it now
         if auto_discovery {
             for port in ports.iter_mut() {
-                port.enable_auto_discovery()
+                port.enable_auto_discovery(auto_discovery_with_breakout)
             }
         }
 
         Ok(Processor {
             auto_discovery: auto_discovery,
+            auto_discovery_with_breakout: auto_discovery_with_breakout,
             switch: switch,
             virtual_router: default_virtual_router,
             cpu_port_id: cpu_port_id,
@@ -584,9 +587,13 @@ impl<'a, 'b> Processor<'a, 'b> {
             }),
             Some(enable) => {
                 self.auto_discovery = enable;
+                let enable_with_breakout = match req.enable_with_breakout {
+                    None => self.auto_discovery_with_breakout,
+                    Some(v) => v,
+                };
                 if enable {
                     for port in self.ports.iter_mut() {
-                        port.enable_auto_discovery()
+                        port.enable_auto_discovery(enable_with_breakout)
                     }
                 } else {
                     for port in self.ports.iter_mut() {

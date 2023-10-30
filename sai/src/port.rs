@@ -58,12 +58,18 @@ impl From<OperStatus> for bool {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BreakoutModeType {
     OneLane,
     TwoLanes,
     FourLanes,
     Unknown(i32),
+}
+
+impl std::fmt::Display for BreakoutModeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl From<BreakoutModeType> for i32 {

@@ -51,6 +51,7 @@ message HostInterface {
 
 message AutoDiscoveryRequest {
     optional bool enable = 1;
+    optional bool enable_with_breakout = 2;
 }
 
 message AutoDiscoveryResponse {

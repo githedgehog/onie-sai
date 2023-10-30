@@ -49,6 +49,10 @@ struct Cli {
     #[arg(long, default_value_t = true)]
     auto_discovery: bool,
 
+    /// When port auto discovery is enabled, also try to break out ports during the discovery
+    #[arg(long, default_value_t = false)]
+    auto_discovery_with_breakout: bool,
+
     /// The platform to use: this should always be auto-detected.
     #[arg(long, default_value = arg_platform())]
     platform: String,
@@ -245,6 +249,7 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
         &sai_api,
         cli.mac_addr.into_array(),
         cli.auto_discovery,
+        cli.auto_discovery_with_breakout,
         platform_ctx,
         stdin_write,
         stdout_read,

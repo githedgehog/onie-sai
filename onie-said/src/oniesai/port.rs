@@ -52,12 +52,15 @@ pub(crate) struct PhysicalPort<'a, 'b> {
     pub(crate) lanes: Vec<u32>,
     pub(crate) mac_address: sai_mac_t,
     pub(crate) auto_discovery: bool,
+    pub(crate) auto_discovery_with_breakout: bool,
+    pub(crate) auto_discovery_counter: u64,
     pub(crate) current_breakout_mode: BreakoutModeType,
     pub(crate) supported_breakout_modes: Vec<BreakoutModeType>,
     pub(crate) xcvr_present: bool,
     pub(crate) xcvr_oper_status: Option<bool>,
     pub(crate) xcvr_inserted_type: Option<xcvr::PortType>,
     pub(crate) xcvr_supported_types: Vec<xcvr::PortType>,
+    pub(crate) sm: Option<discovery::physicalport::DiscoveryStateMachine>,
 }
 
 // just a convenience conversion method for our RPC
@@ -138,6 +141,9 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                 xcvr_supported_types: xcvr_supported_types,
                 idx: i,
                 auto_discovery: false,
+                auto_discovery_with_breakout: false,
+                auto_discovery_counter: 0,
+                sm: None,
                 lanes: hw_lanes.clone(),
                 mac_address,
                 current_breakout_mode: current_breakout_mode,
@@ -260,41 +266,113 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         }
     }
 
-    pub(crate) fn enable_auto_discovery(&mut self) {
-        self.auto_discovery = true;
-        if self.xcvr_present {
-            for port in self.ports.iter_mut() {
-                if port.sm.is_none() {
-                    port.sm = Some(discovery::logicalport::DiscoveryStateMachine::new(
-                        &port.port,
-                        port.supported_speeds.clone(),
-                        port.speed,
-                        port.auto_negotiation,
-                    ));
-                }
+    fn initialize_state_machines(&mut self) {
+        if self.sm.is_none() {
+            self.sm = Some(discovery::physicalport::DiscoveryStateMachine::new(
+                self.auto_discovery_with_breakout,
+                self.current_breakout_mode.clone(),
+                self.supported_breakout_modes.clone(),
+            ));
+        }
+        for port in self.ports.iter_mut() {
+            if port.sm.is_none() {
+                port.sm = Some(discovery::logicalport::DiscoveryStateMachine::new(
+                    &port.port,
+                    port.supported_speeds.clone(),
+                    port.speed,
+                    port.auto_negotiation,
+                ));
             }
+        }
+    }
+
+    fn destroy_state_machines(&mut self) {
+        if self.sm.is_some() {
+            self.sm = None;
+        }
+        for port in self.ports.iter_mut() {
+            if port.sm.is_some() {
+                port.sm = None;
+            }
+        }
+    }
+
+    pub(crate) fn enable_auto_discovery(&mut self, auto_discovery_with_breakout: bool) {
+        self.auto_discovery = true;
+        self.auto_discovery_with_breakout = auto_discovery_with_breakout;
+        if self.xcvr_present {
+            if self.sm.is_none() {
+                log::info!("Physical Port {}: transceiver presence detected. Initializing auto discovery state machine (port breakout discovery: {})", self.idx, self.auto_discovery_with_breakout);
+            }
+            self.initialize_state_machines();
         }
     }
 
     pub(crate) fn disable_auto_discovery(&mut self) {
         self.auto_discovery = false;
-        for port in self.ports.iter_mut() {
-            port.sm = None;
-        }
+        self.destroy_state_machines();
     }
 
     pub(crate) fn auto_discovery_poll(&mut self) {
-        // poll on xcvr state first
-        self.xcvr_reconcile_state();
+        if self.auto_discovery {
+            // poll on xcvr state first
+            self.xcvr_reconcile_state();
 
-        // create and/or remove host interfaces and router interfaces
-        // depending on if a transceiver is present or not
-        // NOTE: these functions are safe to be called in cases
-        // when HIFs and RIFs are already created and/or removed
-        if self.xcvr_present {
-            self.create_hifs_and_rifs();
-        } else {
-            self.remove_hifs_and_rifs();
+            // create and/or remove host interfaces and router interfaces
+            // depending on if a transceiver is present or not
+            // and initialize state machines for polling
+            // NOTE: these functions are safe to be called in cases
+            // when HIFs and RIFs are already created and/or removed
+            if self.xcvr_present {
+                if self.sm.is_none() {
+                    log::info!("Physical Port {}: transceiver presence detected. Initializing auto discovery state machine (port breakout discovery: {})", self.idx, self.auto_discovery_with_breakout);
+                }
+                self.initialize_state_machines();
+                self.create_hifs_and_rifs();
+            } else {
+                if self.sm.is_some() {
+                    log::info!("Physical Port {}: transceiver presence lost. Stopping and removing auto discovery state machine (port breakout discovery: {})", self.idx, self.auto_discovery_with_breakout);
+                }
+                self.destroy_state_machines();
+                self.auto_discovery_counter = 0;
+                self.remove_hifs_and_rifs();
+            }
+
+            if let Some(sm) = &self.sm {
+                if sm.is_done() {
+                    if !sm.is_done_and_success() {
+                        // if the state machine was not successful, then we simply start over
+                        // and log that
+                        self.auto_discovery_counter += 1;
+                        log::warn!(
+                            "Physical Port {}: auto discovery did not complete successfully. Restarting it... (counter: {})",
+                            self.idx,
+                            self.auto_discovery_counter
+                        );
+                        self.destroy_state_machines();
+                        self.initialize_state_machines();
+                    }
+                } else {
+                    // if the state machine is not done yet, we'll call step if we can
+                    // first on the logical ports
+                    for port in self.ports.iter_mut() {
+                        if let Some(sm) = &mut port.sm {
+                            if !sm.is_done() {
+                                if sm.can_step() {
+                                    *sm = sm
+                                        .clone()
+                                        .step(&port.port, discovery::logicalport::Event::NoChange);
+                                }
+                            }
+                        }
+                    }
+
+                    // and then on the physical port state machine
+                    if sm.can_step(self) {
+                        self.sm = Some(sm.clone().step(self));
+                    }
+                }
+            }
         }
     }
 }
