@@ -142,7 +142,13 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                 mac_address,
                 current_breakout_mode: current_breakout_mode,
                 supported_breakout_modes: supported_breakout_modes,
-                ports: vec![LogicalPort::new(hw_lanes, port)?],
+                ports: vec![LogicalPort::new(
+                    switch.clone(),
+                    router.clone(),
+                    hw_lanes,
+                    mac_address,
+                    port,
+                )?],
             })
         }
         Ok(ret)
@@ -193,80 +199,64 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
 
     pub(crate) fn create_hifs_and_rifs(&mut self) {
         for (i, port) in self.ports.iter_mut().enumerate() {
-            if port.hif.is_none() {
-                let name = format!("Ethernet{}-{}", self.idx, i);
-                match self.switch.create_hostif(vec![
-                    HostIfAttribute::Name(name.clone()),
-                    HostIfAttribute::Type(HostIfType::Netdev),
-                    HostIfAttribute::ObjectID(port.port.to_id().into()),
-                    HostIfAttribute::VlanTag(VlanTag::Original),
-                    HostIfAttribute::OperStatus(false),
-                ]) {
-                    Ok(hif) => {
-                        port.hif = Some(HostInterface {
-                            intf: hif,
-                            name: name,
-                            oper_status: false,
-                        })
-                    }
-                    Err(e) => {
-                        log::error!(
-                            "Port {}: failed to create host interface {}: {:?}",
-                            name,
-                            port.port,
-                            e
-                        );
-                    }
-                }
-            }
-            if port.rif.is_none() {
-                match self.router.create_router_interface(vec![
-                    RouterInterfaceAttribute::SrcMacAddress(self.mac_address),
-                    RouterInterfaceAttribute::Type(RouterInterfaceType::Port),
-                    RouterInterfaceAttribute::PortID(port.port.to_id().into()),
-                    RouterInterfaceAttribute::MTU(9100),
-                    RouterInterfaceAttribute::NATZoneID(0),
-                ]) {
-                    Ok(rif) => port.rif = Some(rif),
-                    Err(e) => {
-                        log::error!(
-                            "Port {}: failed to create router interface: {:?}",
-                            port.port,
-                            e
-                        );
-                    }
-                }
-            }
+            let name = format!("Ethernet{}-{}", self.idx, i);
+            port.create_hif_and_rif(name);
         }
     }
 
     pub(crate) fn remove_hifs_and_rifs(&mut self) {
         for port in self.ports.iter_mut() {
-            if let Some(hif) = port.hif.take() {
-                match hif.intf.remove() {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!(
-                            "Port {}: failed to remove host interface {}: {:?}",
-                            hif.name,
-                            port.port,
-                            e
-                        );
-                    }
-                }
+            port.remove_hif_and_rif();
+        }
+    }
+
+    pub(crate) fn create_port(&mut self, hw_lanes: Vec<u32>) {
+        // TODO: we gotta deal with the speed somehow
+        let speed = 10000;
+
+        // create the port with SAI
+        let port = match self.switch.create_port(hw_lanes.clone(), speed) {
+            Ok(port) => port,
+            Err(e) => {
+                log::error!(
+                    "Physical Port {}: port creation failed for lanes {:?} and speed {}: {:?}",
+                    self.idx,
+                    hw_lanes,
+                    speed,
+                    e
+                );
+                return;
             }
-            if let Some(rif) = port.rif.take() {
-                match rif.remove() {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!(
-                            "Port {}: failed to remove router interface: {:?}",
-                            port.port,
-                            e
-                        );
-                    }
-                }
+        };
+
+        // create our "logical port" which will query certain basics
+        let port = match LogicalPort::new(
+            self.switch.clone(),
+            self.router.clone(),
+            hw_lanes.clone(),
+            self.mac_address,
+            port,
+        ) {
+            Ok(port) => port,
+            Err(e) => {
+                log::error!(
+                    "Physical Port {}: logical port creation failed for lanes {:?}: {:?}",
+                    self.idx,
+                    hw_lanes,
+                    e
+                );
+                return;
             }
+        };
+
+        // add the port to our list of logical ports
+        self.ports.push(port);
+    }
+
+    pub(crate) fn remove_ports(&mut self) {
+        let ports = std::mem::take(&mut self.ports);
+        for port in ports.into_iter() {
+            port.remove();
         }
     }
 
@@ -311,10 +301,13 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct LogicalPort<'a> {
+    switch: Switch<'a>,
+    router: VirtualRouter<'a>,
     pub(crate) port: Port<'a>,
     pub(crate) hif: Option<HostInterface<'a>>,
     pub(crate) rif: Option<RouterInterface<'a>>,
     pub(crate) lanes: Vec<u32>,
+    pub(crate) mac_address: sai_mac_t,
     pub(crate) oper_status: bool,
     pub(crate) admin_state: bool,
     pub(crate) auto_negotiation: bool,
@@ -325,7 +318,13 @@ pub(crate) struct LogicalPort<'a> {
 }
 
 impl<'a> LogicalPort<'a> {
-    pub(crate) fn new(hw_lanes: Vec<u32>, port: Port<'a>) -> Result<Self, PortError> {
+    pub(crate) fn new(
+        switch: Switch<'a>,
+        router: VirtualRouter<'a>,
+        hw_lanes: Vec<u32>,
+        mac_address: sai_mac_t,
+        port: Port<'a>,
+    ) -> Result<Self, PortError> {
         let oper_status: bool = port.get_oper_status()?.into();
         let admin_state = port.get_admin_state()?;
         let auto_negotiation = port.get_auto_neg_mode()?;
@@ -333,10 +332,13 @@ impl<'a> LogicalPort<'a> {
         let oper_speed = port.get_oper_speed()?;
         let supported_speeds = port.get_supported_speeds()?;
         Ok(Self {
+            switch: switch,
+            router: router,
             port: port,
             hif: None,
             rif: None,
             lanes: hw_lanes,
+            mac_address: mac_address,
             oper_status: oper_status,
             admin_state: admin_state,
             auto_negotiation: auto_negotiation,
@@ -373,6 +375,92 @@ impl<'a> LogicalPort<'a> {
             .get_oper_speed()
             .map(|v| self.oper_speed = v)
             .map_err(|e| log_port_error(&self.port, e));
+    }
+
+    pub(crate) fn create_hif_and_rif(&mut self, name: String) {
+        if self.hif.is_none() {
+            match self.switch.create_hostif(vec![
+                HostIfAttribute::Name(name.clone()),
+                HostIfAttribute::Type(HostIfType::Netdev),
+                HostIfAttribute::ObjectID(self.port.to_id().into()),
+                HostIfAttribute::VlanTag(VlanTag::Original),
+                HostIfAttribute::OperStatus(false),
+            ]) {
+                Ok(hif) => {
+                    self.hif = Some(HostInterface {
+                        intf: hif,
+                        name: name,
+                        oper_status: false,
+                    })
+                }
+                Err(e) => {
+                    log::error!(
+                        "Port {}: failed to create host interface {}: {:?}",
+                        name,
+                        self.port,
+                        e
+                    );
+                }
+            }
+        }
+        if self.rif.is_none() {
+            match self.router.create_router_interface(vec![
+                RouterInterfaceAttribute::SrcMacAddress(self.mac_address),
+                RouterInterfaceAttribute::Type(RouterInterfaceType::Port),
+                RouterInterfaceAttribute::PortID(self.port.to_id().into()),
+                RouterInterfaceAttribute::MTU(9100),
+                RouterInterfaceAttribute::NATZoneID(0),
+            ]) {
+                Ok(rif) => self.rif = Some(rif),
+                Err(e) => {
+                    log::error!(
+                        "Port {}: failed to create router interface: {:?}",
+                        self.port,
+                        e
+                    );
+                }
+            }
+        }
+    }
+
+    pub(crate) fn remove_hif_and_rif(&mut self) {
+        if let Some(hif) = self.hif.take() {
+            match hif.intf.remove() {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!(
+                        "Port {}: failed to remove host interface {}: {:?}",
+                        self.port,
+                        hif.name,
+                        e
+                    );
+                }
+            }
+        }
+        if let Some(rif) = self.rif.take() {
+            match rif.remove() {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!(
+                        "Port {}: failed to remove router interface: {:?}",
+                        self.port,
+                        e
+                    );
+                }
+            }
+        }
+    }
+
+    pub(crate) fn remove(self) {
+        let mut s = self;
+        s.remove_hif_and_rif();
+        let port_id = s.port.to_id();
+        match s.port.remove() {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Port {}: failed to remove port: {:?}", port_id, e);
+            }
+        }
     }
 }
 
