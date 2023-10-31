@@ -339,7 +339,11 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
 
     pub(crate) fn create_port(&mut self, hw_lanes: Vec<u32>) {
         // TODO: we gotta deal with the speed somehow
-        let speed = 10000;
+        let speed = self
+            .port_config
+            .as_ref()
+            .map(|pc| pc.get_default_speed())
+            .unwrap_or(10000);
 
         // create the port with SAI
         let port = match self.switch.create_port(hw_lanes.clone(), speed) {
@@ -392,6 +396,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
     fn initialize_state_machines(&mut self) {
         if self.sm.is_none() {
             self.sm = Some(discovery::physicalport::DiscoveryStateMachine::new(
+                self.idx,
                 self.auto_discovery_with_breakout,
                 self.current_breakout_mode.clone(),
                 self.supported_breakout_modes.clone(),

@@ -472,7 +472,9 @@ impl FromState<Speed> for AutoNeg {
                 from.state,
                 state
             ),
-            Err(e) => log::error!(
+            // it's likely that this attribute isn't supported, and then it doesn't matter that we cannot set it
+            // so we just log at debug for this
+            Err(e) => log::debug!(
                 "Port {}: state machine: {} -> {}: failed to set auto negotiation config mode to auto: {}",
                 port,
                 from.state,
@@ -489,7 +491,9 @@ impl FromState<Speed> for AutoNeg {
                 from.state,
                 state
             ),
-            Err(e) => log::error!(
+            // it's likely that this attribute isn't supported, and then it doesn't matter that we cannot set it
+            // so we just log at debug for this
+            Err(e) => log::debug!(
                 "Port {}: state machine: {} -> {}: failed to set auto negotiation advertisement to on: {}",
                 port,
                 from.state,

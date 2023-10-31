@@ -39,11 +39,13 @@ pub(crate) enum DiscoveryStateMachine {
 impl DiscoveryStateMachine {
     /// initializes a new logical port discovery state machine
     pub(crate) fn new(
+        idx: usize,
         auto_discovery_with_breakout: bool,
         current_breakout_mode: BreakoutModeType,
         supported_breakout_modes: Vec<BreakoutModeType>,
     ) -> Self {
         DiscoveryStateMachine::BreakoutMode(Discovery::new(
+            idx,
             auto_discovery_with_breakout,
             current_breakout_mode,
             supported_breakout_modes,
@@ -146,21 +148,29 @@ impl<S: State> Discovery<S> {
 impl Discovery<BreakoutMode> {
     /// initializes a new logical port discovery state machine
     pub(crate) fn new(
+        idx: usize,
         auto_discovery_with_breakout: bool,
         current_breakout_mode: BreakoutModeType,
         supported_breakout_modes: Vec<BreakoutModeType>,
     ) -> Self {
-        let left_breakout_modes = supported_breakout_modes
+        let left_breakout_modes: Vec<BreakoutModeType> = supported_breakout_modes
             .into_iter()
             .filter(|&x| x != current_breakout_mode)
             .collect();
+        let state = BreakoutMode {
+            mode: current_breakout_mode,
+        };
+        log::debug!(
+            "Physical Port {}: state machine: {}: initialized. Left breakout modes: {:?}",
+            idx,
+            state,
+            left_breakout_modes.clone()
+        );
         Discovery {
             auto_discovery_with_breakout: auto_discovery_with_breakout,
             current_breakout_mode: current_breakout_mode,
             left_breakout_modes: left_breakout_modes,
-            state: BreakoutMode {
-                mode: current_breakout_mode,
-            },
+            state: state,
         }
     }
 }
@@ -241,6 +251,7 @@ impl FromState<BreakoutMode> for BreakoutMode {
         // return with the new state
         // we can just rely on the new function because it will filter out the current breakout mode
         Discovery::new(
+            port.idx,
             from.auto_discovery_with_breakout,
             next_breakout_mode,
             from.left_breakout_modes.clone(),
