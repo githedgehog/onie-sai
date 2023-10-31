@@ -251,7 +251,12 @@ impl Discovery<Start> {
         // bring admin state up
         set_admin_state(state, state, port, true);
 
-        log::debug!("Port {} state machine: {}: initialized", port, state);
+        log::debug!(
+            "Port {} state machine: {}: initialized. Supported Speeds: {:?}",
+            port,
+            state,
+            supported_speeds.clone()
+        );
         Discovery {
             transition_ts: SystemTime::now(),
             transition_time: Duration::from_secs(5),
@@ -290,7 +295,7 @@ impl FromState<Start> for Speed {
 
         // if we have zero length, then the supported speeds were empty for some reason, nothing to do here then
         if idx == 0 {
-            let state = Speed { index: 0 };
+            let state = Speed { index: 0, speed: 0 };
             log::warn!(
                 "Port {}: state machine: {} -> {}: no supported speeds found",
                 port,
@@ -308,26 +313,28 @@ impl FromState<Start> for Speed {
         }
 
         // get the speed that we are going to work with
-        let state = Speed { index: idx - 1 };
-        let speed = from.supported_speeds[state.index];
+        let state = Speed {
+            index: idx - 1,
+            speed: from.supported_speeds[idx - 1],
+        };
 
         // bring the port admin state down
         set_admin_state(from.state, state, port, false);
 
-        match port.set_speed(speed) {
+        match port.set_speed(state.speed) {
             Ok(_) => log::debug!(
                 "Port {}: state machine: {} -> {}: set speed to {} successful",
                 port,
                 from.state,
                 state,
-                speed
+                state.speed
             ),
             Err(e) => log::error!(
                 "Port {}: state machine: {} -> {}: failed to set speed to {}: {}",
                 port,
                 from.state,
                 state,
-                speed,
+                state.speed,
                 e
             ),
         }
@@ -339,7 +346,7 @@ impl FromState<Start> for Speed {
         Discovery {
             transition_ts: SystemTime::now(),
             transition_time: Duration::from_secs(5),
-            speed: speed,
+            speed: state.speed,
             auto_negotiation: from.auto_negotiation,
             supported_speeds: from.supported_speeds,
             state: state,
@@ -363,26 +370,26 @@ impl FromState<Speed> for Speed {
         // get the next speed that we need to try
         let state = Speed {
             index: from.state.index - 1,
+            speed: from.supported_speeds[from.state.index - 1],
         };
-        let speed = from.supported_speeds[state.index];
 
         // bring the port admin state down
         set_admin_state(from.state, state, port, false);
 
-        match port.set_speed(speed) {
+        match port.set_speed(state.speed) {
             Ok(_) => log::debug!(
                 "Port {}: state machine: {} -> {}: set speed to {} successful",
                 port,
                 from.state,
                 state,
-                speed
+                state.speed
             ),
             Err(e) => log::error!(
                 "Port {}: state machine: {} -> {}: failed to set speed to {}: {}",
                 port,
                 from.state,
                 state,
-                speed,
+                state.speed,
                 e
             ),
         }
@@ -394,7 +401,7 @@ impl FromState<Speed> for Speed {
         Discovery {
             transition_ts: SystemTime::now(),
             transition_time: Duration::from_secs(5),
-            speed: speed,
+            speed: state.speed,
             auto_negotiation: from.auto_negotiation,
             supported_speeds: from.supported_speeds,
             state: state,
@@ -559,11 +566,12 @@ impl Display for AutoNeg {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Speed {
     index: usize,
+    speed: u32,
 }
 impl State for Speed {}
 impl Display for Speed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SPEED[{}]", self.index)
+        write!(f, "SPEED[{}={}]", self.index, self.speed)
     }
 }
 

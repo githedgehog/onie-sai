@@ -61,6 +61,7 @@ pub(crate) struct PhysicalPort<'a, 'b> {
     pub(crate) xcvr_inserted_type: Option<xcvr::PortType>,
     pub(crate) xcvr_supported_types: Vec<xcvr::PortType>,
     pub(crate) sm: Option<discovery::physicalport::DiscoveryStateMachine>,
+    pub(crate) oper_status: bool,
 }
 
 // just a convenience conversion method for our RPC
@@ -69,6 +70,7 @@ impl From<&PhysicalPort<'_, '_>> for onie_sai_rpc::onie_sai::Port {
         let mut ret = onie_sai_rpc::onie_sai::Port::new();
         ret.id = port.idx as u32;
         ret.hw_lanes = port.lanes.clone();
+        ret.oper_status = port.oper_status;
         ret.xcvr_present = port.xcvr_present;
         ret.xcvr_oper_status = port.xcvr_oper_status;
         ret.xcvr_inserted_type = port.xcvr_inserted_type.map(|t| format!("{:?}", t));
@@ -94,9 +96,11 @@ impl From<&PhysicalPort<'_, '_>> for onie_sai_rpc::onie_sai::Port {
             ret_p.speed = p.speed;
             ret_p.oper_speed = p.oper_speed;
             ret_p.supported_speeds = p.supported_speeds.clone();
+            ret_p.auto_neg = p.auto_negotiation;
             ret_p.host_intf = wrap_message_field(hif);
             ports.push(ret_p);
         }
+        ret.ports = ports;
         ret
     }
 }
@@ -144,6 +148,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                 auto_discovery_with_breakout: false,
                 auto_discovery_counter: 0,
                 sm: None,
+                oper_status: false,
                 lanes: hw_lanes.clone(),
                 mac_address,
                 current_breakout_mode: current_breakout_mode,
@@ -345,7 +350,23 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
 
             if let Some(sm) = &self.sm {
                 if sm.is_done() {
-                    if !sm.is_done_and_success() {
+                    if sm.is_done_and_success() {
+                        // this means that we have successfully brought up at least one logical port
+                        // for this port. However, we should continue to try to bring up the other logical ports
+                        // regardless, we consider this port operating
+                        for port in self.ports.iter_mut() {
+                            if let Some(sm) = &mut port.sm {
+                                if !sm.is_done_and_success() {
+                                    *sm = discovery::logicalport::DiscoveryStateMachine::new(
+                                        &port.port,
+                                        port.supported_speeds.clone(),
+                                        port.speed,
+                                        port.auto_negotiation,
+                                    );
+                                }
+                            }
+                        }
+                    } else {
                         // if the state machine was not successful, then we simply start over
                         // and log that
                         self.auto_discovery_counter += 1;

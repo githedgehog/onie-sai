@@ -219,11 +219,16 @@ impl FromState<BreakoutMode> for BreakoutMode {
         port.remove_ports();
 
         // and create new ports from calculation
+        // this function will add the newly created ports to the physical port
         for new_port_hw_lanes in new_ports.into_iter() {
             port.create_port(new_port_hw_lanes);
         }
 
-        // initialize new state machines for the logical ports
+        // as we know a transceiver is present for this port
+        // we go ahead and immediately create the hif and rif for all those ports
+        port.create_hifs_and_rifs();
+
+        // now we initialize new state machines for the logical ports
         for lp in port.ports.iter_mut() {
             lp.sm = Some(super::logicalport::DiscoveryStateMachine::new(
                 &lp.port,
@@ -304,13 +309,20 @@ impl FromState<BreakoutMode> for Done {
             state: Done { success: success },
         };
         if success {
-            log::info!(
-                "Physical Port {}: state machine: {} -> {}: successfully brought up port",
-                port.idx,
-                from.state,
-                ret.state
-            );
+            // we can consider this port operational now
+            // if it wasn't before, we log this as well
+            if !port.oper_status {
+                port.oper_status = true;
+                log::info!(
+                    "Physical Port {}: state machine: {} -> {}: successfully brought up port",
+                    port.idx,
+                    from.state,
+                    ret.state
+                );
+            }
         } else {
+            // if we failed to bring up the port, we consider it non operational
+            port.oper_status = false;
             log::warn!(
                 "Physical Port {}: state machine: {} -> {}: failed to bring up port",
                 port.idx,
