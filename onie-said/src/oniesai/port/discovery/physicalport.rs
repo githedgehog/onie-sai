@@ -153,24 +153,36 @@ impl Discovery<BreakoutMode> {
         current_breakout_mode: BreakoutModeType,
         supported_breakout_modes: Vec<BreakoutModeType>,
     ) -> Self {
+        let ret = Self::internal_new(
+            auto_discovery_with_breakout,
+            current_breakout_mode,
+            supported_breakout_modes,
+        );
+        log::debug!(
+            "Physical Port {}: state machine: {}: initialized. Left breakout modes: {:?}",
+            idx,
+            ret.state,
+            ret.left_breakout_modes.clone()
+        );
+        ret
+    }
+
+    fn internal_new(
+        auto_discovery_with_breakout: bool,
+        current_breakout_mode: BreakoutModeType,
+        supported_breakout_modes: Vec<BreakoutModeType>,
+    ) -> Self {
         let left_breakout_modes: Vec<BreakoutModeType> = supported_breakout_modes
             .into_iter()
             .filter(|&x| x != current_breakout_mode)
             .collect();
-        let state = BreakoutMode {
-            mode: current_breakout_mode,
-        };
-        log::debug!(
-            "Physical Port {}: state machine: {}: initialized. Left breakout modes: {:?}",
-            idx,
-            state,
-            left_breakout_modes.clone()
-        );
         Discovery {
             auto_discovery_with_breakout: auto_discovery_with_breakout,
             current_breakout_mode: current_breakout_mode,
             left_breakout_modes: left_breakout_modes,
-            state: state,
+            state: BreakoutMode {
+                mode: current_breakout_mode,
+            },
         }
     }
 }
@@ -250,12 +262,19 @@ impl FromState<BreakoutMode> for BreakoutMode {
 
         // return with the new state
         // we can just rely on the new function because it will filter out the current breakout mode
-        Discovery::new(
-            port.idx,
+        let ret = Discovery::internal_new(
             from.auto_discovery_with_breakout,
             next_breakout_mode,
             from.left_breakout_modes.clone(),
-        )
+        );
+        log::debug!(
+            "Physical Port {}: state machine: {} -> {}: finished transition (Left breakout modes: {:?})",
+            port.idx,
+            from.state,
+            ret.state,
+            ret.left_breakout_modes.clone(),
+        );
+        ret
     }
 }
 
