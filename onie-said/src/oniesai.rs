@@ -1,4 +1,4 @@
-mod port;
+pub(crate) mod port;
 
 use std::fs::File;
 use std::io::ErrorKind;
@@ -45,6 +45,7 @@ use thiserror::Error;
 
 use self::port::discovery::logicalport::Event::PortUp;
 use self::port::PhysicalPort;
+use self::port::PhysicalPortConfig;
 
 #[derive(Clone)]
 pub(crate) struct PlatformContextHolder<'a> {
@@ -125,6 +126,7 @@ impl<'a, 'b> Processor<'a, 'b> {
     pub(crate) fn new(
         sai_api: &'a SAI,
         mac_address: sai_mac_t,
+        ports_config: Option<Vec<PhysicalPortConfig>>,
         auto_discovery: bool,
         auto_discovery_with_breakout: bool,
         platform_ctx: PlatformContextHolder<'b>,
@@ -295,14 +297,33 @@ impl<'a, 'b> Processor<'a, 'b> {
             .get_ports()
             .context(format!("failed to get port list from switch {}", switch))?;
 
-        let mut ports = PhysicalPort::from_ports(
-            platform_ctx.clone(),
-            switch.clone(),
-            default_virtual_router.clone(),
-            mac_address,
-            ports,
-        )
-        .context("failed to create physical ports from SAI ports")?;
+        // if we have a ports config, then we are generating our physical ports from them
+        // and we are going to delete all ports that were created by SAI by default
+        let mut ports = match ports_config {
+            Some(ports_config) => {
+                log::info!("Initializing ports from ports config, deleting all default ports...");
+                for port in ports.into_iter() {
+                    log::info!("removing port {}...", port);
+                    port.remove().context("failed to remove port")?;
+                }
+                PhysicalPort::from_port_config(
+                    platform_ctx.clone(),
+                    switch.clone(),
+                    default_virtual_router.clone(),
+                    mac_address,
+                    ports_config,
+                )
+                .context("failed to create physical ports from ports config file")?
+            }
+            None => PhysicalPort::from_ports(
+                platform_ctx.clone(),
+                switch.clone(),
+                default_virtual_router.clone(),
+                mac_address,
+                ports,
+            )
+            .context("failed to create physical ports from SAI ports")?,
+        };
 
         // if auto-discovery is enabled on startup (the default), we are going to start it now
         if auto_discovery {

@@ -28,6 +28,7 @@ use macaddr::MacAddr6;
 
 use sai::SAI;
 
+use crate::oniesai::port::read_physical_port_config;
 use crate::oniesai::PlatformContextHolder;
 use crate::oniesai::Processor;
 
@@ -59,6 +60,9 @@ struct Cli {
 
     #[arg(long, default_value = arg_init_config_file())]
     init_config_file: PathBuf,
+
+    #[arg(long, default_value = arg_port_config_file())]
+    port_config_file: PathBuf,
 }
 
 static PLATFORM: OnceLock<String> = OnceLock::new();
@@ -93,6 +97,10 @@ fn arg_platform() -> String {
 
 fn arg_init_config_file() -> String {
     format!("/etc/platform/{}/config.bcm", arg_platform())
+}
+
+fn arg_port_config_file() -> String {
+    format!("/etc/platform/{}/port_config.json", arg_platform())
 }
 
 impl Cli {
@@ -230,6 +238,9 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
         }
     };
 
+    // try to read our port config file
+    let ports_config = read_physical_port_config(&cli.port_config_file);
+
     // get SAI API version
     if let Ok(version) = SAI::api_version() {
         log::info!("SAI version: {}", version);
@@ -248,6 +259,7 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
     let proc = Processor::new(
         &sai_api,
         cli.mac_addr.into_array(),
+        ports_config,
         cli.auto_discovery,
         cli.auto_discovery_with_breakout,
         platform_ctx,

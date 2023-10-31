@@ -1,5 +1,9 @@
 pub(crate) mod discovery;
 
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
+
 use onie_sai_rpc::wrap_message_field;
 use sai::hostif::HostIfAttribute;
 use sai::hostif::HostIfType;
@@ -13,6 +17,8 @@ use sai::virtual_router::VirtualRouter;
 use sai::ObjectID;
 use thiserror::Error;
 
+use serde::{Deserialize, Serialize};
+
 use sai::hostif::HostIf;
 use sai::port::BreakoutModeType;
 use sai::port::Port;
@@ -21,10 +27,10 @@ use super::PlatformContextHolder;
 
 #[derive(Debug, Error)]
 pub(crate) enum PortError {
-    #[error("SAI command failed")]
+    #[error("SAI command failed: {0}")]
     SAIError(sai::Error),
 
-    #[error("transceiver platform library call failed")]
+    #[error("transceiver platform library call failed: {0}")]
     XcvrError(xcvr::Error),
     // #[error("port validation failed")]
     // Validation,
@@ -40,6 +46,89 @@ impl From<xcvr::Error> for PortError {
     fn from(value: xcvr::Error) -> Self {
         PortError::XcvrError(value)
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub(crate) struct PhysicalPortConfigSpeed {
+    #[serde(rename = "FourLanes")]
+    four_lanes: Option<u32>,
+    #[serde(rename = "TwoLanes")]
+    two_lanes: Option<u32>,
+    #[serde(rename = "OneLane")]
+    one_lane: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub(crate) struct PhysicalPortConfig {
+    pub(crate) lanes: Vec<u32>,
+    pub(crate) speed: PhysicalPortConfigSpeed,
+}
+
+impl PhysicalPortConfig {
+    pub(crate) fn get_default_speed(&self) -> u32 {
+        match self.lanes.len() {
+            1 => match self.speed.one_lane {
+                Some(v) => v,
+                None => {
+                    log::error!(
+                        "Physical Port Config: missing OneLane speed configuration. Returning 10000.",
+                    );
+                    10000
+                }
+            },
+            2 => match self.speed.two_lanes {
+                Some(v) => v,
+                None => {
+                    log::error!(
+                        "Physical Port Config: missing TwoLanes speed configuration. Returning 50000.",
+                    );
+                    50000
+                }
+            },
+            4 => match self.speed.four_lanes {
+                Some(v) => v,
+                None => {
+                    log::error!(
+                        "Physical Port Config: missing FourLanes speed configuration. Returning 100000.",
+                    );
+                    100000
+                }
+            },
+            _ => {
+                log::error!(
+                    "Physical Port Config: invalid number of lanes: {}. Returning 0.",
+                    self.lanes.len()
+                );
+                0
+            }
+        }
+    }
+}
+
+pub(crate) fn read_physical_port_config(path: &PathBuf) -> Option<Vec<PhysicalPortConfig>> {
+    let mut file = match File::open(path) {
+        Ok(file) => file,
+        Err(e) => {
+            log::error!("failed to open physical port config file: {:?}", e);
+            return None;
+        }
+    };
+    let mut contents = String::new();
+    match file.read_to_string(&mut contents) {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("failed to read physical port config file: {:?}", e);
+            return None;
+        }
+    };
+    let config: Vec<PhysicalPortConfig> = match serde_json::from_str(&contents) {
+        Ok(config) => config,
+        Err(e) => {
+            log::error!("failed to parse physical port config file: {:?}", e);
+            return None;
+        }
+    };
+    Some(config)
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +151,7 @@ pub(crate) struct PhysicalPort<'a, 'b> {
     pub(crate) xcvr_supported_types: Vec<xcvr::PortType>,
     pub(crate) sm: Option<discovery::physicalport::DiscoveryStateMachine>,
     pub(crate) oper_status: bool,
+    pub(crate) port_config: Option<PhysicalPortConfig>,
 }
 
 // just a convenience conversion method for our RPC
@@ -106,6 +196,83 @@ impl From<&PhysicalPort<'_, '_>> for onie_sai_rpc::onie_sai::Port {
 }
 
 impl<'a, 'b> PhysicalPort<'a, 'b> {
+    pub(crate) fn from_port_config(
+        xcvr_api: PlatformContextHolder<'b>,
+        switch: Switch<'a>,
+        router: VirtualRouter<'a>,
+        mac_address: sai_mac_t,
+        ports_config: Vec<PhysicalPortConfig>,
+    ) -> Result<Vec<PhysicalPort<'a, 'b>>, PortError> {
+        let mut ret: Vec<PhysicalPort<'a, 'b>> = Vec::with_capacity(ports_config.len());
+        for (i, port_config) in ports_config.into_iter().enumerate() {
+            // get the transceiver state first
+            let xcvr_present = xcvr_api.obj.get_presence(i as u16)?;
+            let xcvr_oper_status = if xcvr_present {
+                Some(xcvr_api.obj.get_oper_status(i as u16)?)
+            } else {
+                None
+            };
+            let xcvr_inserted_type = if xcvr_present {
+                Some(xcvr_api.obj.get_inserted_port_type(i as u16)?)
+            } else {
+                None
+            };
+            let xcvr_supported_types = xcvr_api.obj.get_supported_port_types(i as u16)?;
+
+            // create the port now
+            let port = match switch
+                .create_port(port_config.lanes.clone(), port_config.get_default_speed())
+            {
+                Ok(port) => port,
+                Err(e) => {
+                    log::error!(
+                        "Physical Port {}: port creation failed for lanes {:?} and speed {}: {:?}",
+                        i,
+                        port_config.lanes,
+                        port_config.get_default_speed(),
+                        e
+                    );
+                    return Err(PortError::SAIError(e));
+                }
+            };
+
+            // get the port attributes that we need for initialization
+            // let oper_status = port.get_oper_status()?;
+            let hw_lanes = port.get_hw_lanes()?;
+            let current_breakout_mode = port.get_current_breakout_mode()?;
+            let supported_breakout_modes = port.get_supported_breakout_modes()?;
+
+            ret.push(PhysicalPort {
+                xcvr_api: xcvr_api.clone(),
+                switch: switch.clone(),
+                router: router.clone(),
+                xcvr_present: xcvr_present,
+                xcvr_inserted_type: xcvr_inserted_type,
+                xcvr_oper_status: xcvr_oper_status,
+                xcvr_supported_types: xcvr_supported_types,
+                idx: i,
+                auto_discovery: false,
+                auto_discovery_with_breakout: false,
+                auto_discovery_counter: 0,
+                sm: None,
+                oper_status: false,
+                lanes: hw_lanes.clone(),
+                mac_address,
+                current_breakout_mode: current_breakout_mode,
+                supported_breakout_modes: supported_breakout_modes,
+                port_config: Some(port_config),
+                ports: vec![LogicalPort::new(
+                    switch.clone(),
+                    router.clone(),
+                    hw_lanes,
+                    mac_address,
+                    port,
+                )?],
+            })
+        }
+        Ok(ret)
+    }
+
     pub(crate) fn from_ports(
         xcvr_api: PlatformContextHolder<'b>,
         switch: Switch<'a>,
@@ -153,6 +320,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                 mac_address,
                 current_breakout_mode: current_breakout_mode,
                 supported_breakout_modes: supported_breakout_modes,
+                port_config: None,
                 ports: vec![LogicalPort::new(
                     switch.clone(),
                     router.clone(),
