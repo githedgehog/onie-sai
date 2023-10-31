@@ -1,4 +1,4 @@
-mod port;
+pub(crate) mod port;
 
 use std::fs::File;
 use std::io::ErrorKind;
@@ -26,7 +26,6 @@ use sai::hostif::trap::TrapType;
 use sai::hostif::HostIf;
 use sai::hostif::HostIfAttribute;
 use sai::hostif::HostIfType;
-use sai::hostif::VlanTag;
 use sai::port::OperStatus;
 use sai::port::PortID;
 use sai::route::RouteEntryAttribute;
@@ -44,7 +43,11 @@ use sai::virtual_router::VirtualRouter;
 
 use thiserror::Error;
 
+use crate::oniesai::port::SortPortsByLanes;
+
+use self::port::discovery::logicalport::Event::PortUp;
 use self::port::PhysicalPort;
+use self::port::PhysicalPortConfig;
 
 #[derive(Clone)]
 pub(crate) struct PlatformContextHolder<'a> {
@@ -97,6 +100,7 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::PortListResponse, ProcessError>>,
         ),
     ),
+    AutoDiscoveryPoll,
     AutoDiscoveryStatus(
         (
             onie_sai::AutoDiscoveryRequest,
@@ -108,7 +112,7 @@ pub(crate) enum ProcessRequest {
 
 pub(crate) struct Processor<'a, 'b> {
     auto_discovery: bool,
-    platform_ctx: PlatformContextHolder<'b>,
+    auto_discovery_with_breakout: bool,
     switch: Switch<'a>,
     virtual_router: VirtualRouter<'a>,
     cpu_port_id: PortID,
@@ -124,6 +128,9 @@ impl<'a, 'b> Processor<'a, 'b> {
     pub(crate) fn new(
         sai_api: &'a SAI,
         mac_address: sai_mac_t,
+        ports_config: Option<Vec<PhysicalPortConfig>>,
+        auto_discovery: bool,
+        auto_discovery_with_breakout: bool,
         platform_ctx: PlatformContextHolder<'b>,
         stdin_write: File,
         stdout_read: File,
@@ -292,12 +299,69 @@ impl<'a, 'b> Processor<'a, 'b> {
             .get_ports()
             .context(format!("failed to get port list from switch {}", switch))?;
 
-        let ports = PhysicalPort::from_ports(platform_ctx.clone(), ports)
-            .context("failed to create physical ports from SAI ports")?;
+        let mut ports = match ports_config {
+            None => {
+                // create the ports without port config
+                let mut err = Ok(());
+                let ret = ports
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, port)| {
+                        PhysicalPort::from_port(
+                            platform_ctx.clone(),
+                            switch.clone(),
+                            default_virtual_router.clone(),
+                            mac_address,
+                            i,
+                            port,
+                            None,
+                        )
+                    })
+                    .scan(&mut err, until_err)
+                    .collect::<Vec<PhysicalPort>>();
+                err?;
+                ret
+            }
+            Some(ports_config) => {
+                log::info!("Initializing ports from ports config, sorting ports according to their lane mappings...");
+
+                // we have a ports configuration
+                // so we will sort the ports according to our ports config file, and then we create the physical port from
+                // the port config as well as the SAI port by zipping both vectors together
+                let ports = ports_config.sort_ports_by_lanes(&ports)?;
+                let mut err = Ok(());
+                let ret = ports
+                    .into_iter()
+                    .zip(ports_config.into_iter())
+                    .enumerate()
+                    .map(|(i, (port, port_config))| {
+                        PhysicalPort::from_port(
+                            platform_ctx.clone(),
+                            switch.clone(),
+                            default_virtual_router.clone(),
+                            mac_address,
+                            i,
+                            port,
+                            Some(port_config),
+                        )
+                    })
+                    .scan(&mut err, until_err)
+                    .collect();
+                err?;
+                ret
+            }
+        };
+
+        // if auto-discovery is enabled on startup (the default), we are going to start it now
+        if auto_discovery {
+            for port in ports.iter_mut() {
+                port.enable_auto_discovery(auto_discovery_with_breakout)
+            }
+        }
 
         Ok(Processor {
-            auto_discovery: true,
-            platform_ctx: platform_ctx,
+            auto_discovery: auto_discovery,
+            auto_discovery_with_breakout: auto_discovery_with_breakout,
             switch: switch,
             virtual_router: default_virtual_router,
             cpu_port_id: cpu_port_id,
@@ -318,7 +382,10 @@ impl<'a, 'b> Processor<'a, 'b> {
         let mut p = self;
         while let Ok(req) = p.rx.recv() {
             match req {
+                // shut down processor
                 ProcessRequest::Shutdown => return,
+
+                // all RPC request handling
                 ProcessRequest::Version((r, resp_tx)) => {
                     let resp = p.process_version_request(r);
                     if let Err(e) = resp_tx.send(resp) {
@@ -355,6 +422,9 @@ impl<'a, 'b> Processor<'a, 'b> {
                         );
                     };
                 }
+
+                // internal events
+                ProcessRequest::AutoDiscoveryPoll => p.process_auto_discovery_poll(),
                 ProcessRequest::LogicalPortStateChange((port_id, port_state)) => {
                     p.process_logical_port_state_change(port_id, port_state)
                 }
@@ -565,6 +635,19 @@ impl<'a, 'b> Processor<'a, 'b> {
             }),
             Some(enable) => {
                 self.auto_discovery = enable;
+                let enable_with_breakout = match req.enable_with_breakout {
+                    None => self.auto_discovery_with_breakout,
+                    Some(v) => v,
+                };
+                if enable {
+                    for port in self.ports.iter_mut() {
+                        port.enable_auto_discovery(enable_with_breakout)
+                    }
+                } else {
+                    for port in self.ports.iter_mut() {
+                        port.disable_auto_discovery()
+                    }
+                }
                 Ok(onie_sai::AutoDiscoveryResponse {
                     enabled: self.auto_discovery,
                     ..Default::default()
@@ -573,18 +656,48 @@ impl<'a, 'b> Processor<'a, 'b> {
         }
     }
 
-    fn process_logical_port_state_change(&self, port_id: PortID, port_state: OperStatus) {
+    fn process_auto_discovery_poll(&mut self) {
+        log::debug!("processor: auto discovery poll");
+        for phy_port in self.ports.iter_mut() {
+            phy_port.auto_discovery_poll();
+        }
+    }
+
+    fn process_logical_port_state_change(&mut self, port_id: PortID, port_state: OperStatus) {
         let mut found = false;
-        for phy_port in self.ports.iter() {
-            for log_port in phy_port.ports.iter() {
+        for phy_port in self.ports.iter_mut() {
+            for log_port in phy_port.ports.iter_mut() {
                 if log_port.port == port_id {
                     found = true;
-                    match log_port.hif.as_ref() {
+
+                    // step port discovery state machine if it is a port up event
+                    let oper_status: bool = port_state.into();
+                    if oper_status {
+                        match log_port.sm.as_mut() {
+                            Some(sm) => {
+                                *sm = sm.clone().step(&log_port.port, PortUp);
+                            }
+                            None => {
+                                log::debug!(
+                                    "processor: port {} has no discovery state machine",
+                                    port_id
+                                );
+                            }
+                        }
+                    }
+
+                    // reconcile state
+                    log_port.reconcile_state();
+
+                    // update the associated host interface
+                    match log_port.hif.as_mut() {
                         Some(hif) => {
-                            let hif_oper_state = bool::from(port_state);
-                            match hif.intf.set_oper_status(hif_oper_state) {
-                                Ok(_) => log::info!("processor: set host interface {} operational status to {} for port {}", hif.intf, hif_oper_state, port_id),
-                                Err(e) => log::error!("processor: failed to set host interface {} operational status to {} for port {}: {:?}", hif, hif_oper_state, port_id, e),
+                            match hif.intf.set_oper_status(oper_status) {
+                                Ok(_) => {
+                                    log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id);
+                                    hif.oper_status = oper_status;
+                                }
+                                Err(e) => log::error!("processor: failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
                             }
                         }
                         None => log::warn!(
@@ -641,6 +754,16 @@ impl<'a, 'b> Drop for Processor<'a, 'b> {
                     }
                 }
             }
+        }
+    }
+}
+
+fn until_err<T, E>(err: &mut &mut Result<(), E>, item: Result<T, E>) -> Option<T> {
+    match item {
+        Ok(item) => Some(item),
+        Err(e) => {
+            **err = Err(e);
+            None
         }
     }
 }

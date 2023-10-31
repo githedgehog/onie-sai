@@ -31,6 +31,7 @@ message Port {
     optional string xcvr_inserted_type = 6;
     repeated string xcvr_supported_types = 7;
     repeated LogicalPort ports = 8;
+    bool oper_status = 9;
 }
 
 message LogicalPort {
@@ -41,7 +42,8 @@ message LogicalPort {
     uint32 speed = 5;
     uint32 oper_speed = 6;
     repeated uint32 supported_speeds = 7;
-    optional HostInterface host_intf = 8;
+    bool auto_neg = 8;
+    optional HostInterface host_intf = 9;
 }
 
 message HostInterface {
@@ -51,6 +53,7 @@ message HostInterface {
 
 message AutoDiscoveryRequest {
     optional bool enable = 1;
+    optional bool enable_with_breakout = 2;
 }
 
 message AutoDiscoveryResponse {

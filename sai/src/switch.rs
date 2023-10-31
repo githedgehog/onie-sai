@@ -154,6 +154,7 @@ impl From<Switch<'_>> for SwitchID {
     }
 }
 
+#[derive(Clone)]
 pub struct Switch<'a> {
     pub(crate) id: sai_object_id_t,
     pub(crate) sai: &'a SAI,
@@ -364,6 +365,40 @@ impl<'a> Switch<'a> {
         Ok(VirtualRouter {
             id: unsafe { attr.value.oid },
             switch_id: self.id,
+            sai: self.sai,
+        })
+    }
+
+    pub fn create_port(&self, hw_lanes: Vec<u32>, speed: u32) -> Result<Port<'a>, Error> {
+        // check that API is available/callable
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let create_port = port_api.create_port.ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut hw_lanes = hw_lanes.clone();
+        let args: Vec<sai_attribute_t> = vec![
+            sai_attribute_t {
+                id: _sai_port_attr_t_SAI_PORT_ATTR_HW_LANE_LIST,
+                value: sai_attribute_value_t {
+                    u32list: sai_u32_list_t {
+                        count: hw_lanes.len() as u32,
+                        list: hw_lanes.as_mut_ptr(),
+                    },
+                },
+            },
+            sai_attribute_t {
+                id: _sai_port_attr_t_SAI_PORT_ATTR_SPEED,
+                value: sai_attribute_value_t { u32_: speed },
+            },
+        ];
+
+        let mut oid: sai_object_id_t = 0;
+        let st = unsafe { create_port(&mut oid, self.id, args.len() as u32, args.as_ptr()) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(Port {
+            id: oid,
             sai: self.sai,
         })
     }
