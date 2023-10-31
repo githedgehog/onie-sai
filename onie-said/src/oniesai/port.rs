@@ -72,6 +72,7 @@ pub(crate) struct PhysicalPortConfig {
 }
 
 impl PhysicalPortConfig {
+    #[allow(dead_code)]
     pub(crate) fn get_default_speed(&self) -> u32 {
         match self.lanes.len() {
             1 => match self.speed.one_lane {
@@ -107,6 +108,48 @@ impl PhysicalPortConfig {
                     self.lanes.len()
                 );
                 0
+            }
+        }
+    }
+
+    pub(crate) fn get_speed_for_breakout_mode_type(
+        &self,
+        breakout_mode_type: BreakoutModeType,
+    ) -> u32 {
+        match breakout_mode_type {
+            BreakoutModeType::OneLane => match self.speed.one_lane {
+                Some(v) => v,
+                None => {
+                    log::error!(
+                        "Physical Port Config: missing OneLane speed configuration. Returning 10000.",
+                    );
+                    10000
+                }
+            },
+            BreakoutModeType::TwoLanes => match self.speed.two_lanes {
+                Some(v) => v,
+                None => {
+                    log::error!(
+                        "Physical Port Config: missing TwoLanes speed configuration. Returning 50000.",
+                    );
+                    50000
+                }
+            },
+            BreakoutModeType::FourLanes => match self.speed.four_lanes {
+                Some(v) => v,
+                None => {
+                    log::error!(
+                        "Physical Port Config: missing FourLanes speed configuration. Returning 100000.",
+                    );
+                    100000
+                }
+            },
+            _ => {
+                log::error!(
+                    "Physical Port Config: invalid breakout mode type: {:?}. Returning 10000.",
+                    breakout_mode_type
+                );
+                10000
             }
         }
     }
@@ -416,12 +459,13 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         }
     }
 
-    pub(crate) fn create_port(&mut self, hw_lanes: Vec<u32>) {
-        // TODO: we gotta deal with the speed somehow
+    pub(crate) fn create_port(&mut self, breakout_mode: BreakoutModeType, hw_lanes: Vec<u32>) {
+        // try to get the speed from the port config
+        // it's awkwared if there is no port config, so we'll just assume 10G for that
         let speed = self
             .port_config
             .as_ref()
-            .map(|pc| pc.get_default_speed())
+            .map(|pc| pc.get_speed_for_breakout_mode_type(breakout_mode))
             .unwrap_or(10000);
 
         // create the port with SAI

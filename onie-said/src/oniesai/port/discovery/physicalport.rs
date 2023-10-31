@@ -243,7 +243,7 @@ impl FromState<BreakoutMode> for BreakoutMode {
         // and create new ports from calculation
         // this function will add the newly created ports to the physical port
         for new_port_hw_lanes in new_ports.into_iter() {
-            port.create_port(new_port_hw_lanes);
+            port.create_port(next_breakout_mode, new_port_hw_lanes);
         }
 
         // as we know a transceiver is present for this port
