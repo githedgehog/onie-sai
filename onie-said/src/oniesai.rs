@@ -299,24 +299,58 @@ impl<'a, 'b> Processor<'a, 'b> {
             .get_ports()
             .context(format!("failed to get port list from switch {}", switch))?;
 
-        // if we have a ports config, then we are generating our physical ports from them
-        // and we are going to delete all ports that were created by SAI by default
-        let ports = match ports_config {
-            None => ports,
+        let mut ports = match ports_config {
+            None => {
+                // create the ports without port config
+                let mut err = Ok(());
+                let ret = ports
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, port)| {
+                        PhysicalPort::from_port(
+                            platform_ctx.clone(),
+                            switch.clone(),
+                            default_virtual_router.clone(),
+                            mac_address,
+                            i,
+                            port,
+                            None,
+                        )
+                    })
+                    .scan(&mut err, until_err)
+                    .collect::<Vec<PhysicalPort>>();
+                err?;
+                ret
+            }
             Some(ports_config) => {
                 log::info!("Initializing ports from ports config, sorting ports according to their lane mappings...");
-                ports_config.sort_ports_by_lanes(&ports)?
+
+                // we have a ports configuration
+                // so we will sort the ports according to our ports config file, and then we create the physical port from
+                // the port config as well as the SAI port by zipping both vectors together
+                let ports = ports_config.sort_ports_by_lanes(&ports)?;
+                let mut err = Ok(());
+                let ret = ports
+                    .into_iter()
+                    .zip(ports_config.into_iter())
+                    .enumerate()
+                    .map(|(i, (port, port_config))| {
+                        PhysicalPort::from_port(
+                            platform_ctx.clone(),
+                            switch.clone(),
+                            default_virtual_router.clone(),
+                            mac_address,
+                            i,
+                            port,
+                            Some(port_config),
+                        )
+                    })
+                    .scan(&mut err, until_err)
+                    .collect();
+                err?;
+                ret
             }
         };
-
-        let mut ports = PhysicalPort::from_ports(
-            platform_ctx.clone(),
-            switch.clone(),
-            default_virtual_router.clone(),
-            mac_address,
-            ports,
-        )
-        .context("failed to create physical ports from SAI ports")?;
 
         // if auto-discovery is enabled on startup (the default), we are going to start it now
         if auto_discovery {
@@ -720,6 +754,16 @@ impl<'a, 'b> Drop for Processor<'a, 'b> {
                     }
                 }
             }
+        }
+    }
+}
+
+fn until_err<T, E>(err: &mut &mut Result<(), E>, item: Result<T, E>) -> Option<T> {
+    match item {
+        Ok(item) => Some(item),
+        Err(e) => {
+            **err = Err(e);
+            None
         }
     }
 }

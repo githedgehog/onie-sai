@@ -33,8 +33,14 @@ pub(crate) enum PortError {
     #[error("transceiver platform library call failed: {0}")]
     XcvrError(xcvr::Error),
 
+    #[error("the number of port config entries does not match the number of ports ({0} != {1})")]
+    PortConfigLengthMismatch(usize, usize),
+
     #[error("Invalid port config file. No matching port found for lane mapping: {0:?}")]
     PortConfigInvalid(Vec<u32>),
+
+    #[error("port config unavailable")]
+    PortConfigUnavailable,
 }
 
 impl From<sai::Error> for PortError {
@@ -105,6 +111,48 @@ impl PhysicalPortConfig {
         }
     }
 
+    // when the supported breakout mode type SAI property is not available
+    // we will use this function to guess the available breakout modes
+    // NOTE: on Broadcom SAI, this can only work if all possible breakouts
+    // have actually been defined as inactive ports in the config.bcm
+    pub(crate) fn get_supported_breakout_mode_types(&self) -> Vec<BreakoutModeType> {
+        match self.lanes.len() {
+            1 => {
+                vec![BreakoutModeType::OneLane]
+            }
+            2 => {
+                vec![BreakoutModeType::OneLane, BreakoutModeType::TwoLanes]
+            }
+            4 => {
+                vec![
+                    BreakoutModeType::FourLanes,
+                    BreakoutModeType::FourLanes,
+                    BreakoutModeType::FourLanes,
+                ]
+            }
+            _ => {
+                log::error!("Physical Port Config: invalid number of lanes: {}. Returning no breakout types.", self.lanes.len());
+                vec![]
+            }
+        }
+    }
+
+    pub(crate) fn get_current_breakout_mode_type(&self) -> BreakoutModeType {
+        Self::get_breakout_type_from_lanes(self.lanes.clone())
+    }
+
+    pub(crate) fn get_breakout_type_from_lanes(lanes: Vec<u32>) -> BreakoutModeType {
+        match lanes.len() {
+            1 => BreakoutModeType::OneLane,
+            2 => BreakoutModeType::TwoLanes,
+            4 => BreakoutModeType::FourLanes,
+            _ => {
+                log::error!("Physical Port Config: invalid number of lanes: {}. Returning unknown breakout type", lanes.len());
+                BreakoutModeType::Unknown(lanes.len() as i32)
+            }
+        }
+    }
+
     pub(crate) fn from_file(path: &PathBuf) -> Option<Vec<PhysicalPortConfig>> {
         let mut file = match File::open(path) {
             Ok(file) => file,
@@ -138,6 +186,9 @@ pub(crate) trait SortPortsByLanes<'a> {
 
 impl<'a> SortPortsByLanes<'a> for Vec<PhysicalPortConfig> {
     fn sort_ports_by_lanes(&self, ports: &Vec<Port<'a>>) -> Result<Vec<Port<'a>>, PortError> {
+        if self.len() != ports.len() {
+            return Err(PortError::PortConfigLengthMismatch(self.len(), ports.len()));
+        }
         let mut ret = Vec::with_capacity(ports.len());
         for pc in self {
             let mut found = false;
@@ -221,64 +272,92 @@ impl From<&PhysicalPort<'_, '_>> for onie_sai_rpc::onie_sai::Port {
 }
 
 impl<'a, 'b> PhysicalPort<'a, 'b> {
-    pub(crate) fn from_ports(
+    pub(crate) fn from_port(
         xcvr_api: PlatformContextHolder<'b>,
         switch: Switch<'a>,
         router: VirtualRouter<'a>,
         mac_address: sai_mac_t,
-        ports: Vec<Port<'a>>,
-    ) -> Result<Vec<PhysicalPort<'a, 'b>>, PortError> {
-        let mut ret: Vec<PhysicalPort<'a, 'b>> = Vec::with_capacity(ports.len());
-        for (i, port) in ports.into_iter().enumerate() {
-            // get the transceiver state first
-            let xcvr_present = xcvr_api.obj.get_presence(i as u16)?;
-            let xcvr_oper_status = if xcvr_present {
-                Some(xcvr_api.obj.get_oper_status(i as u16)?)
-            } else {
-                None
-            };
-            let xcvr_inserted_type = if xcvr_present {
-                Some(xcvr_api.obj.get_inserted_port_type(i as u16)?)
-            } else {
-                None
-            };
-            let xcvr_supported_types = xcvr_api.obj.get_supported_port_types(i as u16)?;
+        physical_port_index: usize,
+        port: Port<'a>,
+        port_config: Option<PhysicalPortConfig>,
+    ) -> Result<PhysicalPort<'a, 'b>, PortError> {
+        // get the transceiver state first
+        let xcvr_present = xcvr_api.obj.get_presence(physical_port_index as u16)?;
+        let xcvr_oper_status = if xcvr_present {
+            Some(xcvr_api.obj.get_oper_status(physical_port_index as u16)?)
+        } else {
+            None
+        };
+        let xcvr_inserted_type = if xcvr_present {
+            Some(
+                xcvr_api
+                    .obj
+                    .get_inserted_port_type(physical_port_index as u16)?,
+            )
+        } else {
+            None
+        };
+        let xcvr_supported_types = xcvr_api
+            .obj
+            .get_supported_port_types(physical_port_index as u16)?;
 
-            // get the port attributes that we need for initialization
-            // let oper_status = port.get_oper_status()?;
-            let hw_lanes = port.get_hw_lanes()?;
-            let current_breakout_mode = port.get_current_breakout_mode()?;
-            let supported_breakout_modes = port.get_supported_breakout_modes()?;
+        // get the port attributes that we need for initialization
+        // let oper_status = port.get_oper_status()?;
+        let hw_lanes = port.get_hw_lanes()?;
+        let current_breakout_mode = match port.get_current_breakout_mode() {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("Physical Port {}: failed to get current breakout mode: {:?}. Guessing breakout mode from port config", physical_port_index, e);
+                match &port_config {
+                    Some(pc) => pc.get_current_breakout_mode_type(),
+                    None => {
+                        log::error!("Physical Port {}: no port config available. Port config must be available if it cannot be queried through SAI", physical_port_index);
+                        return Err(PortError::PortConfigUnavailable);
+                    }
+                }
+            }
+        };
+        let supported_breakout_modes = match port.get_supported_breakout_modes() {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("Physical Port {}: failed to get supported breakout modes: {:?}. Guessing supported breakout modes from port config", physical_port_index, e);
+                match &port_config {
+                    Some(pc) => pc.get_supported_breakout_mode_types(),
+                    None => {
+                        log::error!("Physical Port {}: no port config available. Port config must be available if it cannot be queried through SAI", physical_port_index);
+                        return Err(PortError::PortConfigUnavailable);
+                    }
+                }
+            }
+        };
 
-            ret.push(PhysicalPort {
-                xcvr_api: xcvr_api.clone(),
-                switch: switch.clone(),
-                router: router.clone(),
-                xcvr_present: xcvr_present,
-                xcvr_inserted_type: xcvr_inserted_type,
-                xcvr_oper_status: xcvr_oper_status,
-                xcvr_supported_types: xcvr_supported_types,
-                idx: i,
-                auto_discovery: false,
-                auto_discovery_with_breakout: false,
-                auto_discovery_counter: 0,
-                sm: None,
-                oper_status: false,
-                lanes: hw_lanes.clone(),
+        Ok(PhysicalPort {
+            xcvr_api: xcvr_api.clone(),
+            switch: switch.clone(),
+            router: router.clone(),
+            xcvr_present: xcvr_present,
+            xcvr_inserted_type: xcvr_inserted_type,
+            xcvr_oper_status: xcvr_oper_status,
+            xcvr_supported_types: xcvr_supported_types,
+            idx: physical_port_index,
+            auto_discovery: false,
+            auto_discovery_with_breakout: false,
+            auto_discovery_counter: 0,
+            sm: None,
+            oper_status: false,
+            lanes: hw_lanes.clone(),
+            mac_address,
+            current_breakout_mode: current_breakout_mode,
+            supported_breakout_modes: supported_breakout_modes,
+            port_config: port_config,
+            ports: vec![LogicalPort::new(
+                switch.clone(),
+                router.clone(),
+                hw_lanes,
                 mac_address,
-                current_breakout_mode: current_breakout_mode,
-                supported_breakout_modes: supported_breakout_modes,
-                port_config: None,
-                ports: vec![LogicalPort::new(
-                    switch.clone(),
-                    router.clone(),
-                    hw_lanes,
-                    mac_address,
-                    port,
-                )?],
-            })
-        }
-        Ok(ret)
+                port,
+            )?],
+        })
     }
 
     fn xcvr_reconcile_state(&mut self) {
