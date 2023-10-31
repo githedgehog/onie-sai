@@ -32,8 +32,9 @@ pub(crate) enum PortError {
 
     #[error("transceiver platform library call failed: {0}")]
     XcvrError(xcvr::Error),
-    // #[error("port validation failed")]
-    // Validation,
+
+    #[error("Invalid port config file. No matching port found for lane mapping: {0:?}")]
+    PortConfigInvalid(Vec<u32>),
 }
 
 impl From<sai::Error> for PortError {
@@ -103,32 +104,56 @@ impl PhysicalPortConfig {
             }
         }
     }
+
+    pub(crate) fn from_file(path: &PathBuf) -> Option<Vec<PhysicalPortConfig>> {
+        let mut file = match File::open(path) {
+            Ok(file) => file,
+            Err(e) => {
+                log::error!("failed to open physical port config file: {:?}", e);
+                return None;
+            }
+        };
+        let mut contents = String::new();
+        match file.read_to_string(&mut contents) {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("failed to read physical port config file: {:?}", e);
+                return None;
+            }
+        };
+        let config: Vec<PhysicalPortConfig> = match serde_json::from_str(&contents) {
+            Ok(config) => config,
+            Err(e) => {
+                log::error!("failed to parse physical port config file: {:?}", e);
+                return None;
+            }
+        };
+        Some(config)
+    }
 }
 
-pub(crate) fn read_physical_port_config(path: &PathBuf) -> Option<Vec<PhysicalPortConfig>> {
-    let mut file = match File::open(path) {
-        Ok(file) => file,
-        Err(e) => {
-            log::error!("failed to open physical port config file: {:?}", e);
-            return None;
+pub(crate) trait SortPortsByLanes<'a> {
+    fn sort_ports_by_lanes(&self, ports: &Vec<Port<'a>>) -> Result<Vec<Port<'a>>, PortError>;
+}
+
+impl<'a> SortPortsByLanes<'a> for Vec<PhysicalPortConfig> {
+    fn sort_ports_by_lanes(&self, ports: &Vec<Port<'a>>) -> Result<Vec<Port<'a>>, PortError> {
+        let mut ret = Vec::with_capacity(ports.len());
+        for pc in self {
+            let mut found = false;
+            for port in ports.iter() {
+                let lanes = port.get_hw_lanes()?;
+                if lanes == pc.lanes {
+                    found = true;
+                    ret.push(port.clone());
+                }
+            }
+            if !found {
+                return Err(PortError::PortConfigInvalid(pc.lanes.clone()));
+            }
         }
-    };
-    let mut contents = String::new();
-    match file.read_to_string(&mut contents) {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("failed to read physical port config file: {:?}", e);
-            return None;
-        }
-    };
-    let config: Vec<PhysicalPortConfig> = match serde_json::from_str(&contents) {
-        Ok(config) => config,
-        Err(e) => {
-            log::error!("failed to parse physical port config file: {:?}", e);
-            return None;
-        }
-    };
-    Some(config)
+        Ok(ret)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -196,83 +221,6 @@ impl From<&PhysicalPort<'_, '_>> for onie_sai_rpc::onie_sai::Port {
 }
 
 impl<'a, 'b> PhysicalPort<'a, 'b> {
-    pub(crate) fn from_port_config(
-        xcvr_api: PlatformContextHolder<'b>,
-        switch: Switch<'a>,
-        router: VirtualRouter<'a>,
-        mac_address: sai_mac_t,
-        ports_config: Vec<PhysicalPortConfig>,
-    ) -> Result<Vec<PhysicalPort<'a, 'b>>, PortError> {
-        let mut ret: Vec<PhysicalPort<'a, 'b>> = Vec::with_capacity(ports_config.len());
-        for (i, port_config) in ports_config.into_iter().enumerate() {
-            // get the transceiver state first
-            let xcvr_present = xcvr_api.obj.get_presence(i as u16)?;
-            let xcvr_oper_status = if xcvr_present {
-                Some(xcvr_api.obj.get_oper_status(i as u16)?)
-            } else {
-                None
-            };
-            let xcvr_inserted_type = if xcvr_present {
-                Some(xcvr_api.obj.get_inserted_port_type(i as u16)?)
-            } else {
-                None
-            };
-            let xcvr_supported_types = xcvr_api.obj.get_supported_port_types(i as u16)?;
-
-            // create the port now
-            let port = match switch
-                .create_port(port_config.lanes.clone(), port_config.get_default_speed())
-            {
-                Ok(port) => port,
-                Err(e) => {
-                    log::error!(
-                        "Physical Port {}: port creation failed for lanes {:?} and speed {}: {:?}",
-                        i,
-                        port_config.lanes,
-                        port_config.get_default_speed(),
-                        e
-                    );
-                    return Err(PortError::SAIError(e));
-                }
-            };
-
-            // get the port attributes that we need for initialization
-            // let oper_status = port.get_oper_status()?;
-            let hw_lanes = port.get_hw_lanes()?;
-            let current_breakout_mode = port.get_current_breakout_mode()?;
-            let supported_breakout_modes = port.get_supported_breakout_modes()?;
-
-            ret.push(PhysicalPort {
-                xcvr_api: xcvr_api.clone(),
-                switch: switch.clone(),
-                router: router.clone(),
-                xcvr_present: xcvr_present,
-                xcvr_inserted_type: xcvr_inserted_type,
-                xcvr_oper_status: xcvr_oper_status,
-                xcvr_supported_types: xcvr_supported_types,
-                idx: i,
-                auto_discovery: false,
-                auto_discovery_with_breakout: false,
-                auto_discovery_counter: 0,
-                sm: None,
-                oper_status: false,
-                lanes: hw_lanes.clone(),
-                mac_address,
-                current_breakout_mode: current_breakout_mode,
-                supported_breakout_modes: supported_breakout_modes,
-                port_config: Some(port_config),
-                ports: vec![LogicalPort::new(
-                    switch.clone(),
-                    router.clone(),
-                    hw_lanes,
-                    mac_address,
-                    port,
-                )?],
-            })
-        }
-        Ok(ret)
-    }
-
     pub(crate) fn from_ports(
         xcvr_api: PlatformContextHolder<'b>,
         switch: Switch<'a>,
@@ -480,6 +428,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                 log::info!("Physical Port {}: transceiver presence detected. Initializing auto discovery state machine (port breakout discovery: {})", self.idx, self.auto_discovery_with_breakout);
             }
             self.initialize_state_machines();
+            self.create_hifs_and_rifs();
         }
     }
 
@@ -524,13 +473,22 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                         // regardless, we consider this port operating
                         for port in self.ports.iter_mut() {
                             if let Some(sm) = &mut port.sm {
-                                if !sm.is_done_and_success() {
+                                if sm.is_done() && !sm.is_done_and_success() {
                                     *sm = discovery::logicalport::DiscoveryStateMachine::new(
                                         &port.port,
                                         port.supported_speeds.clone(),
                                         port.speed,
                                         port.auto_negotiation,
                                     );
+                                }
+                                if !sm.is_done() {
+                                    if sm.can_step() {
+                                        *sm = sm.clone().step(
+                                            &port.port,
+                                            discovery::logicalport::Event::NoChange,
+                                        );
+                                        port.reconcile_state();
+                                    }
                                 }
                             }
                         }

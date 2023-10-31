@@ -43,6 +43,8 @@ use sai::virtual_router::VirtualRouter;
 
 use thiserror::Error;
 
+use crate::oniesai::port::SortPortsByLanes;
+
 use self::port::discovery::logicalport::Event::PortUp;
 use self::port::PhysicalPort;
 use self::port::PhysicalPortConfig;
@@ -299,31 +301,22 @@ impl<'a, 'b> Processor<'a, 'b> {
 
         // if we have a ports config, then we are generating our physical ports from them
         // and we are going to delete all ports that were created by SAI by default
-        let mut ports = match ports_config {
+        let ports = match ports_config {
+            None => ports,
             Some(ports_config) => {
-                log::info!("Initializing ports from ports config, deleting all default ports...");
-                for port in ports.into_iter() {
-                    log::info!("removing port {}...", port);
-                    port.remove().context("failed to remove port")?;
-                }
-                PhysicalPort::from_port_config(
-                    platform_ctx.clone(),
-                    switch.clone(),
-                    default_virtual_router.clone(),
-                    mac_address,
-                    ports_config,
-                )
-                .context("failed to create physical ports from ports config file")?
+                log::info!("Initializing ports from ports config, sorting ports according to their lane mappings...");
+                ports_config.sort_ports_by_lanes(&ports)?
             }
-            None => PhysicalPort::from_ports(
-                platform_ctx.clone(),
-                switch.clone(),
-                default_virtual_router.clone(),
-                mac_address,
-                ports,
-            )
-            .context("failed to create physical ports from SAI ports")?,
         };
+
+        let mut ports = PhysicalPort::from_ports(
+            platform_ctx.clone(),
+            switch.clone(),
+            default_virtual_router.clone(),
+            mac_address,
+            ports,
+        )
+        .context("failed to create physical ports from SAI ports")?;
 
         // if auto-discovery is enabled on startup (the default), we are going to start it now
         if auto_discovery {
@@ -663,11 +656,14 @@ impl<'a, 'b> Processor<'a, 'b> {
                     log_port.reconcile_state();
 
                     // update the associated host interface
-                    match log_port.hif.as_ref() {
+                    match log_port.hif.as_mut() {
                         Some(hif) => {
                             match hif.intf.set_oper_status(oper_status) {
-                                Ok(_) => log::info!("processor: set host interface {} operational status to {} for port {}", hif.intf, oper_status, port_id),
-                                Err(e) => log::error!("processor: failed to set host interface {} operational status to {} for port {}: {:?}", hif, oper_status, port_id, e),
+                                Ok(_) => {
+                                    log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id);
+                                    hif.oper_status = oper_status;
+                                }
+                                Err(e) => log::error!("processor: failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
                             }
                         }
                         None => log::warn!(

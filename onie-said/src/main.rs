@@ -28,7 +28,7 @@ use macaddr::MacAddr6;
 
 use sai::SAI;
 
-use crate::oniesai::port::read_physical_port_config;
+use crate::oniesai::port::PhysicalPortConfig;
 use crate::oniesai::PlatformContextHolder;
 use crate::oniesai::Processor;
 
@@ -239,7 +239,7 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
     };
 
     // try to read our port config file
-    let ports_config = read_physical_port_config(&cli.port_config_file);
+    let ports_config = PhysicalPortConfig::from_file(&cli.port_config_file);
 
     // get SAI API version
     if let Ok(version) = SAI::api_version() {
