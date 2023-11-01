@@ -175,7 +175,9 @@ fn disable_auto_negotiation<'a, S: State, T: State>(
         // auto negotiation advertisement might also be enabled then
         // let's just try to disable it as well, but no need to account for that for the state
         if let Err(e) = port.set_advertised_auto_neg_mode(false) {
-            log::error!(
+            // it's likely that this attribute isn't supported, and then it doesn't matter that we cannot set it
+            // so we just log at debug for this
+            log::debug!(
                 "Port {} state machine: {} -> {}: failed to set auto negotiation advertisement to off: {}",
                 port,
                 from_state,
