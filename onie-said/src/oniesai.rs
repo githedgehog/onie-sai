@@ -221,13 +221,22 @@ impl<'a, 'b> Processor<'a, 'b> {
             .get_default_hostif_trap_group()
             .context("failed to get default host interface trap group")?;
         let default_trap_group_id = default_trap_group.to_id();
+        let _ttl_error_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::TTLError),
+                TrapAttribute::PacketAction(PacketAction::Trap),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create TTL error trap")?;
+        log::debug!("traps: added TTL error trap (action: trap)");
         let _ip2me_trap = switch
             .create_hostif_trap(vec![
                 TrapAttribute::TrapType(TrapType::IP2ME),
                 TrapAttribute::PacketAction(PacketAction::Trap),
                 TrapAttribute::TrapGroup(default_trap_group_id),
             ])
-            .context("failed to create ip2me trap")?;
+            .context("failed to create IP2ME trap")?;
+        log::debug!("traps: added IP2ME trap (action: trap)");
         let _arp_req_trap = switch
             .create_hostif_trap(vec![
                 TrapAttribute::TrapType(TrapType::ARPRequest),
@@ -235,6 +244,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                 TrapAttribute::TrapGroup(default_trap_group_id),
             ])
             .context("failed to create ARP request trap")?;
+        log::debug!("traps: added ARP request trap (action: copy)");
         let _arp_resp_trap = switch
             .create_hostif_trap(vec![
                 TrapAttribute::TrapType(TrapType::ARPResponse),
@@ -242,6 +252,68 @@ impl<'a, 'b> Processor<'a, 'b> {
                 TrapAttribute::TrapGroup(default_trap_group_id),
             ])
             .context("failed to create ARP response trap")?;
+        log::debug!("traps: added ARP response trap (action: copy)");
+        let _neigh_disc_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::IPv6NeighborDiscovery),
+                TrapAttribute::PacketAction(PacketAction::Copy),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create IPv6 Neighbor Discovery trap")?;
+        log::debug!("traps: added IPv6 Neighbor Discovery trap (action: copy)");
+        let _neigh_sol_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::IPv6NeighborSolicitation),
+                TrapAttribute::PacketAction(PacketAction::Copy),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create IPv6 Neighbor Solicitation trap")?;
+        log::debug!("traps: added IPv6 Neighbor Solicitation trap (action: copy)");
+        let _neigh_adv_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::IPv6NeighborAdvertisement),
+                TrapAttribute::PacketAction(PacketAction::Copy),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create IPv6 Neighbor Advertisement trap")?;
+        log::debug!("traps: added IPv6 Neighbor Advertisement trap (action: copy)");
+        // TODO: probably not necessary? they are not in SONiC
+        // and I don't understand yet what they would do as compared to the "normal" L3 ones below?!
+        // - SAI_HOSTIF_TRAP_TYPE_DHCP_L2
+        // - SAI_HOSTIF_TRAP_TYPE_DHCPV6_L2
+        let _dhcp_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::DHCP),
+                TrapAttribute::PacketAction(PacketAction::Copy),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create DHCP trap")?;
+        log::debug!("traps: added DHCP trap (action: copy)");
+        let _dhcpv6_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::DHCPv6),
+                TrapAttribute::PacketAction(PacketAction::Copy),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create DHCPv6 trap")?;
+        log::debug!("traps: added DHCPv6 trap (action: copy)");
+        // TODO: LLDP/UDLD not necessary, but if actioned upon might improve debuggability from outside of a box (would need an implementation though)
+        let _lldp_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::LLDP),
+                TrapAttribute::PacketAction(PacketAction::Trap),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create LLDP trap")?;
+        log::debug!("traps: added LLDP trap (action: trap)");
+        let _udld_trap = switch
+            .create_hostif_trap(vec![
+                TrapAttribute::TrapType(TrapType::UDLD),
+                TrapAttribute::PacketAction(PacketAction::Trap),
+                TrapAttribute::TrapGroup(default_trap_group_id),
+            ])
+            .context("failed to create UDLD trap")?;
+        log::debug!("traps: added UDLD trap (action: trap)");
 
         let _default_table_entry = switch
             .create_hostif_table_entry(vec![
@@ -249,6 +321,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                 TableEntryAttribute::ChannelType(ChannelType::NetdevPhysicalPort),
             ])
             .context("failed to create default host interface table entry")?;
+        log::debug!("host interface table entry: added default entry: type=Wildcard Interface, wildcard trap id, channel=Receive packets via Linux netdev type port");
 
         // get CPU port
         let cpu_port = switch.get_cpu_port().context("failed to get CPU port")?;
