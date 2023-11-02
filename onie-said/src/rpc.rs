@@ -59,6 +59,20 @@ impl onie_sai_ttrpc::OnieSai for OnieSaiServer {
         Ok(resp)
     }
 
+    fn route_list(
+        &self,
+        _ctx: &ttrpc::TtrpcContext,
+        req: onie_sai::RouteListRequest,
+    ) -> ttrpc::Result<onie_sai::RouteListResponse> {
+        let (tx, rx) = channel();
+        self.proc_tx
+            .send(ProcessRequest::RouteList((req, tx)))
+            .map_err(map_tx_error)?;
+        let resp = rx.recv().map_err(map_rx_error)?;
+        let resp = resp.map_err(map_process_error)?;
+        Ok(resp)
+    }
+
     fn auto_discovery(
         &self,
         _ctx: &ttrpc::TtrpcContext,
@@ -71,6 +85,17 @@ impl onie_sai_ttrpc::OnieSai for OnieSaiServer {
         let resp = rx.recv().map_err(map_rx_error)?;
         let resp = resp.map_err(map_process_error)?;
         Ok(resp)
+    }
+
+    fn shutdown(
+        &self,
+        _ctx: &ttrpc::TtrpcContext,
+        _: onie_sai::ShutdownRequest,
+    ) -> ttrpc::Result<onie_sai::ShutdownResponse> {
+        self.proc_tx
+            .send(ProcessRequest::Shutdown)
+            .map_err(map_tx_error)?;
+        Ok(onie_sai::ShutdownResponse::new())
     }
 }
 

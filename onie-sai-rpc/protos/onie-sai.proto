@@ -5,8 +5,10 @@ package grpc;
 service OnieSai {
     rpc Version(VersionRequest) returns (VersionResponse);
     rpc PortList(PortListRequest) returns (PortListResponse);
+    rpc RouteList(RouteListRequest) returns (RouteListResponse);
     rpc AutoDiscovery(AutoDiscoveryRequest) returns (AutoDiscoveryResponse);
     rpc Shell(ShellRequest) returns (ShellResponse);
+    rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
 }
 
 message VersionRequest {}
@@ -20,6 +22,12 @@ message PortListRequest {}
 
 message PortListResponse {
     repeated Port port_list = 1;
+}
+
+message RouteListRequest {}
+
+message RouteListResponse {
+    repeated string route_list = 1;
 }
 
 message Port {
@@ -65,3 +73,7 @@ message ShellRequest {
 }
 
 message ShellResponse {}
+
+message ShutdownRequest {}
+
+message ShutdownResponse {}

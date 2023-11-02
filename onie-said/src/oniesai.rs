@@ -103,6 +103,12 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::PortListResponse, ProcessError>>,
         ),
     ),
+    RouteList(
+        (
+            onie_sai::RouteListRequest,
+            Sender<Result<onie_sai::RouteListResponse, ProcessError>>,
+        ),
+    ),
     AutoDiscoveryPoll,
     AutoDiscoveryStatus(
         (
@@ -514,6 +520,15 @@ impl<'a, 'b> Processor<'a, 'b> {
                         );
                     };
                 }
+                ProcessRequest::RouteList((r, resp_tx)) => {
+                    let resp = p.process_route_list_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "processor: failed to send route list response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
                 ProcessRequest::AutoDiscoveryStatus((r, resp_tx)) => {
                     let resp = p.process_auto_discovery_status_request(r);
                     if let Err(e) = resp_tx.send(resp) {
@@ -727,6 +742,21 @@ impl<'a, 'b> Processor<'a, 'b> {
         }
         Ok(onie_sai::PortListResponse {
             port_list: ports,
+            ..Default::default()
+        })
+    }
+
+    fn process_route_list_request(
+        &self,
+        _: onie_sai::RouteListRequest,
+    ) -> Result<onie_sai::RouteListResponse, ProcessError> {
+        let mut routes = Vec::with_capacity(self.routes.len());
+        for route in self.routes.iter() {
+            let ret: IpNet = route.into();
+            routes.push(ret.to_string());
+        }
+        Ok(onie_sai::RouteListResponse {
+            route_list: routes,
             ..Default::default()
         })
     }

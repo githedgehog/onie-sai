@@ -101,6 +101,18 @@ pub struct RouteEntry<'a> {
     pub(crate) sai: &'a SAI,
 }
 
+impl From<RouteEntry<'_>> for IpNet {
+    fn from(value: RouteEntry<'_>) -> Self {
+        value.entry.destination.into()
+    }
+}
+
+impl From<&RouteEntry<'_>> for IpNet {
+    fn from(value: &RouteEntry<'_>) -> Self {
+        value.entry.destination.into()
+    }
+}
+
 impl PartialEq for RouteEntry<'_> {
     fn eq(&self, other: &Self) -> bool {
         if self.entry.vr_id != other.entry.vr_id {
