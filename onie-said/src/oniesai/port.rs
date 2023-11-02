@@ -23,6 +23,8 @@ use sai::hostif::HostIf;
 use sai::port::BreakoutModeType;
 use sai::port::Port;
 
+use crate::oniesai::netlink;
+
 use super::PlatformContextHolder;
 
 #[derive(Debug, Error)]
@@ -752,9 +754,22 @@ impl<'a> LogicalPort<'a> {
                         name,
                         &hif
                     );
+                    let idx = match netlink::get_interface_index(name.as_str()) {
+                        Ok(idx) => idx,
+                        Err(e) => {
+                            log::error!(
+                                "Port {}: failed to get interface index for {}: {:?}",
+                                self.port,
+                                name,
+                                e
+                            );
+                            0
+                        }
+                    };
                     self.hif = Some(HostInterface {
                         intf: hif,
                         name: name,
+                        idx: idx,
                         oper_status: false,
                     })
                 }
@@ -854,7 +869,30 @@ fn log_port_error(port: &Port<'_>, e: sai::Error) {
 pub(crate) struct HostInterface<'a> {
     pub(crate) intf: HostIf<'a>,
     pub(crate) name: String,
+    pub(crate) idx: u32,
     pub(crate) oper_status: bool,
+}
+
+impl<'a> HostInterface<'a> {
+    pub(crate) fn set_netlink_oper_status(&self, oper_status: bool) {
+        match netlink::set_link_status(self.idx, oper_status) {
+            Ok(_) => {
+                log::debug!(
+                    "Host Interface {}: successfully set netlink oper status to {}",
+                    self,
+                    oper_status
+                );
+            }
+            Err(e) => {
+                log::error!(
+                    "Host Interface {}: failed to set netlink oper status to {}: {:?}",
+                    self,
+                    oper_status,
+                    e
+                );
+            }
+        }
+    }
 }
 
 impl<'a> std::fmt::Display for HostInterface<'a> {

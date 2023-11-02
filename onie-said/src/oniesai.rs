@@ -1,9 +1,11 @@
+pub(crate) mod netlink;
 pub(crate) mod port;
 
 use std::fs::File;
 use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Write;
+use std::net::IpAddr;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -108,6 +110,8 @@ pub(crate) enum ProcessRequest {
         ),
     ),
     LogicalPortStateChange((PortID, OperStatus)),
+    NetlinkAddrAdded((u32, IpAddr)),
+    NetlinkAddrRemoved((u32, IpAddr)),
 }
 
 pub(crate) struct Processor<'a, 'b> {
@@ -522,6 +526,12 @@ impl<'a, 'b> Processor<'a, 'b> {
                 ProcessRequest::LogicalPortStateChange((port_id, port_state)) => {
                     p.process_logical_port_state_change(port_id, port_state)
                 }
+                ProcessRequest::NetlinkAddrAdded((if_idx, ip)) => {
+                    p.process_netlink_addr_added(if_idx, ip)
+                }
+                ProcessRequest::NetlinkAddrRemoved((if_idx, ip)) => {
+                    p.process_netlink_addr_removed(if_idx, ip)
+                }
             }
         }
     }
@@ -786,10 +796,14 @@ impl<'a, 'b> Processor<'a, 'b> {
                     // update the associated host interface
                     match log_port.hif.as_mut() {
                         Some(hif) => {
+                            // that sets the host interface operational status (SAI internal I guess?)
+                            // TODO: should just be on one function on HostInterface
                             match hif.intf.set_oper_status(oper_status) {
                                 Ok(_) => {
                                     log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id);
                                     hif.oper_status = oper_status;
+                                    // now set the interface itself up as well with netlink
+                                    hif.set_netlink_oper_status(oper_status);
                                 }
                                 Err(e) => log::error!("processor: failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
                             }
@@ -808,6 +822,13 @@ impl<'a, 'b> Processor<'a, 'b> {
                 port_id
             );
         }
+    }
+
+    fn process_netlink_addr_added(&mut self, _if_idx: u32, _ip: IpAddr) {
+        // TODO: implement
+    }
+    fn process_netlink_addr_removed(&mut self, _if_idx: u32, _ip: IpAddr) {
+        // TODO: implement
     }
 }
 
