@@ -865,6 +865,15 @@ fn log_port_error(port: &Port<'_>, e: sai::Error) {
     log::error!("Port {}: SAI command failed: {:?}", port, e);
 }
 
+#[derive(Debug, Error)]
+pub(crate) enum HostInterfaceError {
+    #[error("SAI command failed: {0}")]
+    SAIError(#[from] sai::Error),
+
+    #[error("netlink command failed: {0}")]
+    NetlinkError(#[from] netlink::SetLinkError),
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct HostInterface<'a> {
     pub(crate) intf: HostIf<'a>,
@@ -874,24 +883,11 @@ pub(crate) struct HostInterface<'a> {
 }
 
 impl<'a> HostInterface<'a> {
-    pub(crate) fn set_netlink_oper_status(&self, oper_status: bool) {
-        match netlink::set_link_status(self.idx, oper_status) {
-            Ok(_) => {
-                log::debug!(
-                    "Host Interface {}: successfully set netlink oper status to {}",
-                    self,
-                    oper_status
-                );
-            }
-            Err(e) => {
-                log::error!(
-                    "Host Interface {}: failed to set netlink oper status to {}: {:?}",
-                    self,
-                    oper_status,
-                    e
-                );
-            }
-        }
+    pub(crate) fn set_oper_status(&mut self, oper_status: bool) -> Result<(), HostInterfaceError> {
+        self.intf.set_oper_status(oper_status)?;
+        netlink::set_link_status(self.idx, oper_status)?;
+        self.oper_status = oper_status;
+        Ok(())
     }
 }
 

@@ -163,6 +163,21 @@ pub(crate) enum SetLinkError {
     NetlinkError(i32),
 }
 
+impl std::error::Error for SetLinkError {}
+
+impl std::fmt::Display for SetLinkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SetLinkError::IOError(e) => write!(f, "IO error: {}", e),
+            SetLinkError::NetlinkDecodeError(e) => write!(f, "netlink decoding error: {}", e),
+            SetLinkError::UnexpectedNetlinkMessage(v) => {
+                write!(f, "unexpected netlink message received: {}", v)
+            }
+            SetLinkError::NetlinkError(v) => write!(f, "netlink error: {}", v),
+        }
+    }
+}
+
 impl From<std::io::Error> for SetLinkError {
     fn from(e: std::io::Error) -> Self {
         SetLinkError::IOError(e)

@@ -798,13 +798,8 @@ impl<'a, 'b> Processor<'a, 'b> {
                         Some(hif) => {
                             // that sets the host interface operational status (SAI internal I guess?)
                             // TODO: should just be on one function on HostInterface
-                            match hif.intf.set_oper_status(oper_status) {
-                                Ok(_) => {
-                                    log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id);
-                                    hif.oper_status = oper_status;
-                                    // now set the interface itself up as well with netlink
-                                    hif.set_netlink_oper_status(oper_status);
-                                }
+                            match hif.set_oper_status(oper_status) {
+                                Ok(_) => log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id),
                                 Err(e) => log::error!("processor: failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
                             }
                         }
