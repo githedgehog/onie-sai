@@ -54,25 +54,6 @@ impl From<RouterInterface<'_>> for NextHopID {
     }
 }
 
-/*
-    *
-     * @type sai_packet_action_t
-    SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION = SAI_ROUTE_ENTRY_ATTR_START,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_HOSTIF_USER_DEFINED_TRAP
-    SAI_ROUTE_ENTRY_ATTR_USER_TRAP_ID,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_NEXT_HOP, SAI_OBJECT_TYPE_NEXT_HOP_GROUP, SAI_OBJECT_TYPE_ROUTER_INTERFACE, SAI_OBJECT_TYPE_PORT
-    SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID,
-     * @type sai_uint32_t
-    SAI_ROUTE_ENTRY_ATTR_META_DATA,
-     * @type sai_ip_addr_family_t
-    SAI_ROUTE_ENTRY_ATTR_IP_ADDR_FAMILY,
-     * @type sai_object_id_t
-     * @objects SAI_OBJECT_TYPE_COUNTER
-    SAI_ROUTE_ENTRY_ATTR_COUNTER_ID,
-*/
-
 #[derive(Clone, Copy, Debug)]
 pub enum RouteEntryAttribute {
     PacketAction(PacketAction),
@@ -118,6 +99,29 @@ impl From<RouteEntryAttribute> for sai_attribute_t {
 pub struct RouteEntry<'a> {
     pub(crate) entry: sai_route_entry_t,
     pub(crate) sai: &'a SAI,
+}
+
+impl PartialEq for RouteEntry<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.entry.vr_id != other.entry.vr_id {
+            return false;
+        }
+
+        if self.entry.switch_id != other.entry.switch_id {
+            return false;
+        }
+
+        let self_dest: IpNet = self.entry.destination.into();
+        let other_dest: IpNet = other.entry.destination.into();
+        self_dest == other_dest
+    }
+}
+
+impl PartialEq<IpNet> for RouteEntry<'_> {
+    fn eq(&self, other: &IpNet) -> bool {
+        let self_dest: IpNet = self.entry.destination.into();
+        self_dest == *other
+    }
 }
 
 impl std::fmt::Debug for RouteEntry<'_> {

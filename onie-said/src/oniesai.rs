@@ -30,6 +30,7 @@ use sai::hostif::HostIfAttribute;
 use sai::hostif::HostIfType;
 use sai::port::OperStatus;
 use sai::port::PortID;
+use sai::route::RouteEntry;
 use sai::route::RouteEntryAttribute;
 use sai::router_interface::RouterInterfaceAttribute;
 use sai::router_interface::RouterInterfaceType;
@@ -119,6 +120,7 @@ pub(crate) struct Processor<'a, 'b> {
     auto_discovery_with_breakout: bool,
     switch: Switch<'a>,
     virtual_router: VirtualRouter<'a>,
+    routes: Vec<RouteEntry<'a>>,
     cpu_port_id: PortID,
     cpu_hostif: HostIf<'a>,
     ports: Vec<PhysicalPort<'a, 'b>>,
@@ -462,6 +464,7 @@ impl<'a, 'b> Processor<'a, 'b> {
             auto_discovery_with_breakout: auto_discovery_with_breakout,
             switch: switch,
             virtual_router: default_virtual_router,
+            routes: Vec::new(),
             cpu_port_id: cpu_port_id,
             cpu_hostif: cpu_intf,
             ports: ports,
@@ -819,11 +822,116 @@ impl<'a, 'b> Processor<'a, 'b> {
         }
     }
 
-    fn process_netlink_addr_added(&mut self, _if_idx: u32, _ip: IpAddr) {
-        // TODO: implement
+    fn process_netlink_addr_added(&mut self, if_idx: u32, ip: IpAddr) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // we actually don't need to do anything with it
+        // however, we need to check that the interface belongs to us
+        let mut found = false;
+        for phy_port in self.ports.iter() {
+            for log_port in phy_port.ports.iter() {
+                for hif in log_port.hif.iter() {
+                    if hif.idx == if_idx {
+                        found = true;
+                    }
+                }
+            }
+        }
+        if found {
+            // try to add the route, the function will handle if it is in there already
+            self.add_route(ip.into());
+        } else {
+            log::warn!("processor: host interface {if_name} ({if_idx}) not found during netlink address add event. Route not added.");
+        }
     }
-    fn process_netlink_addr_removed(&mut self, _if_idx: u32, _ip: IpAddr) {
-        // TODO: implement
+
+    fn process_netlink_addr_removed(&mut self, if_idx: u32, ip: IpAddr) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // we actually don't need to do anything with it
+        // however, we need to check that the interface belongs to us
+        let mut found = false;
+        for phy_port in self.ports.iter() {
+            for log_port in phy_port.ports.iter() {
+                for hif in log_port.hif.iter() {
+                    if hif.idx == if_idx {
+                        found = true;
+                    }
+                }
+            }
+        }
+        if found {
+            // try to remove the route, the function will handle if it is even there or not
+            self.remove_route(ip.into());
+        } else {
+            log::warn!("processor: host interface {if_name} ({if_idx}) not found during netlink address remove event. Route was not removed.");
+        }
+    }
+
+    pub(crate) fn add_route(&mut self, route: IpNet) {
+        if self
+            .routes
+            .iter()
+            .find(|route_entry| **route_entry == route)
+            .is_some()
+        {
+            log::debug!("route entry already exists: {route}. Not adding anymore.");
+            return;
+        }
+
+        // if not, we program it in our router
+        match self.virtual_router.create_route_entry(
+            route,
+            vec![
+                RouteEntryAttribute::PacketAction(PacketAction::Forward),
+                RouteEntryAttribute::NextHopID(self.cpu_port_id.into()),
+            ],
+        ) {
+            Ok(route_entry) => {
+                // if programming is successful, we add the route to our list
+                log::info!(
+                    "added route entry {:?} for ourselves on virtual router {}",
+                    route_entry,
+                    self.virtual_router
+                );
+                self.routes.push(route_entry);
+            }
+            Err(e) => {
+                log::error!(
+                    "failed to create route entry for ourselves on virtual router {}: {e:?}",
+                    self.virtual_router
+                );
+            }
+        };
+    }
+
+    pub(crate) fn remove_route(&mut self, route: IpNet) {
+        if let Some(idx) = self
+            .routes
+            .iter()
+            .position(|route_entry| *route_entry == route)
+        {
+            let route_entry = self.routes.remove(idx);
+            match route_entry.remove() {
+                Ok(_) => {
+                    log::info!(
+                        "removed route entry {:?} for ourselves from virtual router {}",
+                        route,
+                        self.virtual_router
+                    );
+                }
+                Err(e) => {
+                    // NOTE: there is a problem here that cannot really be solved.
+                    // If we cannot remove the route entry, our state is screwed up
+                    // we keep it out of the list because we don't really know what
+                    // the error means anyways.
+                    log::error!(
+                        "failed to remove route entry from virtual router {}: {e:?}",
+                        self.virtual_router
+                    );
+                }
+            }
+        }
     }
 }
 

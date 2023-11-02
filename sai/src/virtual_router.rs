@@ -95,7 +95,7 @@ impl<'a> VirtualRouter<'a> {
         &self,
         destination: IpNet,
         attrs: Vec<RouteEntryAttribute>,
-    ) -> Result<RouteEntry, Error> {
+    ) -> Result<RouteEntry<'a>, Error> {
         let route_api = self.sai.route_api().ok_or(Error::APIUnavailable)?;
         let create_route_entry = route_api
             .create_route_entry

@@ -135,7 +135,6 @@ fn convert(am: AddressMessage) -> Result<(u32, IpAddr), AddressMessageConversion
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn get_interface_name(index: u32) -> Result<String, std::io::Error> {
     let mut buf = [0u8; libc::IFNAMSIZ];
     let ret = unsafe { libc::if_indextoname(index, buf.as_mut_ptr() as *mut libc::c_char) };
