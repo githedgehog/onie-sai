@@ -178,20 +178,6 @@ impl<'a, 'b> Processor<'a, 'b> {
             }))
             .context("failed to set port state change callback")?;
 
-        // remove default vlan members
-        let default_vlan = switch
-            .get_default_vlan()
-            .context("failed to get default VLAN")?;
-        log::info!("default VLAN of switch {} is: {:?}", switch, default_vlan);
-        let members = default_vlan.get_members().context(format!(
-            "failed to get VLAN members for default VLAN {}",
-            default_vlan
-        ))?;
-        for member in members {
-            log::info!("Removing VLAN member {}...", member);
-            member.remove().context("failed to remove VLAN member")?;
-        }
-
         // remove default bridge ports
         let default_bridge = switch
             .get_default_bridge()
