@@ -242,10 +242,8 @@ pub(crate) fn set_link_status(index: u32, oper_status: bool) -> Result<(), SetLi
     lm.header.flags = current_lm.header.flags;
     lm.header.change_mask = current_lm.header.change_mask;
     if oper_status {
-        println!("setting link up");
         lm.header.flags |= libc::IFF_UP as u32;
     } else {
-        println!("setting link down");
         lm.header.flags &= !(libc::IFF_UP as u32);
     }
     let mut req = NetlinkMessage::new(hdr, NetlinkPayload::from(RtnlMessage::SetLink(lm)));
