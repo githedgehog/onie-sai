@@ -41,8 +41,8 @@ impl From<sai_ip_prefix_t> for IpNet {
     fn from(value: sai_ip_prefix_t) -> Self {
         match value.addr_family {
             _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV4 => {
-                let addr: Ipv4Addr = From::from(unsafe { value.addr.ip4 });
-                let mask: Ipv4Addr = From::from(unsafe { value.mask.ip4 });
+                let addr: Ipv4Addr = From::from(unsafe { value.addr.ip4.to_be() });
+                let mask: Ipv4Addr = From::from(unsafe { value.mask.ip4.to_be() });
                 let mask_prefix = match ipnet::ipv4_mask_to_prefix(mask) {
                     Ok(v) => v,
                     Err(e) => {
@@ -300,5 +300,59 @@ mod tests {
         // teardown API again
         let st = unsafe { sai_api_uninitialize() };
         assert_eq!(st, SAI_STATUS_SUCCESS as i32);
+    }
+
+    #[test]
+    fn ipnet_from_conversions() {
+        let ipnet_v4 = IpNet::V4(Ipv4Net::new(Ipv4Addr::new(192, 168, 0, 0), 24).unwrap());
+        let ipnet_v6 = IpNet::V6(
+            Ipv6Net::new(
+                Ipv6Addr::new(
+                    0x2001, 0x0db8, 0x85a3, 0x0000, 0x0000, 0x8a2e, 0x0370, 0x7334,
+                ),
+                64,
+            )
+            .unwrap(),
+        );
+        let converted_v4: sai_ip_prefix_t = ipnet_v4.into();
+        let converted_v6: sai_ip_prefix_t = ipnet_v6.into();
+        let want_v4: sai_ip_prefix_t = sai_ip_prefix_t {
+            addr_family: _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV4,
+            addr: sai_ip_addr_t {
+                ip4: 0xc0a80000_u32.to_be(),
+            },
+            mask: sai_ip_addr_t {
+                ip4: 0xffffff00_u32.to_be(),
+            },
+        };
+        let want_v6: sai_ip_prefix_t = sai_ip_prefix_t {
+            addr_family: _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV6,
+            addr: sai_ip_addr_t {
+                ip6: [
+                    0x20, 0x01, 0x0d, 0xb8, 0x85, 0xa3, 0x00, 0x00, // 64 bits
+                    0x00, 0x8a, 0x2e, 0x03, 0x70, 0x73, 0x34, 0x00, // 64 bits
+                ],
+            },
+            mask: sai_ip_addr_t {
+                ip6: [
+                    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 64 bits
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 64 bits
+                ],
+            },
+        };
+        assert_eq!(converted_v4.addr_family, want_v4.addr_family);
+        unsafe {
+            assert_eq!(converted_v4.mask.ip4, want_v4.mask.ip4);
+            assert_eq!(converted_v4.addr.ip4, want_v4.addr.ip4);
+        }
+        assert_eq!(converted_v6.addr_family, want_v6.addr_family);
+
+        // now reverse again
+        let ipnet_v4_back: IpNet = converted_v4.into();
+        let ipnet_v6_back: IpNet = converted_v6.into();
+        assert_eq!(ipnet_v4, ipnet_v4_back);
+        assert_eq!(ipnet_v6, ipnet_v6_back);
+        println!("{ipnet_v4} {ipnet_v4_back}");
+        println!("{ipnet_v6} {ipnet_v6_back}");
     }
 }
