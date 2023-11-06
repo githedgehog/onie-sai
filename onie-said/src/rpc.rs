@@ -9,8 +9,8 @@ use ttrpc::Server;
 use onie_sai_rpc::onie_sai;
 use onie_sai_rpc::onie_sai_ttrpc;
 
-use crate::oniesai::ProcessError;
-use crate::oniesai::ProcessRequest;
+use crate::processor::ProcessError;
+use crate::processor::ProcessRequest;
 
 struct OnieSaiServer {
     proc_tx: Sender<ProcessRequest>,

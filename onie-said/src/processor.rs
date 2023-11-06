@@ -46,7 +46,7 @@ use sai::virtual_router::VirtualRouter;
 
 use thiserror::Error;
 
-use crate::oniesai::port::SortPortsByLanes;
+use crate::processor::port::SortPortsByLanes;
 
 use self::port::discovery::logicalport::Event::PortUp;
 use self::port::PhysicalPort;
