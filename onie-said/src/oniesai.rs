@@ -376,7 +376,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                 default_virtual_router
             ))?;
 
-        let _default_route_entry = default_virtual_router
+        let _default_ipv4_route_entry = default_virtual_router
             .create_route_entry(
                 IpNet::from_str("0.0.0.0/0").unwrap(),
                 vec![RouteEntryAttribute::PacketAction(PacketAction::Drop)],
@@ -385,6 +385,24 @@ impl<'a, 'b> Processor<'a, 'b> {
                 "failed to create default route entry for virtual router {}",
                 default_virtual_router
             ))?;
+        log::info!(
+            "added default route entry for IPv4 for virtual router {} (action: drop)",
+            default_virtual_router
+        );
+
+        let _default_ipv6_route_entry = default_virtual_router
+            .create_route_entry(
+                IpNet::from_str("0000::/0").unwrap(),
+                vec![RouteEntryAttribute::PacketAction(PacketAction::Drop)],
+            )
+            .context(format!(
+                "failed to create default IPv6 route entry for virtual router {}",
+                default_virtual_router
+            ))?;
+        log::info!(
+            "added default route entry for IPv6 for virtual router {} (action: drop)",
+            default_virtual_router
+        );
 
         // get ports now
         let ports = switch
