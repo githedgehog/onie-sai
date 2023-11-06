@@ -23,6 +23,8 @@ use sai::hostif::HostIf;
 use sai::port::BreakoutModeType;
 use sai::port::Port;
 
+use crate::oniesai::netlink;
+
 use super::PlatformContextHolder;
 
 #[derive(Debug, Error)]
@@ -752,9 +754,22 @@ impl<'a> LogicalPort<'a> {
                         name,
                         &hif
                     );
+                    let idx = match netlink::get_interface_index(name.as_str()) {
+                        Ok(idx) => idx,
+                        Err(e) => {
+                            log::error!(
+                                "Port {}: failed to get interface index for {}: {:?}",
+                                self.port,
+                                name,
+                                e
+                            );
+                            0
+                        }
+                    };
                     self.hif = Some(HostInterface {
                         intf: hif,
                         name: name,
+                        idx: idx,
                         oper_status: false,
                     })
                 }
@@ -775,6 +790,8 @@ impl<'a> LogicalPort<'a> {
                 RouterInterfaceAttribute::PortID(self.port.to_id().into()),
                 RouterInterfaceAttribute::MTU(9100),
                 RouterInterfaceAttribute::NATZoneID(0),
+                RouterInterfaceAttribute::V4McastEnable(true),
+                RouterInterfaceAttribute::V6McastEnable(true),
             ]) {
                 Ok(rif) => {
                     log::debug!(
@@ -850,11 +867,30 @@ fn log_port_error(port: &Port<'_>, e: sai::Error) {
     log::error!("Port {}: SAI command failed: {:?}", port, e);
 }
 
+#[derive(Debug, Error)]
+pub(crate) enum HostInterfaceError {
+    #[error("SAI command failed: {0}")]
+    SAIError(#[from] sai::Error),
+
+    #[error("netlink command failed: {0}")]
+    NetlinkError(#[from] netlink::SetLinkError),
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct HostInterface<'a> {
     pub(crate) intf: HostIf<'a>,
     pub(crate) name: String,
+    pub(crate) idx: u32,
     pub(crate) oper_status: bool,
+}
+
+impl<'a> HostInterface<'a> {
+    pub(crate) fn set_oper_status(&mut self, oper_status: bool) -> Result<(), HostInterfaceError> {
+        self.intf.set_oper_status(oper_status)?;
+        netlink::set_link_status(self.idx, oper_status)?;
+        self.oper_status = oper_status;
+        Ok(())
+    }
 }
 
 impl<'a> std::fmt::Display for HostInterface<'a> {

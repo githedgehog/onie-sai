@@ -489,6 +489,8 @@ pub struct SAI {
     router_interface_api_ptr: Option<*const sai_router_interface_api_t>,
     route_api_backing: sai_route_api_t,
     route_api_ptr: Option<*const sai_route_api_t>,
+    virtual_router_api_backing: sai_virtual_router_api_t,
+    virtual_router_api_ptr: Option<*const sai_virtual_router_api_t>,
 }
 
 impl SAI {
@@ -518,6 +520,10 @@ impl SAI {
 
     fn route_api(&self) -> Option<sai_route_api_t> {
         self.route_api_ptr.map(|api| unsafe { *api })
+    }
+
+    fn virtual_router_api(&self) -> Option<sai_virtual_router_api_t> {
+        self.virtual_router_api_ptr.map(|api| unsafe { *api })
     }
 
     pub fn api_version() -> Result<u64, Status> {
@@ -752,6 +758,30 @@ impl SAI {
                 log::debug!("sai_api_query(SAI_API_ROUTE) updated pointer away from our own table");
             }
             self.route_api_ptr = Some(route_api_ptr);
+        }
+
+        // virtual router API
+        {
+            self.virtual_router_api_backing = Default::default();
+            let virtual_router_api_ptr_orig = &self.virtual_router_api_backing as *const _;
+            let mut virtual_router_api_ptr = &mut self.virtual_router_api_backing as *mut _;
+            let virtual_router_api_ptr_ptr =
+                &mut virtual_router_api_ptr as *mut *mut sai_virtual_router_api_t;
+            let st = unsafe {
+                sai_api_query(
+                    _sai_api_t_SAI_API_VIRTUAL_ROUTER,
+                    virtual_router_api_ptr_ptr as _,
+                )
+            };
+            if st != SAI_STATUS_SUCCESS as i32 {
+                return Err(Status::from(st));
+            }
+            if virtual_router_api_ptr_orig != virtual_router_api_ptr {
+                log::debug!(
+                    "sai_api_query(SAI_API_VIRTUAL_ROUTER) updated pointer away from our own table"
+                );
+            }
+            self.virtual_router_api_ptr = Some(virtual_router_api_ptr);
         }
         Ok(())
     }

@@ -1,9 +1,11 @@
+pub(crate) mod netlink;
 pub(crate) mod port;
 
 use std::fs::File;
 use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Write;
+use std::net::IpAddr;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -28,6 +30,7 @@ use sai::hostif::HostIfAttribute;
 use sai::hostif::HostIfType;
 use sai::port::OperStatus;
 use sai::port::PortID;
+use sai::route::RouteEntry;
 use sai::route::RouteEntryAttribute;
 use sai::router_interface::RouterInterfaceAttribute;
 use sai::router_interface::RouterInterfaceType;
@@ -100,6 +103,12 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::PortListResponse, ProcessError>>,
         ),
     ),
+    RouteList(
+        (
+            onie_sai::RouteListRequest,
+            Sender<Result<onie_sai::RouteListResponse, ProcessError>>,
+        ),
+    ),
     AutoDiscoveryPoll,
     AutoDiscoveryStatus(
         (
@@ -108,6 +117,8 @@ pub(crate) enum ProcessRequest {
         ),
     ),
     LogicalPortStateChange((PortID, OperStatus)),
+    NetlinkAddrAdded((u32, IpAddr)),
+    NetlinkAddrRemoved((u32, IpAddr)),
 }
 
 pub(crate) struct Processor<'a, 'b> {
@@ -115,6 +126,7 @@ pub(crate) struct Processor<'a, 'b> {
     auto_discovery_with_breakout: bool,
     switch: Switch<'a>,
     virtual_router: VirtualRouter<'a>,
+    routes: Vec<RouteEntry<'a>>,
     cpu_port_id: PortID,
     cpu_hostif: HostIf<'a>,
     ports: Vec<PhysicalPort<'a, 'b>>,
@@ -165,20 +177,6 @@ impl<'a, 'b> Processor<'a, 'b> {
                 }
             }))
             .context("failed to set port state change callback")?;
-
-        // remove default vlan members
-        let default_vlan = switch
-            .get_default_vlan()
-            .context("failed to get default VLAN")?;
-        log::info!("default VLAN of switch {} is: {:?}", switch, default_vlan);
-        let members = default_vlan.get_members().context(format!(
-            "failed to get VLAN members for default VLAN {}",
-            default_vlan
-        ))?;
-        for member in members {
-            log::info!("Removing VLAN member {}...", member);
-            member.remove().context("failed to remove VLAN member")?;
-        }
 
         // remove default bridge ports
         let default_bridge = switch
@@ -378,7 +376,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                 default_virtual_router
             ))?;
 
-        let _default_route_entry = default_virtual_router
+        let _default_ipv4_route_entry = default_virtual_router
             .create_route_entry(
                 IpNet::from_str("0.0.0.0/0").unwrap(),
                 vec![RouteEntryAttribute::PacketAction(PacketAction::Drop)],
@@ -387,6 +385,24 @@ impl<'a, 'b> Processor<'a, 'b> {
                 "failed to create default route entry for virtual router {}",
                 default_virtual_router
             ))?;
+        log::info!(
+            "added default route entry for IPv4 for virtual router {} (action: drop)",
+            default_virtual_router
+        );
+
+        let _default_ipv6_route_entry = default_virtual_router
+            .create_route_entry(
+                IpNet::from_str("0000::/0").unwrap(),
+                vec![RouteEntryAttribute::PacketAction(PacketAction::Drop)],
+            )
+            .context(format!(
+                "failed to create default IPv6 route entry for virtual router {}",
+                default_virtual_router
+            ))?;
+        log::info!(
+            "added default route entry for IPv6 for virtual router {} (action: drop)",
+            default_virtual_router
+        );
 
         // get ports now
         let ports = switch
@@ -458,6 +474,7 @@ impl<'a, 'b> Processor<'a, 'b> {
             auto_discovery_with_breakout: auto_discovery_with_breakout,
             switch: switch,
             virtual_router: default_virtual_router,
+            routes: Vec::new(),
             cpu_port_id: cpu_port_id,
             cpu_hostif: cpu_intf,
             ports: ports,
@@ -507,6 +524,15 @@ impl<'a, 'b> Processor<'a, 'b> {
                         );
                     };
                 }
+                ProcessRequest::RouteList((r, resp_tx)) => {
+                    let resp = p.process_route_list_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "processor: failed to send route list response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
                 ProcessRequest::AutoDiscoveryStatus((r, resp_tx)) => {
                     let resp = p.process_auto_discovery_status_request(r);
                     if let Err(e) = resp_tx.send(resp) {
@@ -521,6 +547,12 @@ impl<'a, 'b> Processor<'a, 'b> {
                 ProcessRequest::AutoDiscoveryPoll => p.process_auto_discovery_poll(),
                 ProcessRequest::LogicalPortStateChange((port_id, port_state)) => {
                     p.process_logical_port_state_change(port_id, port_state)
+                }
+                ProcessRequest::NetlinkAddrAdded((if_idx, ip)) => {
+                    p.process_netlink_addr_added(if_idx, ip)
+                }
+                ProcessRequest::NetlinkAddrRemoved((if_idx, ip)) => {
+                    p.process_netlink_addr_removed(if_idx, ip)
                 }
             }
         }
@@ -718,6 +750,21 @@ impl<'a, 'b> Processor<'a, 'b> {
         })
     }
 
+    fn process_route_list_request(
+        &self,
+        _: onie_sai::RouteListRequest,
+    ) -> Result<onie_sai::RouteListResponse, ProcessError> {
+        let mut routes = Vec::with_capacity(self.routes.len());
+        for route in self.routes.iter() {
+            let ret: IpNet = route.into();
+            routes.push(ret.to_string());
+        }
+        Ok(onie_sai::RouteListResponse {
+            route_list: routes,
+            ..Default::default()
+        })
+    }
+
     fn process_auto_discovery_status_request(
         &mut self,
         req: onie_sai::AutoDiscoveryRequest,
@@ -786,11 +833,10 @@ impl<'a, 'b> Processor<'a, 'b> {
                     // update the associated host interface
                     match log_port.hif.as_mut() {
                         Some(hif) => {
-                            match hif.intf.set_oper_status(oper_status) {
-                                Ok(_) => {
-                                    log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id);
-                                    hif.oper_status = oper_status;
-                                }
+                            // that sets the host interface operational status (SAI internal I guess?)
+                            // TODO: should just be on one function on HostInterface
+                            match hif.set_oper_status(oper_status) {
+                                Ok(_) => log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id),
                                 Err(e) => log::error!("processor: failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
                             }
                         }
@@ -807,6 +853,118 @@ impl<'a, 'b> Processor<'a, 'b> {
                 "processor: port {} not found during port state change event",
                 port_id
             );
+        }
+    }
+
+    fn process_netlink_addr_added(&mut self, if_idx: u32, ip: IpAddr) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // we actually don't need to do anything with it
+        // however, we need to check that the interface belongs to us
+        let mut found = false;
+        for phy_port in self.ports.iter() {
+            for log_port in phy_port.ports.iter() {
+                for hif in log_port.hif.iter() {
+                    if hif.idx == if_idx {
+                        found = true;
+                    }
+                }
+            }
+        }
+        if found {
+            // try to add the route, the function will handle if it is in there already
+            self.add_route(ip.into());
+        } else {
+            log::warn!("processor: host interface {if_name} ({if_idx}) not found during netlink address add event. Route not added.");
+        }
+    }
+
+    fn process_netlink_addr_removed(&mut self, if_idx: u32, ip: IpAddr) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // we actually don't need to do anything with it
+        // however, we need to check that the interface belongs to us
+        let mut found = false;
+        for phy_port in self.ports.iter() {
+            for log_port in phy_port.ports.iter() {
+                for hif in log_port.hif.iter() {
+                    if hif.idx == if_idx {
+                        found = true;
+                    }
+                }
+            }
+        }
+        if found {
+            // try to remove the route, the function will handle if it is even there or not
+            self.remove_route(ip.into());
+        } else {
+            log::warn!("processor: host interface {if_name} ({if_idx}) not found during netlink address remove event. Route was not removed.");
+        }
+    }
+
+    pub(crate) fn add_route(&mut self, route: IpNet) {
+        if self
+            .routes
+            .iter()
+            .find(|route_entry| **route_entry == route)
+            .is_some()
+        {
+            log::debug!("route entry already exists: {route}. Not adding anymore.");
+            return;
+        }
+
+        // if not, we program it in our router
+        match self.virtual_router.create_route_entry(
+            route,
+            vec![
+                RouteEntryAttribute::PacketAction(PacketAction::Forward),
+                RouteEntryAttribute::NextHopID(self.cpu_port_id.into()),
+            ],
+        ) {
+            Ok(route_entry) => {
+                // if programming is successful, we add the route to our list
+                log::info!(
+                    "added route entry {:?} for ourselves on virtual router {}",
+                    route_entry,
+                    self.virtual_router
+                );
+                self.routes.push(route_entry);
+            }
+            Err(e) => {
+                log::error!(
+                    "failed to create route entry for ourselves on virtual router {}: {e:?}",
+                    self.virtual_router
+                );
+            }
+        };
+    }
+
+    pub(crate) fn remove_route(&mut self, route: IpNet) {
+        if let Some(idx) = self
+            .routes
+            .iter()
+            .position(|route_entry| *route_entry == route)
+        {
+            let route_entry = self.routes.remove(idx);
+            match route_entry.remove() {
+                Ok(_) => {
+                    log::info!(
+                        "removed route entry {:?} for ourselves from virtual router {}",
+                        route,
+                        self.virtual_router
+                    );
+                }
+                Err(e) => {
+                    // NOTE: there is a problem here that cannot really be solved.
+                    // If we cannot remove the route entry, our state is screwed up
+                    // we keep it out of the list because we don't really know what
+                    // the error means anyways.
+                    log::error!(
+                        "failed to remove route entry from virtual router {}: {e:?}",
+                        self.virtual_router
+                    );
+                }
+            }
         }
     }
 }

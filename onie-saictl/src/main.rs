@@ -73,12 +73,18 @@ enum Commands {
     /// lists all ports and their details
     Ports,
 
+    /// lists all routes that are installed directed to the CPU
+    Routes,
+
     /// gets auto-discovery status of onie-said
     /// or you can enable/disable it within onie-said
     AutoDiscovery(AutoDiscoveryArgs),
 
     /// runs the SAI vendor shell
     Shell,
+
+    /// shuts down onie-said (equals sending a SIGTERM to the process)
+    Shutdown,
 }
 
 #[derive(Args)]
@@ -140,6 +146,14 @@ fn app() -> anyhow::Result<()> {
                 .context("request to onie-said failed")?;
             log::info!("response from onie-said: {:?}", resp);
         }
+        Commands::Routes => {
+            let req = onie_sai::RouteListRequest::new();
+            log::info!("making request to onie-said: {:?}...", req);
+            let resp = osc
+                .route_list(default_ctx(), &req)
+                .context("request to onie-said failed")?;
+            log::info!("response from onie-said: {:?}", resp);
+        }
         Commands::AutoDiscovery(v) => {
             log::info!("auto discovery args: {:?}", v.enable);
             let req = onie_sai::AutoDiscoveryRequest {
@@ -158,6 +172,14 @@ fn app() -> anyhow::Result<()> {
         }
         Commands::Shell => {
             shell_command(osc)?;
+        }
+        Commands::Shutdown => {
+            let req = onie_sai::ShutdownRequest::new();
+            log::info!("making request to onie-said: {:?}...", req);
+            let resp = osc
+                .shutdown(default_ctx(), &req)
+                .context("request to onie-said failed")?;
+            log::info!("response from onie-said: {:?}", resp);
         }
     }
 
