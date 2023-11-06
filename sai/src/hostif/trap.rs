@@ -100,6 +100,7 @@ pub enum TrapType {
     MPLSRouterAlertLabel,
     MPLSLabelLookupMiss,
     CustomExceptionRangeBase,
+    ExtensionsICMPv6,
 }
 
 impl From<TrapType> for i32 {
@@ -228,6 +229,9 @@ impl From<TrapType> for i32 {
             }
             TrapType::CustomExceptionRangeBase => {
                 _sai_hostif_trap_type_t_SAI_HOSTIF_TRAP_TYPE_CUSTOM_EXCEPTION_RANGE_BASE as i32
+            }
+            TrapType::ExtensionsICMPv6 => {
+                _sai_hostif_trap_type_extensions_t_SAI_HOSTIF_TRAP_TYPE_ICMPV6 as i32
             }
         }
     }

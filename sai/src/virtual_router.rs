@@ -55,6 +55,27 @@ impl std::fmt::Display for VirtualRouter<'_> {
 }
 
 impl<'a> VirtualRouter<'a> {
+    pub fn set_unknown_l3_multicast_packet_action(
+        &self,
+        action: PacketAction,
+    ) -> Result<(), Error> {
+        let virtual_router_api = self.sai.virtual_router_api().ok_or(Error::APIUnavailable)?;
+        let set_attribute = virtual_router_api
+            .set_virtual_router_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_virtual_router_attr_t_SAI_VIRTUAL_ROUTER_ATTR_UNKNOWN_L3_MULTICAST_PACKET_ACTION,
+            value: sai_attribute_value_t { s32: action.into() },
+        };
+        let st = unsafe { set_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(())
+    }
+
     pub fn create_router_interface(
         &self,
         attrs: Vec<RouterInterfaceAttribute>,

@@ -55,12 +55,27 @@ impl From<RouterInterface<'_>> for NextHopID {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub enum AddrFamily {
+    IPv4,
+    IPv6,
+}
+
+impl From<AddrFamily> for sai_ip_addr_family_t {
+    fn from(value: AddrFamily) -> Self {
+        match value {
+            AddrFamily::IPv4 => _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV4,
+            AddrFamily::IPv6 => _sai_ip_addr_family_t_SAI_IP_ADDR_FAMILY_IPV6,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum RouteEntryAttribute {
     PacketAction(PacketAction),
     UserDefinedTrap(hostif::user_defined_trap::UserDefinedTrapID),
     NextHopID(NextHopID),
     MetaData(u32),
-    AddrFamily(sai_ip_addr_family_t),
+    AddrFamily(AddrFamily),
     CounterID(CounterID),
 }
 
@@ -85,7 +100,7 @@ impl From<RouteEntryAttribute> for sai_attribute_t {
             },
             RouteEntryAttribute::AddrFamily(v) => sai_attribute_t {
                 id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_IP_ADDR_FAMILY,
-                value: sai_attribute_value_t { u32_: v },
+                value: sai_attribute_value_t { u32_: v.into() },
             },
             RouteEntryAttribute::CounterID(v) => sai_attribute_t {
                 id: _sai_route_entry_attr_t_SAI_ROUTE_ENTRY_ATTR_COUNTER_ID,
