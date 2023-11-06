@@ -46,7 +46,7 @@ use sai::virtual_router::VirtualRouter;
 
 use thiserror::Error;
 
-use crate::oniesai::port::SortPortsByLanes;
+use crate::processor::port::SortPortsByLanes;
 
 use self::port::discovery::logicalport::Event::PortUp;
 use self::port::PhysicalPort;
@@ -500,44 +500,32 @@ impl<'a, 'b> Processor<'a, 'b> {
                 ProcessRequest::Version((r, resp_tx)) => {
                     let resp = p.process_version_request(r);
                     if let Err(e) = resp_tx.send(resp) {
-                        log::error!(
-                            "processor: failed to send version response to rpc server: {:?}",
-                            e
-                        );
+                        log::error!("failed to send version response to rpc server: {:?}", e);
                     };
                 }
                 ProcessRequest::Shell((r, resp_tx)) => {
                     let resp = p.process_shell_request(r);
                     if let Err(e) = resp_tx.send(resp) {
-                        log::error!(
-                            "processor: failed to send shell response to rpc server: {:?}",
-                            e
-                        );
+                        log::error!("failed to send shell response to rpc server: {:?}", e);
                     };
                 }
                 ProcessRequest::PortList((r, resp_tx)) => {
                     let resp = p.process_port_list_request(r);
                     if let Err(e) = resp_tx.send(resp) {
-                        log::error!(
-                            "processor: failed to send port list response to rpc server: {:?}",
-                            e
-                        );
+                        log::error!("failed to send port list response to rpc server: {:?}", e);
                     };
                 }
                 ProcessRequest::RouteList((r, resp_tx)) => {
                     let resp = p.process_route_list_request(r);
                     if let Err(e) = resp_tx.send(resp) {
-                        log::error!(
-                            "processor: failed to send route list response to rpc server: {:?}",
-                            e
-                        );
+                        log::error!("failed to send route list response to rpc server: {:?}", e);
                     };
                 }
                 ProcessRequest::AutoDiscoveryStatus((r, resp_tx)) => {
                     let resp = p.process_auto_discovery_status_request(r);
                     if let Err(e) = resp_tx.send(resp) {
                         log::error!(
-                            "processor: failed to send auto discovery status response to rpc server: {:?}",
+                            "failed to send auto discovery status response to rpc server: {:?}",
                             e
                         );
                     };
@@ -694,7 +682,7 @@ impl<'a, 'b> Processor<'a, 'b> {
 
         // this warning is great because even with default warning level logs
         // it gives a hint that the processor thread is blocked
-        log::warn!("processor: shell requested, this blocks the processor thread!");
+        log::warn!("shell requested, this blocks the processor thread!");
         self.switch
             .enable_shell()
             .map_err(|e| ProcessError::SAIError(e))?;
@@ -730,7 +718,7 @@ impl<'a, 'b> Processor<'a, 'b> {
         log::debug!("shell: SAI_SHELL_DISABLE sent");
 
         // this warning matches the one above, tell the users that we are unblocked again
-        log::warn!("processor: shell finished, processor thread unblocked!");
+        log::warn!("shell finished, processor thread unblocked!");
         Ok(onie_sai::ShellResponse {
             ..Default::default()
         })
@@ -798,7 +786,7 @@ impl<'a, 'b> Processor<'a, 'b> {
     }
 
     fn process_auto_discovery_poll(&mut self) {
-        log::debug!("processor: auto discovery poll");
+        log::debug!("auto discovery poll");
         for phy_port in self.ports.iter_mut() {
             phy_port.auto_discovery_poll();
         }
@@ -819,10 +807,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                                 *sm = sm.clone().step(&log_port.port, PortUp);
                             }
                             None => {
-                                log::debug!(
-                                    "processor: port {} has no discovery state machine",
-                                    port_id
-                                );
+                                log::debug!("port {} has no discovery state machine", port_id);
                             }
                         }
                     }
@@ -836,12 +821,12 @@ impl<'a, 'b> Processor<'a, 'b> {
                             // that sets the host interface operational status (SAI internal I guess?)
                             // TODO: should just be on one function on HostInterface
                             match hif.set_oper_status(oper_status) {
-                                Ok(_) => log::info!("processor: set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id),
-                                Err(e) => log::error!("processor: failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
+                                Ok(_) => log::info!("set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id),
+                                Err(e) => log::error!("failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
                             }
                         }
                         None => log::warn!(
-                            "processor: port {} has no associated host interface created yet",
+                            "port {} has no associated host interface created yet",
                             port_id
                         ),
                     }
@@ -849,10 +834,7 @@ impl<'a, 'b> Processor<'a, 'b> {
             }
         }
         if !found {
-            log::warn!(
-                "processor: port {} not found during port state change event",
-                port_id
-            );
+            log::warn!("port {} not found during port state change event", port_id);
         }
     }
 
@@ -875,7 +857,7 @@ impl<'a, 'b> Processor<'a, 'b> {
             // try to add the route, the function will handle if it is in there already
             self.add_route(ip.into());
         } else {
-            log::warn!("processor: host interface {if_name} ({if_idx}) not found during netlink address add event. Route not added.");
+            log::warn!("host interface {if_name} ({if_idx}) not found during netlink address add event. Route not added.");
         }
     }
 
@@ -898,7 +880,7 @@ impl<'a, 'b> Processor<'a, 'b> {
             // try to remove the route, the function will handle if it is even there or not
             self.remove_route(ip.into());
         } else {
-            log::warn!("processor: host interface {if_name} ({if_idx}) not found during netlink address remove event. Route was not removed.");
+            log::warn!("host interface {if_name} ({if_idx}) not found during netlink address remove event. Route was not removed.");
         }
     }
 
@@ -977,9 +959,9 @@ impl<'a, 'b> Drop for Processor<'a, 'b> {
         // removing CPU host interface
         let cpu_hostif_id = self.cpu_hostif.to_id();
         match self.cpu_hostif.clone().remove() {
-            Ok(_) => log::info!("processor: removed CPU host interface {}", cpu_hostif_id),
+            Ok(_) => log::info!("removed CPU host interface {}", cpu_hostif_id),
             Err(e) => log::error!(
-                "processor: failed to remove CPU host interface {}: {:?}",
+                "failed to remove CPU host interface {}: {:?}",
                 cpu_hostif_id,
                 e
             ),
@@ -992,13 +974,11 @@ impl<'a, 'b> Drop for Processor<'a, 'b> {
                 if let Some(hif) = port.hif {
                     let hif_id = hif.intf.to_id();
                     match hif.intf.remove() {
-                        Ok(_) => log::info!(
-                            "processor: removed host interface {} for port {}",
-                            hif_id,
-                            port_id
-                        ),
+                        Ok(_) => {
+                            log::info!("removed host interface {} for port {}", hif_id, port_id)
+                        }
                         Err(e) => log::error!(
-                            "processor: failed to remove host interface {} for port {}: {:?}",
+                            "failed to remove host interface {} for port {}: {:?}",
                             hif_id,
                             port_id,
                             e

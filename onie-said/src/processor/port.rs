@@ -23,7 +23,7 @@ use sai::hostif::HostIf;
 use sai::port::BreakoutModeType;
 use sai::port::Port;
 
-use crate::oniesai::netlink;
+use crate::processor::netlink;
 
 use super::PlatformContextHolder;
 

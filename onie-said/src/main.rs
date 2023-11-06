@@ -1,4 +1,4 @@
-mod oniesai;
+mod processor;
 mod rpc;
 
 use std::env;
@@ -28,10 +28,10 @@ use macaddr::MacAddr6;
 
 use sai::SAI;
 
-use crate::oniesai::netlink;
-use crate::oniesai::port::PhysicalPortConfig;
-use crate::oniesai::PlatformContextHolder;
-use crate::oniesai::Processor;
+use crate::processor::netlink;
+use crate::processor::port::PhysicalPortConfig;
+use crate::processor::PlatformContextHolder;
+use crate::processor::Processor;
 
 use ctrlc;
 use std::sync::mpsc::channel;
@@ -277,7 +277,7 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
         ctrlc_rx
             .recv()
             .expect("could not receive from termination channel.");
-        if let Err(e) = ctrlc_proc_tx.send(oniesai::ProcessRequest::Shutdown) {
+        if let Err(e) = ctrlc_proc_tx.send(processor::ProcessRequest::Shutdown) {
             log::warn!(
                 "failed to send shutdown request from termination thread: {:?}",
                 e
@@ -299,7 +299,7 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
         // We are going to poll every second
         // NOTE: this might be too aggressive, we need to look at this again
         thread::sleep(Duration::from_secs(1));
-        if let Err(e) = auto_discovery_proc_tx.send(oniesai::ProcessRequest::AutoDiscoveryPoll) {
+        if let Err(e) = auto_discovery_proc_tx.send(processor::ProcessRequest::AutoDiscoveryPoll) {
             log::error!("failed to send auto discovery poll request: {:?}. Aborting auto discovery poll thread.", e);
             return;
         }
