@@ -790,6 +790,8 @@ impl<'a> LogicalPort<'a> {
                 RouterInterfaceAttribute::PortID(self.port.to_id().into()),
                 RouterInterfaceAttribute::MTU(9100),
                 RouterInterfaceAttribute::NATZoneID(0),
+                RouterInterfaceAttribute::V4McastEnable(true),
+                RouterInterfaceAttribute::V6McastEnable(true),
             ]) {
                 Ok(rif) => {
                     log::debug!(
