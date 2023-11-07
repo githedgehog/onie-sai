@@ -97,6 +97,20 @@ impl onie_sai_ttrpc::OnieSai for OnieSaiServer {
             .map_err(map_tx_error)?;
         Ok(onie_sai::ShutdownResponse::new())
     }
+
+    fn is_initial_discovery_finished(
+        &self,
+        _ctx: &ttrpc::TtrpcContext,
+        req: onie_sai::IsInitialDiscoveryFinishedRequest,
+    ) -> ttrpc::Result<onie_sai::IsInitialDiscoveryFinishedResponse> {
+        let (tx, rx) = channel();
+        self.proc_tx
+            .send(ProcessRequest::IsInitialDiscoveryFinished((req, tx)))
+            .map_err(map_tx_error)?;
+        let resp = rx.recv().map_err(map_rx_error)?;
+        let resp = resp.map_err(map_process_error)?;
+        Ok(resp)
+    }
 }
 
 fn map_tx_error<T: std::fmt::Debug>(e: T) -> ttrpc::error::Error {

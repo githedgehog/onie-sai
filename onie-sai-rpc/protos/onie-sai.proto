@@ -9,6 +9,9 @@ service OnieSai {
     rpc AutoDiscovery(AutoDiscoveryRequest) returns (AutoDiscoveryResponse);
     rpc Shell(ShellRequest) returns (ShellResponse);
     rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+    // we would usually make this a streaming rpc, however, ttrpc currently only supports this
+    // for async ttrpc which we don't use. So we'll make this a standard rpc and poll
+    rpc IsInitialDiscoveryFinished(IsInitialDiscoveryFinishedRequest) returns (IsInitialDiscoveryFinishedResponse);
 }
 
 message VersionRequest {}
@@ -77,3 +80,9 @@ message ShellResponse {}
 message ShutdownRequest {}
 
 message ShutdownResponse {}
+
+message IsInitialDiscoveryFinishedRequest {}
+
+message IsInitialDiscoveryFinishedResponse {
+    bool is_finished = 1;
+}

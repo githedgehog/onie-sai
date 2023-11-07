@@ -273,6 +273,7 @@ pub(crate) struct PhysicalPort<'a, 'b> {
     pub(crate) sm: Option<discovery::physicalport::DiscoveryStateMachine>,
     pub(crate) oper_status: bool,
     pub(crate) port_config: Option<PhysicalPortConfig>,
+    pub(crate) initial_port_discovery: Option<()>,
 }
 
 // just a convenience conversion method for our RPC
@@ -388,6 +389,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
             auto_discovery: false,
             auto_discovery_with_breakout: false,
             auto_discovery_counter: 0,
+            initial_port_discovery: None,
             sm: None,
             oper_status: false,
             lanes: hw_lanes.clone(),
