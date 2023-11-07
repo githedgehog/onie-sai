@@ -116,6 +116,12 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::AutoDiscoveryResponse, ProcessError>>,
         ),
     ),
+    IsInitialDiscoveryFinished(
+        (
+            onie_sai::IsInitialDiscoveryFinishedRequest,
+            Sender<Result<onie_sai::IsInitialDiscoveryFinishedResponse, ProcessError>>,
+        ),
+    ),
     LogicalPortStateChange((PortID, OperStatus)),
     NetlinkAddrAdded((u32, IpAddr)),
     NetlinkAddrRemoved((u32, IpAddr)),
@@ -465,7 +471,15 @@ impl<'a, 'b> Processor<'a, 'b> {
         // if auto-discovery is enabled on startup (the default), we are going to start it now
         if auto_discovery {
             for port in ports.iter_mut() {
-                port.enable_auto_discovery(auto_discovery_with_breakout)
+                port.enable_auto_discovery(auto_discovery_with_breakout);
+
+                // we also need to deal with the initial discovery process wait thingy
+                // we enable it for all the ports where a transceiver seems to be present
+                // as we want to do this only once, we keep this outside of the enable_auto_discovery function
+                // yes, this is all a bit ugly
+                if port.xcvr_present {
+                    port.initial_port_discovery = Some(());
+                }
             }
         }
 
@@ -526,6 +540,15 @@ impl<'a, 'b> Processor<'a, 'b> {
                     if let Err(e) = resp_tx.send(resp) {
                         log::error!(
                             "failed to send auto discovery status response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
+                ProcessRequest::IsInitialDiscoveryFinished((r, resp_tx)) => {
+                    let resp = p.process_is_initial_discovery_finished_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "failed to send is initial discovery finished response to rpc server: {:?}",
                             e
                         );
                     };
@@ -785,6 +808,25 @@ impl<'a, 'b> Processor<'a, 'b> {
         }
     }
 
+    fn process_is_initial_discovery_finished_request(
+        &self,
+        _: onie_sai::IsInitialDiscoveryFinishedRequest,
+    ) -> Result<onie_sai::IsInitialDiscoveryFinishedResponse, ProcessError> {
+        // if the initial_port_discovery is still Some(), then we are still
+        // waiting for some state machine to complete
+        // if they are all none, then we are done
+        let finished = self
+            .ports
+            .iter()
+            .find(|port| port.initial_port_discovery.is_some())
+            .map(|_| false)
+            .unwrap_or(true);
+        Ok(onie_sai::IsInitialDiscoveryFinishedResponse {
+            is_finished: finished,
+            ..Default::default()
+        })
+    }
+
     fn process_auto_discovery_poll(&mut self) {
         log::debug!("auto discovery poll");
         for phy_port in self.ports.iter_mut() {
@@ -999,164 +1041,3 @@ fn until_err<T, E>(err: &mut &mut Result<(), E>, item: Result<T, E>) -> Option<T
         }
     }
 }
-
-// let _myip_route_entry = match default_virtual_router.create_route_entry(
-//     IpNet::from_str("10.10.10.1/32").unwrap(),
-//     vec![
-//         RouteEntryAttribute::PacketAction(PacketAction::Forward),
-//         RouteEntryAttribute::NextHopID(cpu_port_id.into()),
-//     ],
-// ) {
-//     Ok(v) => v,
-//     Err(e) => {
-//         log::error!(
-//             "failed to create route entry for ourselves for virtual router {}: {:?}",
-//             default_virtual_router,
-//             e
-//         );
-//         return ExitCode::FAILURE;
-//     }
-// };
-
-// let mut hostifs: Vec<HostIf> = Vec::with_capacity(ports.len());
-// for (i, port) in ports.into_iter().enumerate() {
-//     let port_id = port.to_id();
-//     // create host interface
-//     let hostif = match switch.create_hostif(vec![
-//         HostIfAttribute::Type(HostIfType::Netdev),
-//         HostIfAttribute::ObjectID(port_id.into()),
-//         HostIfAttribute::Name(format!("Ethernet{}", i)),
-//     ]) {
-//         Ok(v) => v,
-//         Err(e) => {
-//             log::error!(
-//                 "failed to create host interface for port {} on switch {}: {:?}",
-//                 port,
-//                 switch,
-//                 e
-//             );
-//             return ExitCode::FAILURE;
-//         }
-//     };
-//     hostifs.push(hostif.clone());
-
-//     // check supported speeds, and set port to 10G if possible
-//     match port.get_supported_speeds() {
-//         Err(e) => {
-//             log::error!(
-//                 "failed to query port {} for supported speeds: {:?}",
-//                 port,
-//                 e
-//             );
-//         }
-//         Ok(speeds) => {
-//             if !speeds.contains(&10000) {
-//                 log::warn!("port {} does not support 10G, only {:?}", port, speeds)
-//             } else {
-//                 match port.set_speed(10000) {
-//                     Ok(_) => {
-//                         log::info!("set port speed to 10G for port {}", port);
-//                     }
-//                     Err(e) => {
-//                         log::error!(
-//                             "failed to set port speed to 10G for port {}: {:?}",
-//                             port,
-//                             e
-//                         );
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     // set port up
-//     match port.set_admin_state(true) {
-//         Ok(_) => {
-//             log::info!("set admin state to true for port {}", port);
-//         }
-//         Err(e) => {
-//             log::error!(
-//                 "failed to set admin state to true for port {}: {:?}",
-//                 port,
-//                 e
-//             );
-//         }
-//     }
-
-//     // allow vlan tags on host interfaces
-//     match hostif.set_vlan_tag(VlanTag::Original) {
-//         Ok(_) => {
-//             log::info!(
-//                 "set vlan tag to keep original for host interface {}",
-//                 hostif
-//             );
-//         }
-//         Err(e) => {
-//             log::error!(
-//                 "failed to set vlan tag to keep original for host interface {}: {:?}",
-//                 hostif,
-//                 e
-//             );
-//         }
-//     }
-
-//     // bring host interface up
-//     match hostif.set_oper_status(true) {
-//         Ok(_) => {
-//             log::info!("set oper status to true for host interface {}", hostif);
-//         }
-//         Err(e) => {
-//             log::error!(
-//                 "failed to set oper status to true for host interface {}: {:?}",
-//                 hostif,
-//                 e
-//             );
-//         }
-//     }
-
-//     // create router interface
-//     match default_virtual_router.create_router_interface(vec![
-//         RouterInterfaceAttribute::SrcMacAddress(mac_address),
-//         RouterInterfaceAttribute::Type(RouterInterfaceType::Port),
-//         RouterInterfaceAttribute::PortID(port.into()),
-//         RouterInterfaceAttribute::MTU(9100),
-//         RouterInterfaceAttribute::NATZoneID(0),
-//     ]) {
-//         Ok(v) => {
-//             log::info!("successfully created router interface {}", v);
-//         }
-//         Err(e) => {
-//             log::error!("failed create router interface: {:?}", e);
-//         }
-//     }
-// }
-
-// match switch.enable_shell() {
-//     Ok(_) => {}
-//     Err(e) => {
-//         log::error!("failed to enter switch shell: {:?}", e);
-//     }
-// }
-
-// shutdown: remove things again
-// hostifs.push(cpu_intf);
-// for hostif in hostifs {
-//     let id = hostif.to_id();
-//     match hostif.remove() {
-//         Ok(_) => {
-//             log::info!("successfully removed host interface {}", id);
-//         }
-//         Err(e) => {
-//             log::error!("failed to remove host interface {}: {:?}", id, e);
-//         }
-//     }
-// }
-
-// match switch.remove() {
-//     Ok(_) => {
-//         log::info!("successfully removed switch");
-//     }
-//     Err(e) => {
-//         log::error!("failed to remove switch: {:?}", e);
-//     }
-// }

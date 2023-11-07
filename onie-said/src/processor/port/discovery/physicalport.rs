@@ -360,6 +360,14 @@ impl FromState<BreakoutMode> for Done {
                 ret.state
             );
         }
+
+        // either way we're going to unset the initial discoery thingy if it is set
+        // this tells whoever is listening or want to know that this port is done
+        // with its initial discovery process
+        if port.initial_port_discovery.is_some() {
+            port.initial_port_discovery = None;
+        }
+
         ret
     }
 }

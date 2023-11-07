@@ -85,6 +85,10 @@ enum Commands {
 
     /// shuts down onie-said (equals sending a SIGTERM to the process)
     Shutdown,
+
+    /// Wait on initial discovery to complete. This is meant for init scripts which need to wait until the initial discovery is complete
+    /// before they can consider the service started up.
+    WaitOnInitialDiscovery,
 }
 
 #[derive(Args)]
@@ -181,6 +185,19 @@ fn app() -> anyhow::Result<()> {
                 .context("request to onie-said failed")?;
             log::info!("response from onie-said: {:?}", resp);
         }
+        Commands::WaitOnInitialDiscovery => loop {
+            let req = onie_sai::IsInitialDiscoveryFinishedRequest::new();
+            log::info!("making request to onie-said: {:?}...", req);
+            let resp = osc
+                .is_initial_discovery_finished(default_ctx(), &req)
+                .context("request to onie-said failed")?;
+            log::info!("response from onie-said: {:?}", resp);
+            if resp.is_finished {
+                log::info!("initial discovery finished");
+                break;
+            }
+            thread::sleep(Duration::from_millis(1000));
+        },
     }
 
     log::info!("Success");
