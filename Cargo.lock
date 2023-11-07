@@ -620,6 +620,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
+name = "onie-sai"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "env_logger",
+ "onie-sai-common",
+ "onie-saictl",
+ "onie-said",
+]
+
+[[package]]
+name = "onie-sai-common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+]
+
+[[package]]
 name = "onie-sai-rpc"
 version = "0.1.0"
 dependencies = [
@@ -636,6 +655,7 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
+ "onie-sai-common",
  "onie-sai-rpc",
  "ttrpc",
 ]
@@ -656,6 +676,7 @@ dependencies = [
  "netlink-packet-route",
  "netlink-packet-utils",
  "netlink-sys",
+ "onie-sai-common",
  "onie-sai-rpc",
  "sai",
  "serde",

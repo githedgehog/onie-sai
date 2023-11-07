@@ -12,3 +12,4 @@ log = "0.4.20"
 env_logger = "0.10.0"
 ttrpc = "0.8.1"
 onie-sai-rpc = { version = "0.1.0", path = "../onie-sai-rpc" }
+onie-sai-common = { version = "0.1.0", path = "../onie-sai-common" }
