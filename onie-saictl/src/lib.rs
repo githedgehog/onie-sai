@@ -11,8 +11,6 @@ use std::io::BufRead;
 use std::io::Read;
 use std::io::Write;
 use std::os::unix::net::UnixListener;
-use std::process::ExitCode;
-use std::process::Termination;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -96,22 +94,8 @@ struct AutoDiscoveryArgs {
     enable: Option<bool>,
 }
 
-struct App(anyhow::Result<()>);
-
-impl Termination for App {
-    fn report(self) -> ExitCode {
-        match self.0 {
-            Ok(_) => ExitCode::SUCCESS,
-            Err(e) => {
-                log::error!("Unrecoverable application error. Exiting... ERROR: {:?}", e);
-                ExitCode::FAILURE
-            }
-        }
-    }
-}
-
-fn main() -> App {
-    App(app())
+pub fn main() -> onie_sai_common::App {
+    onie_sai_common::App(app())
 }
 
 fn app() -> anyhow::Result<()> {

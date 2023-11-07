@@ -13,9 +13,7 @@ use std::os::fd::AsRawFd;
 use std::os::fd::FromRawFd;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::ExitCode;
 use std::process::Stdio;
-use std::process::Termination;
 use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
@@ -150,21 +148,7 @@ impl From<LogLevel> for LevelFilter {
     }
 }
 
-struct App(anyhow::Result<()>);
-
-impl Termination for App {
-    fn report(self) -> ExitCode {
-        match self.0 {
-            Ok(_) => ExitCode::SUCCESS,
-            Err(e) => {
-                log::error!("Unrecoverable application error: {:?}. Exiting...", e);
-                ExitCode::FAILURE
-            }
-        }
-    }
-}
-
-fn main() -> App {
+pub fn main() -> onie_sai_common::App {
     // parse flags and initialize logger
     // NOTE: we need to do this before we call the wrapper
     // as it will eat help and anything else otherwise
@@ -174,7 +158,7 @@ fn main() -> App {
         .init();
 
     // NOTE: wrapper will call app(). See below for details.
-    App(wrapper(cli))
+    onie_sai_common::App(wrapper(cli))
 }
 
 fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {

@@ -8,6 +8,8 @@ members = [
     "xcvr-dell-s5200",
     "xcvrctl",
     "onie-sai-rpc",
+    "onie-sai",
+    "onie-sai-common",
     "onie-said",
     "onie-saictl",
 ]
