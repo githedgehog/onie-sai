@@ -1,3 +1,4 @@
+mod lldp;
 mod processor;
 mod rpc;
 
