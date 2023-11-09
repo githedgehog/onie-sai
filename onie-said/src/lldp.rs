@@ -1,6 +1,10 @@
 use std::io::Cursor;
 use std::io::Read;
 use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::str::FromStr;
+
+use ipnet::IpNet;
 
 #[derive(Debug)]
 pub enum BindError {
@@ -414,6 +418,68 @@ impl TryFrom<&LLDPTLV> for LLDPTLVMUDString {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NetworkConfig {
+    pub ip: IpNet,
+    pub routes: Vec<Routes>,
+    pub is_hh: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Routes {
+    pub destinations: Vec<IpAddr>,
+    pub gateway: IpAddr,
+}
+
+impl LLDPTLVMUDString {
+    pub fn get_hh_network_config(&self) -> Option<NetworkConfig> {
+        let mud_url = url::Url::parse(&self.mud_string).ok()?;
+        match mud_url.host() {
+            None => return None,
+            Some(host) => {
+                let host = host.to_string();
+                if host.as_str() != "hedgehog" {
+                    return None;
+                }
+            }
+        };
+        let mut found_my_ipnet = false;
+        let mut found_your_ipnet = false;
+        let mut found_control_vip = false;
+        let mut my_ipnet = IpNet::default();
+        let mut your_ipnet = IpNet::default();
+        let mut control_vip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+        for (k, v) in mud_url.query_pairs() {
+            match k.as_ref() {
+                "my_ipnet" => {
+                    my_ipnet = IpNet::from_str(v.as_ref()).ok()?;
+                    found_my_ipnet = true;
+                }
+                "your_ipnet" => {
+                    your_ipnet = IpNet::from_str(v.as_ref()).ok()?;
+                    found_your_ipnet = true;
+                }
+                "control_vip" => {
+                    control_vip = IpAddr::from_str(v.as_ref()).ok()?;
+                    found_control_vip = true;
+                }
+                _ => continue,
+            }
+        }
+        if !found_my_ipnet || !found_your_ipnet || !found_control_vip {
+            return None;
+        }
+        Some(NetworkConfig {
+            ip: your_ipnet,
+            routes: vec![Routes {
+                destinations: vec![control_vip],
+                gateway: my_ipnet.addr(),
+            }],
+            is_hh: true,
+        })
+    }
+}
+
 /// All LLDP TLVs follow the same format:
 /// - 7 bits for the type
 /// - 9 bits for the length
@@ -455,6 +521,8 @@ pub fn parse_lldp(data: &[u8]) -> Vec<LLDPTLV> {
 
 #[cfg(test)]
 mod tests {
+    use ipnet::Ipv4Net;
+
     use super::*;
 
     const PACKET_SWITCH_1: [u8; 405] = [
@@ -523,6 +591,57 @@ mod tests {
         0x31, 0x36, 0x38, 0x25, 0x32, 0x45, 0x31, 0x30, 0x31, 0x25, 0x32, 0x45, 0x31, 0x0e, 0x04,
         0x00, 0x94, 0x00, 0x10, 0x00, 0x00,
     ];
+
+    #[test]
+    fn test_mudurl_parsing() {
+        // this reference one must work
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let b = a.get_hh_network_config().unwrap();
+        println!("{b:?}");
+        assert_eq!(
+            b,
+            NetworkConfig {
+                ip: IpNet::V4(Ipv4Net::new(Ipv4Addr::new(192, 168, 101, 1), 31).unwrap()),
+                routes: vec![Routes {
+                    gateway: IpAddr::V4(Ipv4Addr::new(192, 168, 101, 0)),
+                    destinations: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 42, 1))],
+                }],
+                is_hh: true,
+            }
+        );
+
+        // additional query fields should not hurt
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?haha=hehe&my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1&a=b".to_string() };
+        let b = a.get_hh_network_config();
+        assert!(b.is_some());
+
+        // additional path should not hurt
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/blah/blah/blah?haha=hehe&my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1&a=b".to_string() };
+        let b = a.get_hh_network_config();
+        assert!(b.is_some());
+
+        // now let's try some negative cases
+        let a = LLDPTLVMUDString { mud_string: "http://localhost/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let b = a.get_hh_network_config();
+        assert!(b.is_none());
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?myyyy_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let b = a.get_hh_network_config();
+        assert!(b.is_none());
+        let a = LLDPTLVMUDString {
+            mud_string: "http://hedgehog/?control_vip=192.168.42.1".to_string(),
+        };
+        let b = a.get_hh_network_config();
+        assert!(b.is_none());
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.1001.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let b = a.get_hh_network_config();
+        assert!(b.is_none());
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101..1/31&control_vip=192.168.42.1".to_string() };
+        let b = a.get_hh_network_config();
+        assert!(b.is_none());
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=300.168.42.1".to_string() };
+        let b = a.get_hh_network_config();
+        assert!(b.is_none());
+    }
 
     #[test]
     fn test_packet_switch_1() {
