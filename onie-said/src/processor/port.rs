@@ -781,6 +781,7 @@ impl<'a> LogicalPort<'a> {
                         idx: idx,
                         oper_status: false,
                         lldp_socket: None,
+                        lldp_tlvs: None,
                         lldp_network_config: None,
                     })
                 }
@@ -894,6 +895,7 @@ pub(crate) struct HostInterface<'a> {
     pub(crate) idx: u32,
     pub(crate) oper_status: bool,
     pub(crate) lldp_socket: Option<Arc<LLDPSocket>>,
+    pub(crate) lldp_tlvs: Option<LLDPTLVs>,
     pub(crate) lldp_network_config: Option<NetworkConfig>,
 }
 
@@ -927,10 +929,12 @@ impl<'a> HostInterface<'a> {
                     let hif_idx = self.idx;
                     let hif_name = self.name.clone();
                     thread::spawn(move || {
+                        log::debug!("Host Interface {hif_name}: LLDP receive thread started");
                         loop {
                             // this blocks until we receive a new packet on the socket
                             match socket.recv_packet() {
                                 Ok(pkt) => {
+                                    log::debug!("Host Interface {hif_name}: received LLDP packet");
                                     // parse the LLDP TLVs from the packet
                                     let lldp_tlvs: LLDPTLVs = match pkt.as_slice().try_into() {
                                         Ok(v) => v,
@@ -940,7 +944,23 @@ impl<'a> HostInterface<'a> {
                                         }
                                     };
 
-                                    // try to get the network config from the LLDP TLVs
+                                    // send the LLDP TLVs to the processor thread
+                                    // this is for general LLDP information that we received on this host interface
+                                    // which can be queried through onie-saictl
+                                    if let Err(e) =
+                                        processor_sender.send(ProcessRequest::LLDPTLVsReceived((
+                                            hif_idx,
+                                            lldp_tlvs.clone(),
+                                        )))
+                                    {
+                                        log::error!(
+                                            "Host Interface {}: failed to send LLDP TLVs to processor thread: {:?}",
+                                            hif_name,
+                                            e
+                                        );
+                                    }
+
+                                    // and try to get the network config from the LLDP TLVs
                                     if let Some(network_config) = lldp_tlvs.get_hh_network_config()
                                     {
                                         // store network config for this interface by sending it to the processor thread

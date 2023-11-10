@@ -12,6 +12,7 @@ service OnieSai {
     // we would usually make this a streaming rpc, however, ttrpc currently only supports this
     // for async ttrpc which we don't use. So we'll make this a standard rpc and poll
     rpc IsInitialDiscoveryFinished(IsInitialDiscoveryFinishedRequest) returns (IsInitialDiscoveryFinishedResponse);
+    rpc LLDPStatus(LLDPStatusRequest) returns (LLDPStatusResponse);
     rpc LLDPNetworkConfig(LLDPNetworkConfigRequest) returns (LLDPNetworkConfigResponse);
 }
 
@@ -86,6 +87,15 @@ message IsInitialDiscoveryFinishedRequest {}
 
 message IsInitialDiscoveryFinishedResponse {
     bool is_finished = 1;
+}
+
+message LLDPStatusRequest {
+    string device = 1;
+}
+
+message LLDPStatusResponse {
+    bool packet_received = 1;
+    repeated string tlvs = 2;
 }
 
 message LLDPNetworkConfigRequest {

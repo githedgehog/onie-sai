@@ -615,7 +615,7 @@ impl LLDPTLVMUDString {
 /// - 7 bits for the type
 /// - 9 bits for the length
 /// - the value as "length" number of bytes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LLDPTLV {
     pub typ: u8,
     pub length: u16,
@@ -656,6 +656,7 @@ pub enum LLDPPacketReadError {
     NotAnLLDPPacket(u16),
 }
 
+#[derive(Debug, Clone)]
 pub struct LLDPTLVs(pub Vec<LLDPTLV>);
 
 impl TryFrom<&[u8]> for LLDPTLVs {
@@ -675,6 +676,45 @@ impl TryFrom<&[u8]> for LLDPTLVs {
 impl LLDPTLVs {
     pub fn parse_lldp(data: &[u8]) -> Self {
         Self(parse_lldp(data))
+    }
+
+    pub fn to_strings(&self) -> Vec<String> {
+        let mut ret = Vec::new();
+        for tlv in self.0.iter() {
+            match tlv.typ {
+                LLDP_TLV_TYPE_SYSTEM_NAME => {
+                    if let Ok(tlv_name) = LLDPTLVSystemName::try_from(tlv) {
+                        ret.push(format!("System Name: {}", tlv_name.name));
+                    }
+                }
+                LLDP_TLV_TYPE_SYSTEM_DESCRIPTION => {
+                    if let Ok(tlv_desc) = LLDPTLVSystemDescription::try_from(tlv) {
+                        ret.push(format!("System Description: {}", tlv_desc.description));
+                    }
+                }
+                LLDP_TLV_TYPE_MGMT_ADDRESS => {
+                    if let Ok(tlv_mgmt) = LLDPTLVMgmtAddr::try_from(tlv) {
+                        if let Some(addr) = tlv_mgmt.addr {
+                            ret.push(format!("Management Address: {}", addr));
+                        }
+                    }
+                }
+                LLDP_TLV_TYPE_ORGANIZATION_SPECIFIC => {
+                    if let Ok(tlv_org) = LLDPTLVOrgSpecific::try_from(tlv) {
+                        // we could test here if the OUI and subtype match, however, that's already done in the TryFrom
+                        // implemenation as well
+                        if let Ok(tlv_mud) = LLDPTLVMUDString::try_from(tlv_org) {
+                            ret.push(format!(
+                                "ICANN, IANA Department - Manufacturer Usage Description URL: {}",
+                                tlv_mud.mud_string
+                            ));
+                        }
+                    }
+                }
+                _ => continue,
+            }
+        }
+        ret
     }
 
     pub fn get_hh_network_config(&self) -> Option<NetworkConfig> {

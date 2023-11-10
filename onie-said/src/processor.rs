@@ -47,6 +47,7 @@ use sai::virtual_router::VirtualRouter;
 
 use thiserror::Error;
 
+use crate::lldp::LLDPTLVs;
 use crate::lldp::NetworkConfig;
 use crate::processor::port::SortPortsByLanes;
 
@@ -86,6 +87,9 @@ pub(crate) enum ProcessError {
 
     #[error("failed to get interface: {0}")]
     GetInterfaceError(std::io::Error),
+
+    #[error("failed to get interface index for '{0}'")]
+    NoSuchInterfaceError(String),
 }
 
 pub(crate) enum ProcessRequest {
@@ -130,7 +134,14 @@ pub(crate) enum ProcessRequest {
     LogicalPortStateChange((PortID, OperStatus)),
     NetlinkAddrAdded((u32, IpAddr)),
     NetlinkAddrRemoved((u32, IpAddr)),
+    LLDPTLVsReceived((u32, LLDPTLVs)),
     LLDPNetworkConfigReceived((u32, NetworkConfig)),
+    LLDPStatus(
+        (
+            onie_sai::LLDPStatusRequest,
+            Sender<Result<onie_sai::LLDPStatusResponse, ProcessError>>,
+        ),
+    ),
     LLDPNetworkConfig(
         (
             onie_sai::LLDPNetworkConfigRequest,
@@ -565,12 +576,17 @@ impl<'a, 'b> Processor<'a, 'b> {
                         );
                     };
                 }
+                ProcessRequest::LLDPStatus((r, resp_tx)) => {
+                    let resp = p.process_lldp_status_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!("failed to send lldp status response to rpc server: {e:?}");
+                    };
+                }
                 ProcessRequest::LLDPNetworkConfig((r, resp_tx)) => {
                     let resp = p.process_lldp_network_config_request(r);
                     if let Err(e) = resp_tx.send(resp) {
                         log::error!(
-                            "failed to send lldp network config response to rpc server: {:?}",
-                            e
+                            "failed to send lldp network config response to rpc server: {e:?}"
                         );
                     };
                 }
@@ -585,6 +601,9 @@ impl<'a, 'b> Processor<'a, 'b> {
                 }
                 ProcessRequest::NetlinkAddrRemoved((if_idx, ip)) => {
                     p.process_netlink_addr_removed(if_idx, ip)
+                }
+                ProcessRequest::LLDPTLVsReceived((if_idx, tlvs)) => {
+                    p.process_lldp_tlvs_received(if_idx, tlvs)
                 }
                 ProcessRequest::LLDPNetworkConfigReceived((if_idx, config)) => {
                     p.process_lldp_network_config_received(if_idx, config)
@@ -851,12 +870,59 @@ impl<'a, 'b> Processor<'a, 'b> {
         })
     }
 
+    fn process_lldp_status_request(
+        &self,
+        req: onie_sai::LLDPStatusRequest,
+    ) -> Result<onie_sai::LLDPStatusResponse, ProcessError> {
+        let if_idx = netlink::get_interface_index(req.device.as_str())
+            .map_err(|e| ProcessError::GetInterfaceError(e))?;
+
+        // this should not be necessary actually, but we'll keep this just in case
+        if if_idx == 0 {
+            return Err(ProcessError::NoSuchInterfaceError(req.device.clone()));
+        }
+        log::debug!("LLDPStatusRequest: looking for LLDP TLVs for interface {if_idx}");
+
+        for phy_port in self.ports.iter() {
+            for log_port in phy_port.ports.iter() {
+                if let Some(ref hif) = log_port.hif {
+                    if hif.idx == if_idx {
+                        if let Some(ref lldp_tlvs) = hif.lldp_tlvs {
+                            return Ok(onie_sai::LLDPStatusResponse {
+                                tlvs: lldp_tlvs.to_strings(),
+                                packet_received: true,
+                                ..Default::default()
+                            });
+                        }
+                        log::debug!("LLDPStatusRequest: interface found, but no LLDP TLVs found for interface {if_idx}");
+                    }
+                }
+            }
+        }
+
+        log::debug!(
+            "LLDPStatusRequest: interface not found or no LLDP TLVs found for interface {if_idx}"
+        );
+        Ok(onie_sai::LLDPStatusResponse {
+            packet_received: false,
+            ..Default::default()
+        })
+    }
+
     fn process_lldp_network_config_request(
         &self,
         req: onie_sai::LLDPNetworkConfigRequest,
     ) -> Result<onie_sai::LLDPNetworkConfigResponse, ProcessError> {
         let if_idx = netlink::get_interface_index(req.device.as_str())
             .map_err(|e| ProcessError::GetInterfaceError(e))?;
+
+        // this should not be necessary actually, but we'll keep this just in case
+        if if_idx == 0 {
+            return Err(ProcessError::NoSuchInterfaceError(req.device.clone()));
+        }
+        log::debug!(
+            "LLDPNetworkConfigRequest: looking for LLDP network config for interface {if_idx}"
+        );
 
         for phy_port in self.ports.iter() {
             for log_port in phy_port.ports.iter() {
@@ -868,10 +934,13 @@ impl<'a, 'b> Processor<'a, 'b> {
                                 ..Default::default()
                             });
                         }
+                        log::debug!("LLDPNetworkConfigRequest: interface found, but no LLDP network config found for interface {if_idx}");
                     }
                 }
             }
         }
+
+        log::debug!("LLDPNetworkConfigRequest: interface not found or no LLDP network config found for interface {if_idx}");
         Ok(onie_sai::LLDPNetworkConfigResponse {
             network_config: wrap_message_field(None),
             ..Default::default()
@@ -976,6 +1045,27 @@ impl<'a, 'b> Processor<'a, 'b> {
             self.remove_route(ip.into());
         } else {
             log::warn!("host interface {if_name} ({if_idx}) not found during netlink address remove event. Route was not removed.");
+        }
+    }
+
+    fn process_lldp_tlvs_received(&mut self, if_idx: u32, lldp_tlvs: LLDPTLVs) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // and update the TLVs in there
+        let mut found = false;
+        'outer: for phy_port in self.ports.iter_mut() {
+            for log_port in phy_port.ports.iter_mut() {
+                for hif in log_port.hif.iter_mut() {
+                    if hif.idx == if_idx {
+                        found = true;
+                        hif.lldp_tlvs = Some(lldp_tlvs);
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        if !found {
+            log::warn!("host interface {if_name} ({if_idx}) not found during LLDP TLVs event. Discovered LLDP TLVs were not stored.");
         }
     }
 

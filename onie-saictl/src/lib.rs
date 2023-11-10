@@ -88,6 +88,9 @@ enum Commands {
     /// before they can consider the service started up.
     WaitOnInitialDiscovery,
 
+    /// Information about LLDP on a given device.
+    LLDP(LLDPArgs),
+
     /// Retrieves the network configuration for a given device as received over LLDP over the interface.
     /// NOTE: This command is specific to the Hedgehog Fabric implementation of LLDP packets that are sent from SONiC switches and Hedgehog Fabric control nodes.
     LLDPNetworkConfig(LLDPNetworkConfigArgs),
@@ -96,6 +99,11 @@ enum Commands {
 #[derive(Args)]
 struct AutoDiscoveryArgs {
     enable: Option<bool>,
+}
+
+#[derive(Args)]
+struct LLDPArgs {
+    device: String,
 }
 
 #[derive(Args)]
@@ -194,6 +202,21 @@ fn app() -> anyhow::Result<()> {
             }
             thread::sleep(Duration::from_millis(1000));
         },
+        Commands::LLDP(args) => {
+            let req = onie_sai::LLDPStatusRequest {
+                device: args.device,
+                ..Default::default()
+            };
+            log::info!("making request to onie-said: {:?}...", req);
+            let resp = osc
+                .lldp_status(default_ctx(), &req)
+                .context("request to onie-said failed")?;
+            log::info!("response from onie-said: {:?}", resp);
+            println!("LLDP packet received: {}", resp.packet_received);
+            for tlv in resp.tlvs {
+                println!("{}", tlv);
+            }
+        }
         Commands::LLDPNetworkConfig(args) => {
             let mut wait_secs = args.wait_secs.unwrap_or(1);
             while wait_secs > 1 {
