@@ -150,7 +150,7 @@ const ETH_P_LLDP: u16 = 0x88cc;
 const LLDP_TLV_TYPE_SYSTEM_NAME: u8 = 5;
 const LLDP_TLV_TYPE_SYSTEM_DESCRIPTION: u8 = 6;
 const LLDP_TLV_TYPE_MGMT_ADDRESS: u8 = 8;
-const LLDP_TLV_TYPE_VENDOR_SPECIFIC: u8 = 127;
+const LLDP_TLV_TYPE_ORGANIZATION_SPECIFIC: u8 = 127;
 
 /// +--------+--------+-------------+
 /// |TLV Type|  len   | system name |
@@ -184,6 +184,7 @@ impl TryFrom<&LLDPTLV> for LLDPTLVSystemName {
 ///              len  <-------------------->
 pub struct LLDPTLVSystemDescription {
     pub description: String,
+    pub hh_kv_pairs: Option<Vec<(String, String)>>,
 }
 
 impl TryFrom<&LLDPTLV> for LLDPTLVSystemDescription {
@@ -196,7 +197,67 @@ impl TryFrom<&LLDPTLV> for LLDPTLVSystemDescription {
 
         let description = String::from_utf8_lossy(&tlv.value).to_string();
 
-        Ok(Self { description })
+        Ok(Self::new(description))
+    }
+}
+
+impl LLDPTLVSystemDescription {
+    pub fn new(description: String) -> Self {
+        let hh_kv_pairs = Self::get_hh_key_value_pairs(&description);
+        Self {
+            description,
+            hh_kv_pairs: hh_kv_pairs,
+        }
+    }
+
+    fn get_hh_key_value_pairs(descr: &str) -> Option<Vec<(String, String)>> {
+        if descr.starts_with("Hedgehog:") {
+            // strip the Hedgehog: prefix, and remove all whitespaces around it
+            let a = descr.strip_prefix("Hedgehog:").unwrap().trim().to_string();
+
+            // strip the [] around the string if it exists
+            let a = if let Some(a) = a.strip_prefix('[') {
+                a.to_string()
+            } else {
+                a
+            };
+            let a = if let Some(a) = a.strip_suffix(']') {
+                a.to_string()
+            } else {
+                a
+            };
+
+            // now let's split by "," and trim whitespaces again
+            let a = a
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect::<Vec<String>>();
+
+            // and last but not least, split all entries into key value pairs by splitting on the first "="
+            // and trim whitespaces around it again
+            // we'll ignore all entries which are not key value pairs
+            let a = a
+                .iter()
+                .flat_map(|s| {
+                    s.split_once('=')
+                        .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+                })
+                .collect::<Vec<(String, String)>>();
+
+            return Some(a);
+        }
+        None
+    }
+
+    pub fn get_hh_control_vip(&self) -> Option<IpAddr> {
+        if let Some(hh_kv_pairs) = &self.hh_kv_pairs {
+            for (k, v) in hh_kv_pairs {
+                if k == "control_vip" {
+                    return IpAddr::from_str(v).ok();
+                }
+            }
+        }
+        None
     }
 }
 
@@ -293,6 +354,38 @@ impl TryFrom<&LLDPTLV> for LLDPTLVMgmtAddr {
     }
 }
 
+impl LLDPTLVMgmtAddr {
+    /// As long as this is a Hedgehog IP discovery
+    /// we assume that the gateway address is the management IP address
+    /// NOTE: We only know if it is, if we have a system description TLV
+    /// which indicates that it is
+    pub fn get_hh_gateway(&self) -> Option<IpAddr> {
+        self.addr
+    }
+
+    /// If this is a Hedgehog IP discovery, then we assume that the management IP address is a /31
+    /// and we assume that the IP that we want to have is "the other" IP of the /31 subnet.
+    /// NOTE: We only know if it is, if we have a system description TLV
+    /// which indicates that it is
+    pub fn get_hh_ip(&self) -> Option<IpNet> {
+        if let Some(addr) = self.addr {
+            // we are assuming that the management IP address is a /31
+            if let Ok(remote_ip) = IpNet::new(addr, 31) {
+                // iterate over all possible IPs
+                for host in remote_ip.hosts() {
+                    // if this is the management IP, then we skip it
+                    if host == addr {
+                        continue;
+                    }
+                    // otherwise, it's "the other" IP, which is the one we are looking for
+                    return IpNet::new(host, 31).ok();
+                }
+            }
+        }
+        None
+    }
+}
+
 /// +--------+--------+----------+---------+---------------+
 /// |TLV Type|  len   |   OUI    | subtype |     data     |
 /// |  =127  |        |          |         |              |
@@ -308,7 +401,7 @@ impl TryFrom<&LLDPTLV> for LLDPTLVOrgSpecific {
     type Error = String;
 
     fn try_from(tlv: &LLDPTLV) -> Result<Self, Self::Error> {
-        if tlv.typ != LLDP_TLV_TYPE_VENDOR_SPECIFIC {
+        if tlv.typ != LLDP_TLV_TYPE_ORGANIZATION_SPECIFIC {
             return Err("not a vendor-specific TLV".to_string());
         }
 
@@ -387,7 +480,7 @@ impl TryFrom<&LLDPTLV> for LLDPTLVMUDString {
     type Error = String;
 
     fn try_from(tlv: &LLDPTLV) -> Result<Self, Self::Error> {
-        if tlv.typ != LLDP_TLV_TYPE_VENDOR_SPECIFIC {
+        if tlv.typ != LLDP_TLV_TYPE_ORGANIZATION_SPECIFIC {
             return Err("not a vendor-specific TLV".to_string());
         }
 
@@ -430,6 +523,8 @@ pub struct Routes {
     pub destinations: Vec<IpAddr>,
     pub gateway: IpAddr,
 }
+
+// ^Hedgehog:[[:space:]]+\[(\w+)=([^\[\],]+)(?:,(\w+)=([^\[\],]+))*\]$
 
 impl LLDPTLVMUDString {
     pub fn get_hh_network_config(&self) -> Option<NetworkConfig> {
@@ -517,6 +612,70 @@ pub fn parse_lldp(data: &[u8]) -> Vec<LLDPTLV> {
         tlvs.push(tlv);
     }
     tlvs
+}
+
+pub struct LLDPTLVs(pub Vec<LLDPTLV>);
+
+impl LLDPTLVs {
+    pub fn parse(data: &[u8]) -> Self {
+        Self(parse_lldp(data))
+    }
+
+    pub fn get_hh_network_config(&self) -> Option<NetworkConfig> {
+        let mut control_vip: Option<IpAddr> = None;
+        let mut my_ipnet: Option<IpNet> = None;
+        let mut gateway: Option<IpAddr> = None;
+        for tlv in self.0.iter() {
+            match tlv.typ {
+                LLDP_TLV_TYPE_SYSTEM_DESCRIPTION => {
+                    if let Ok(tlv_desc) = LLDPTLVSystemDescription::try_from(tlv) {
+                        control_vip = tlv_desc.get_hh_control_vip();
+                    }
+                }
+                LLDP_TLV_TYPE_MGMT_ADDRESS => {
+                    if let Ok(tlv_mgmt) = LLDPTLVMgmtAddr::try_from(tlv) {
+                        my_ipnet = tlv_mgmt.get_hh_ip();
+                        gateway = tlv_mgmt.get_hh_gateway();
+                    }
+                }
+                LLDP_TLV_TYPE_ORGANIZATION_SPECIFIC => {
+                    if let Ok(tlv_org) = LLDPTLVOrgSpecific::try_from(tlv) {
+                        // we could test here if the OUI and subtype match, however, that's already done in the TryFrom
+                        // implemenation as well
+                        if let Ok(tlv_mud) = LLDPTLVMUDString::try_from(tlv_org) {
+                            if let Some(network_config) = tlv_mud.get_hh_network_config() {
+                                // if we are able to get a network config from the MUD URL of the TLVs
+                                // then we will just take it completely from there, and ignore everything else
+                                // this essentially short-circuits everything
+                                //
+                                // Hedgehog: this is the case for control nodes where we are using systemd-networkd
+                                // and we are encoding the network configuration in the MUD URL
+                                return Some(network_config);
+                            }
+                        }
+                    }
+                }
+                _ => continue,
+            }
+        }
+
+        // if the other side is a SONiC switch, then we are relying on two TLVs to gather the network
+        // configuration:
+        // - the system description TLV which provides the control VIP
+        // - the management address TLV which provides the gateway IP address, and from which we deduce our own IP address and subnet
+        if control_vip.is_some() && my_ipnet.is_some() && gateway.is_some() {
+            Some(NetworkConfig {
+                ip: my_ipnet.unwrap(),
+                routes: vec![Routes {
+                    destinations: vec![control_vip.unwrap()],
+                    gateway: gateway.unwrap(),
+                }],
+                is_hh: true,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -644,6 +803,95 @@ mod tests {
     }
 
     #[test]
+    fn test_hh_mgmt_ip_extraction() {
+        let a = LLDPTLVMgmtAddr {
+            len: 5,
+            subtype: 1,
+            bytes: vec![192, 168, 101, 0],
+            addr: Some(IpAddr::V4(Ipv4Addr::new(192, 168, 101, 0))),
+        };
+
+        // this test is straight forward
+        let b = a.get_hh_gateway();
+        assert!(b.is_some());
+        assert_eq!(a.addr, b);
+
+        // now check tha we get "the other" IP as well
+        let b = a.get_hh_ip();
+        assert!(b.is_some());
+        assert_eq!(
+            b,
+            Some(IpNet::V4(
+                Ipv4Net::new(Ipv4Addr::new(192, 168, 101, 1), 31).unwrap()
+            ))
+        );
+
+        // check it for the other way around as well
+        let a = LLDPTLVMgmtAddr {
+            len: 5,
+            subtype: 1,
+            bytes: vec![192, 168, 101, 1],
+            addr: Some(IpAddr::V4(Ipv4Addr::new(192, 168, 101, 1))),
+        };
+
+        // this test is straight forward
+        let b = a.get_hh_gateway();
+        assert!(b.is_some());
+        assert_eq!(a.addr, b);
+
+        // now check tha we get "the other" IP as well
+        let b = a.get_hh_ip();
+        assert!(b.is_some());
+        assert_eq!(
+            b,
+            Some(IpNet::V4(
+                Ipv4Net::new(Ipv4Addr::new(192, 168, 101, 0), 31).unwrap()
+            ))
+        );
+    }
+
+    #[test]
+    fn test_tlv_sys_descr() {
+        let a =
+            "Hedgehog: [control_vip=192.168.42.1, a=b, c=d ,  e=f, blah, tra=la=la]".to_string();
+        if a.starts_with("Hedgehog:") {
+            // strip the Hedgehog: prefix, and remove all whitespaces around it
+            let a = a.strip_prefix("Hedgehog:").unwrap().trim().to_string();
+
+            // strip the [] around the string if it exists
+            let a = if let Some(a) = a.strip_prefix('[') {
+                a.to_string()
+            } else {
+                a
+            };
+            let a = if let Some(a) = a.strip_suffix(']') {
+                a.to_string()
+            } else {
+                a
+            };
+
+            // now let's split by "," and trim whitespaces again
+            let a = a
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect::<Vec<String>>();
+
+            // and last but not least, split all entries into key value pairs by splitting on "="
+            // and trim whitespaces around it again
+            // we'll ignore all entries which are not key value pairs
+            let a = a
+                .iter()
+                .flat_map(|s| {
+                    s.split_once('=')
+                        .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+                })
+                .collect::<Vec<(String, String)>>();
+
+            println!("{a:?}");
+        }
+    }
+
+    #[test]
     fn test_packet_switch_1() {
         // parse ethernet frame for switch-2 LLDP packet
         let a = etherparse::SlicedPacket::from_ethernet(&PACKET_SWITCH_1).unwrap();
@@ -768,7 +1016,7 @@ mod tests {
             }
 
             // ensure our MUD URL is what we expect
-            if tlv.typ == LLDP_TLV_TYPE_VENDOR_SPECIFIC {
+            if tlv.typ == LLDP_TLV_TYPE_ORGANIZATION_SPECIFIC {
                 let vendor_tlv = LLDPTLVOrgSpecific::try_from(&tlv).unwrap();
                 if let Ok(mud_string) = LLDPTLVMUDString::try_from(&vendor_tlv) {
                     println!("MUD String: {}", mud_string.mud_string);
