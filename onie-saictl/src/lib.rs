@@ -219,7 +219,7 @@ fn app() -> anyhow::Result<()> {
         }
         Commands::LLDPNetworkConfig(args) => {
             let mut wait_secs = args.wait_secs.unwrap_or(1);
-            while wait_secs > 1 {
+            while wait_secs > 0 {
                 let req = onie_sai::LLDPNetworkConfigRequest {
                     device: args.device.clone(),
                     ..Default::default()
@@ -256,8 +256,11 @@ fn app() -> anyhow::Result<()> {
                     );
                     break;
                 }
-                thread::sleep(Duration::from_millis(1000));
                 wait_secs -= 1;
+                if wait_secs == 0 {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(1000));
             }
         }
     }

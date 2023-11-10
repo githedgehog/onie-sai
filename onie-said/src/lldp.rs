@@ -165,6 +165,10 @@ impl LLDPSocket {
 const PACKET_MULTICAST: u8 = 2;
 const ETH_P_LLDP: u16 = 0x88cc;
 
+const IANA_ADDRESS_FAMILY_NUMBER_IP: u8 = 1; // IP (IP version 4)
+#[allow(dead_code)]
+const IANA_ADDRESS_FAMILY_NUMBER_IP6: u8 = 2; // IP6 (IP version 6)
+
 const LLDP_TLV_TYPE_SYSTEM_NAME: u8 = 5;
 const LLDP_TLV_TYPE_SYSTEM_DESCRIPTION: u8 = 6;
 const LLDP_TLV_TYPE_MGMT_ADDRESS: u8 = 8;
@@ -730,8 +734,15 @@ impl LLDPTLVs {
                 }
                 LLDP_TLV_TYPE_MGMT_ADDRESS => {
                     if let Ok(tlv_mgmt) = LLDPTLVMgmtAddr::try_from(tlv) {
-                        my_ipnet = tlv_mgmt.get_hh_ip();
-                        gateway = tlv_mgmt.get_hh_gateway();
+                        // our solution only works with IPv4
+                        // and we expect this to be the first IPv4 management address that shows up
+                        if tlv_mgmt.subtype == IANA_ADDRESS_FAMILY_NUMBER_IP
+                            && my_ipnet.is_none()
+                            && gateway.is_none()
+                        {
+                            my_ipnet = tlv_mgmt.get_hh_ip();
+                            gateway = tlv_mgmt.get_hh_gateway();
+                        }
                     }
                 }
                 LLDP_TLV_TYPE_ORGANIZATION_SPECIFIC => {
