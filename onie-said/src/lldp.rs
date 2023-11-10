@@ -4,6 +4,7 @@ use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
+use etherparse::ReadError;
 use ipnet::IpNet;
 
 #[derive(Debug)]
@@ -13,6 +14,7 @@ pub enum BindError {
     Bind(std::io::Error),
 }
 
+#[derive(Debug)]
 pub struct LLDPSocket {
     sockfd: i32,
 }
@@ -110,7 +112,23 @@ impl LLDPSocket {
         Ok(LLDPSocket { sockfd: sockfd })
     }
 
+    #[allow(dead_code)]
     pub fn close(self) {
+        // close() should never be retried on error
+        // so this call is fine like that
+        let ret = unsafe { libc::close(self.sockfd) };
+        if ret < 0 {
+            log::debug!(
+                "error closing socket {}: {}",
+                self.sockfd,
+                std::io::Error::last_os_error()
+            );
+        }
+    }
+
+    /// this should only be used when consuming the socket is not possible
+    /// which can be the case when this value is sitting in an Arc for
+    pub fn ref_close(&self) {
         // close() should never be retried on error
         // so this call is fine like that
         let ret = unsafe { libc::close(self.sockfd) };
@@ -614,10 +632,30 @@ pub fn parse_lldp(data: &[u8]) -> Vec<LLDPTLV> {
     tlvs
 }
 
+#[derive(Debug)]
+pub enum LLDPPacketReadError {
+    ReadError(ReadError),
+    NotAnLLDPPacket(u16),
+}
+
 pub struct LLDPTLVs(pub Vec<LLDPTLV>);
 
+impl TryFrom<&[u8]> for LLDPTLVs {
+    type Error = LLDPPacketReadError;
+    fn try_from(raw_pkt: &[u8]) -> Result<Self, Self::Error> {
+        let pkt = etherparse::SlicedPacket::from_ethernet(raw_pkt)
+            .map_err(|e| LLDPPacketReadError::ReadError(e))?;
+        // it is safe to call unwrap() here as link will be set if from_ethernet() does not fail
+        let ll_hdr = pkt.link.unwrap().to_header();
+        if ll_hdr.ether_type != ETH_P_LLDP {
+            return Err(LLDPPacketReadError::NotAnLLDPPacket(ll_hdr.ether_type));
+        }
+        Ok(Self::parse_lldp(pkt.payload))
+    }
+}
+
 impl LLDPTLVs {
-    pub fn parse(data: &[u8]) -> Self {
+    pub fn parse_lldp(data: &[u8]) -> Self {
         Self(parse_lldp(data))
     }
 

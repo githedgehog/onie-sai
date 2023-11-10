@@ -46,6 +46,7 @@ use sai::virtual_router::VirtualRouter;
 
 use thiserror::Error;
 
+use crate::lldp::NetworkConfig;
 use crate::processor::port::SortPortsByLanes;
 
 use self::port::discovery::logicalport::Event::PortUp;
@@ -125,6 +126,7 @@ pub(crate) enum ProcessRequest {
     LogicalPortStateChange((PortID, OperStatus)),
     NetlinkAddrAdded((u32, IpAddr)),
     NetlinkAddrRemoved((u32, IpAddr)),
+    LLDPNetworkConfig((u32, NetworkConfig)),
 }
 
 pub(crate) struct Processor<'a, 'b> {
@@ -565,6 +567,9 @@ impl<'a, 'b> Processor<'a, 'b> {
                 ProcessRequest::NetlinkAddrRemoved((if_idx, ip)) => {
                     p.process_netlink_addr_removed(if_idx, ip)
                 }
+                ProcessRequest::LLDPNetworkConfig((if_idx, config)) => {
+                    p.process_lldp_network_config(if_idx, config)
+                }
             }
         }
     }
@@ -836,7 +841,8 @@ impl<'a, 'b> Processor<'a, 'b> {
 
     fn process_logical_port_state_change(&mut self, port_id: PortID, port_state: OperStatus) {
         let mut found = false;
-        for phy_port in self.ports.iter_mut() {
+        let sender = self.get_sender();
+        'outer: for phy_port in self.ports.iter_mut() {
             for log_port in phy_port.ports.iter_mut() {
                 if log_port.port == port_id {
                     found = true;
@@ -862,7 +868,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                         Some(hif) => {
                             // that sets the host interface operational status (SAI internal I guess?)
                             // TODO: should just be on one function on HostInterface
-                            match hif.set_oper_status(oper_status) {
+                            match hif.set_oper_status(oper_status, sender) {
                                 Ok(_) => log::info!("set host interface {} ({}) operational status to {} for port {}", hif.name, hif.intf, oper_status, port_id),
                                 Err(e) => log::error!("failed to set host interface {} ({}) operational status to {} for port {}: {:?}", hif.name, hif.intf, oper_status, port_id, e),
                             }
@@ -872,6 +878,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                             port_id
                         ),
                     }
+                    break 'outer;
                 }
             }
         }
@@ -923,6 +930,27 @@ impl<'a, 'b> Processor<'a, 'b> {
             self.remove_route(ip.into());
         } else {
             log::warn!("host interface {if_name} ({if_idx}) not found during netlink address remove event. Route was not removed.");
+        }
+    }
+
+    fn process_lldp_network_config(&mut self, if_idx: u32, config: NetworkConfig) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // and update the network config in there
+        let mut found = false;
+        'outer: for phy_port in self.ports.iter_mut() {
+            for log_port in phy_port.ports.iter_mut() {
+                for hif in log_port.hif.iter_mut() {
+                    if hif.idx == if_idx {
+                        found = true;
+                        hif.lldp_network_config = Some(config);
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        if !found {
+            log::warn!("host interface {if_name} ({if_idx}) not found during LLDP network config event. Discovered LLDP Network Config was not stored.");
         }
     }
 
