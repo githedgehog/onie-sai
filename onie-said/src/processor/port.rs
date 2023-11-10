@@ -3,6 +3,9 @@ pub(crate) mod discovery;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+use std::thread;
 
 use onie_sai_rpc::wrap_message_field;
 use sai::hostif::HostIfAttribute;
@@ -23,9 +26,13 @@ use sai::hostif::HostIf;
 use sai::port::BreakoutModeType;
 use sai::port::Port;
 
+use crate::lldp::LLDPSocket;
+use crate::lldp::LLDPTLVs;
+use crate::lldp::NetworkConfig;
 use crate::processor::netlink;
 
 use super::PlatformContextHolder;
+use super::ProcessRequest;
 
 #[derive(Debug, Error)]
 pub(crate) enum PortError {
@@ -773,6 +780,9 @@ impl<'a> LogicalPort<'a> {
                         name: name,
                         idx: idx,
                         oper_status: false,
+                        lldp_socket: None,
+                        lldp_tlvs: None,
+                        lldp_network_config: None,
                     })
                 }
                 Err(e) => {
@@ -884,14 +894,120 @@ pub(crate) struct HostInterface<'a> {
     pub(crate) name: String,
     pub(crate) idx: u32,
     pub(crate) oper_status: bool,
+    pub(crate) lldp_socket: Option<Arc<LLDPSocket>>,
+    pub(crate) lldp_tlvs: Option<LLDPTLVs>,
+    pub(crate) lldp_network_config: Option<NetworkConfig>,
 }
 
 impl<'a> HostInterface<'a> {
-    pub(crate) fn set_oper_status(&mut self, oper_status: bool) -> Result<(), HostInterfaceError> {
+    pub(crate) fn set_oper_status(
+        &mut self,
+        oper_status: bool,
+        processor_sender: Sender<ProcessRequest>,
+    ) -> Result<(), HostInterfaceError> {
         self.intf.set_oper_status(oper_status)?;
         netlink::set_link_status(self.idx, oper_status)?;
         self.oper_status = oper_status;
+        // if the interface is set UP, then we're going to start
+        // our LLDP receiver discovery thread
+        // otherwise we're going to call close on the socket
+        // which will stop the thread
+        if oper_status {
+            self.start_lldp_recv_thread(processor_sender);
+        } else {
+            self.stop_lldp_recv_thread();
+        }
         Ok(())
+    }
+
+    fn start_lldp_recv_thread(&mut self, processor_sender: Sender<ProcessRequest>) {
+        if self.lldp_socket.is_none() {
+            match LLDPSocket::new(self.idx as i32) {
+                Ok(socket) => {
+                    let socket = Arc::new(socket);
+                    self.lldp_socket = Some(socket.clone());
+                    let hif_idx = self.idx;
+                    let hif_name = self.name.clone();
+                    thread::spawn(move || {
+                        log::debug!("Host Interface {hif_name}: LLDP receive thread started");
+                        loop {
+                            // this blocks until we receive a new packet on the socket
+                            match socket.recv_packet() {
+                                Ok(pkt) => {
+                                    log::debug!("Host Interface {hif_name}: received LLDP packet");
+                                    // parse the LLDP TLVs from the packet
+                                    let lldp_tlvs: LLDPTLVs = match pkt.as_slice().try_into() {
+                                        Ok(v) => v,
+                                        Err(err) => {
+                                            log::error!("Host Interface {}: failed to read and/or parse LLDP packet: {:?}", hif_name, err);
+                                            continue;
+                                        }
+                                    };
+
+                                    // send the LLDP TLVs to the processor thread
+                                    // this is for general LLDP information that we received on this host interface
+                                    // which can be queried through onie-saictl
+                                    if let Err(e) =
+                                        processor_sender.send(ProcessRequest::LLDPTLVsReceived((
+                                            hif_idx,
+                                            lldp_tlvs.clone(),
+                                        )))
+                                    {
+                                        log::error!(
+                                            "Host Interface {}: failed to send LLDP TLVs to processor thread: {:?}",
+                                            hif_name,
+                                            e
+                                        );
+                                    }
+
+                                    // and try to get the network config from the LLDP TLVs
+                                    if let Some(network_config) = lldp_tlvs.get_hh_network_config()
+                                    {
+                                        // store network config for this interface by sending it to the processor thread
+                                        if let Err(e) = processor_sender.send(
+                                            ProcessRequest::LLDPNetworkConfigReceived((
+                                                hif_idx,
+                                                network_config.clone(),
+                                            )),
+                                        ) {
+                                            log::error!(
+                                                "Host Interface {}: failed to send LLDP network config to processor thread: {:?}",
+                                                hif_name,
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    // an error receiving most likely means that the socket was closed
+                                    // we simply abort the thread for now until we know exactly what error to watch for
+                                    log::error!(
+                                        "Host Interface {}: failed to receive LLDP packet: {:?}",
+                                        hif_name,
+                                        e
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+                        log::debug!("Host Interface {}: LLDP receive thread stopped", hif_name);
+                    });
+                }
+                Err(e) => {
+                    log::error!(
+                        "Host Interface {}: failed to create LLDP socket: {:?}",
+                        self.name,
+                        e
+                    );
+                }
+            }
+        }
+    }
+
+    fn stop_lldp_recv_thread(&mut self) {
+        if let Some(socket) = self.lldp_socket.take() {
+            socket.ref_close();
+        }
     }
 }
 

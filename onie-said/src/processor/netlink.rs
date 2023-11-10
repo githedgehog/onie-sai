@@ -148,7 +148,7 @@ pub(crate) fn get_interface_name(index: u32) -> Result<String, std::io::Error> {
 pub(crate) fn get_interface_index(name: &str) -> Result<u32, std::io::Error> {
     let name = std::ffi::CString::new(name).unwrap();
     let ret = unsafe { libc::if_nametoindex(name.as_ptr()) };
-    if ret == 0 {
+    if ret <= 0 {
         return Err(std::io::Error::last_os_error());
     }
     Ok(ret)

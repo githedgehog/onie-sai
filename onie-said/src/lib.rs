@@ -1,3 +1,4 @@
+mod lldp;
 mod processor;
 mod rpc;
 
@@ -46,12 +47,12 @@ struct Cli {
     mac_addr: MacAddr6,
 
     /// Whether to enable port auto discovery
-    #[arg(long, default_value_t = true)]
-    auto_discovery: bool,
+    #[arg(long, default_value = "true", default_missing_value = "true")]
+    auto_discovery: Option<Option<bool>>,
 
     /// When port auto discovery is enabled, also try to break out ports during the discovery
-    #[arg(long, default_value_t = false)]
-    auto_discovery_with_breakout: bool,
+    #[arg(long, default_value = "false", default_missing_value = "true")]
+    auto_discovery_with_breakout: Option<Option<bool>>,
 
     /// The platform to use: this should always be auto-detected.
     #[arg(long, default_value = arg_platform())]
@@ -245,8 +246,10 @@ fn app(cli: Cli, stdin_write: File, stdout_read: File) -> anyhow::Result<()> {
         &sai_api,
         cli.mac_addr.into_array(),
         ports_config,
-        cli.auto_discovery,
-        cli.auto_discovery_with_breakout,
+        cli.auto_discovery.flatten().unwrap_or_default(),
+        cli.auto_discovery_with_breakout
+            .flatten()
+            .unwrap_or_default(),
         platform_ctx,
         stdin_write,
         stdout_read,
