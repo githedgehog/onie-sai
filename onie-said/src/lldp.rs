@@ -532,17 +532,35 @@ impl TryFrom<&LLDPTLV> for LLDPTLVMUDString {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NetworkConfig {
     pub ip: IpNet,
-    pub routes: Vec<Routes>,
+    pub routes: Vec<Route>,
     pub is_hh: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Routes {
+pub struct Route {
     pub destinations: Vec<IpAddr>,
     pub gateway: IpAddr,
 }
 
-// ^Hedgehog:[[:space:]]+\[(\w+)=([^\[\],]+)(?:,(\w+)=([^\[\],]+))*\]$
+// just a convenience conversion method for our RPC
+impl From<NetworkConfig> for onie_sai_rpc::onie_sai::NetworkConfig {
+    fn from(value: NetworkConfig) -> Self {
+        let mut ret = onie_sai_rpc::onie_sai::NetworkConfig::new();
+        ret.ip = value.ip.to_string();
+        ret.routes = value
+            .routes
+            .iter()
+            .map(|r| {
+                let mut ret = onie_sai_rpc::onie_sai::Route::new();
+                ret.destinations = r.destinations.iter().map(|d| d.to_string()).collect();
+                ret.gateway = r.gateway.to_string();
+                ret
+            })
+            .collect();
+        ret.is_hh = value.is_hh;
+        ret
+    }
+}
 
 impl LLDPTLVMUDString {
     pub fn get_hh_network_config(&self) -> Option<NetworkConfig> {
@@ -584,7 +602,7 @@ impl LLDPTLVMUDString {
         }
         Some(NetworkConfig {
             ip: your_ipnet,
-            routes: vec![Routes {
+            routes: vec![Route {
                 destinations: vec![control_vip],
                 gateway: my_ipnet.addr(),
             }],
@@ -704,7 +722,7 @@ impl LLDPTLVs {
         if control_vip.is_some() && my_ipnet.is_some() && gateway.is_some() {
             Some(NetworkConfig {
                 ip: my_ipnet.unwrap(),
-                routes: vec![Routes {
+                routes: vec![Route {
                     destinations: vec![control_vip.unwrap()],
                     gateway: gateway.unwrap(),
                 }],
@@ -799,7 +817,7 @@ mod tests {
             b,
             NetworkConfig {
                 ip: IpNet::V4(Ipv4Net::new(Ipv4Addr::new(192, 168, 101, 1), 31).unwrap()),
-                routes: vec![Routes {
+                routes: vec![Route {
                     gateway: IpAddr::V4(Ipv4Addr::new(192, 168, 101, 0)),
                     destinations: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 42, 1))],
                 }],

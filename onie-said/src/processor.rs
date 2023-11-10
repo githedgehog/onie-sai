@@ -19,6 +19,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use ipnet::IpNet;
 use onie_sai_rpc::onie_sai;
+use onie_sai_rpc::wrap_message_field;
 use sai::bridge;
 use sai::hostif::table_entry::ChannelType;
 use sai::hostif::table_entry::TableEntryAttribute;
@@ -82,6 +83,9 @@ pub(crate) enum ProcessError {
 
     #[error("Shell Command IO Error")]
     ShellIOError(anyhow::Error),
+
+    #[error("failed to get interface: {0}")]
+    GetInterfaceError(std::io::Error),
 }
 
 pub(crate) enum ProcessRequest {
@@ -126,7 +130,13 @@ pub(crate) enum ProcessRequest {
     LogicalPortStateChange((PortID, OperStatus)),
     NetlinkAddrAdded((u32, IpAddr)),
     NetlinkAddrRemoved((u32, IpAddr)),
-    LLDPNetworkConfig((u32, NetworkConfig)),
+    LLDPNetworkConfigReceived((u32, NetworkConfig)),
+    LLDPNetworkConfig(
+        (
+            onie_sai::LLDPNetworkConfigRequest,
+            Sender<Result<onie_sai::LLDPNetworkConfigResponse, ProcessError>>,
+        ),
+    ),
 }
 
 pub(crate) struct Processor<'a, 'b> {
@@ -555,6 +565,15 @@ impl<'a, 'b> Processor<'a, 'b> {
                         );
                     };
                 }
+                ProcessRequest::LLDPNetworkConfig((r, resp_tx)) => {
+                    let resp = p.process_lldp_network_config_request(r);
+                    if let Err(e) = resp_tx.send(resp) {
+                        log::error!(
+                            "failed to send lldp network config response to rpc server: {:?}",
+                            e
+                        );
+                    };
+                }
 
                 // internal events
                 ProcessRequest::AutoDiscoveryPoll => p.process_auto_discovery_poll(),
@@ -567,8 +586,8 @@ impl<'a, 'b> Processor<'a, 'b> {
                 ProcessRequest::NetlinkAddrRemoved((if_idx, ip)) => {
                     p.process_netlink_addr_removed(if_idx, ip)
                 }
-                ProcessRequest::LLDPNetworkConfig((if_idx, config)) => {
-                    p.process_lldp_network_config(if_idx, config)
+                ProcessRequest::LLDPNetworkConfigReceived((if_idx, config)) => {
+                    p.process_lldp_network_config_received(if_idx, config)
                 }
             }
         }
@@ -832,6 +851,33 @@ impl<'a, 'b> Processor<'a, 'b> {
         })
     }
 
+    fn process_lldp_network_config_request(
+        &self,
+        req: onie_sai::LLDPNetworkConfigRequest,
+    ) -> Result<onie_sai::LLDPNetworkConfigResponse, ProcessError> {
+        let if_idx = netlink::get_interface_index(req.device.as_str())
+            .map_err(|e| ProcessError::GetInterfaceError(e))?;
+
+        for phy_port in self.ports.iter() {
+            for log_port in phy_port.ports.iter() {
+                if let Some(ref hif) = log_port.hif {
+                    if hif.idx == if_idx {
+                        if let Some(ref config) = hif.lldp_network_config {
+                            return Ok(onie_sai::LLDPNetworkConfigResponse {
+                                network_config: wrap_message_field(Some(config.clone().into())),
+                                ..Default::default()
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Ok(onie_sai::LLDPNetworkConfigResponse {
+            network_config: wrap_message_field(None),
+            ..Default::default()
+        })
+    }
+
     fn process_auto_discovery_poll(&mut self) {
         log::debug!("auto discovery poll");
         for phy_port in self.ports.iter_mut() {
@@ -933,7 +979,7 @@ impl<'a, 'b> Processor<'a, 'b> {
         }
     }
 
-    fn process_lldp_network_config(&mut self, if_idx: u32, config: NetworkConfig) {
+    fn process_lldp_network_config_received(&mut self, if_idx: u32, config: NetworkConfig) {
         let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
         // find the host interface
         // and update the network config in there

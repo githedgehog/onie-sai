@@ -87,11 +87,23 @@ enum Commands {
     /// Wait on initial discovery to complete. This is meant for init scripts which need to wait until the initial discovery is complete
     /// before they can consider the service started up.
     WaitOnInitialDiscovery,
+
+    /// Retrieves the network configuration for a given device as received over LLDP over the interface.
+    /// NOTE: This command is specific to the Hedgehog Fabric implementation of LLDP packets that are sent from SONiC switches and Hedgehog Fabric control nodes.
+    LLDPNetworkConfig(LLDPNetworkConfigArgs),
 }
 
 #[derive(Args)]
 struct AutoDiscoveryArgs {
     enable: Option<bool>,
+}
+
+#[derive(Args)]
+struct LLDPNetworkConfigArgs {
+    device: String,
+
+    #[arg(long, short)]
+    wait_secs: Option<u32>,
 }
 
 pub fn main() -> onie_sai_common::App {
@@ -182,6 +194,49 @@ fn app() -> anyhow::Result<()> {
             }
             thread::sleep(Duration::from_millis(1000));
         },
+        Commands::LLDPNetworkConfig(args) => {
+            let mut wait_secs = args.wait_secs.unwrap_or(1);
+            while wait_secs > 1 {
+                let req = onie_sai::LLDPNetworkConfigRequest {
+                    device: args.device.clone(),
+                    ..Default::default()
+                };
+                log::info!("making request to onie-said: {:?}...", req);
+                let resp = osc
+                    .lldp_network_config(default_ctx(), &req)
+                    .context("request to onie-said failed")?;
+                log::info!("response from onie-said: {:?}", resp);
+                if let Some(network_config) = resp.network_config.into_option() {
+                    println!(
+                        "onie_lldp_{}_ip=\"{}\"",
+                        args.device.clone(),
+                        network_config.ip
+                    );
+                    for (i, route) in network_config.routes.iter().enumerate() {
+                        println!(
+                            "onie_lldp_{}_route_{}_gateway=\"{}\"",
+                            args.device.clone(),
+                            i,
+                            route.gateway
+                        );
+                        println!(
+                            "onie_lldp_{}_route_{}_dests=\"{}\"",
+                            args.device.clone(),
+                            i,
+                            route.destinations.join(" ")
+                        );
+                    }
+                    println!(
+                        "onie_lldp_{}_is_hh=\"{}\"",
+                        args.device.clone(),
+                        network_config.is_hh
+                    );
+                    break;
+                }
+                thread::sleep(Duration::from_millis(1000));
+                wait_secs -= 1;
+            }
+        }
     }
 
     log::info!("Success");

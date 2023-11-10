@@ -111,6 +111,20 @@ impl onie_sai_ttrpc::OnieSai for OnieSaiServer {
         let resp = resp.map_err(map_process_error)?;
         Ok(resp)
     }
+
+    fn lldp_network_config(
+        &self,
+        _ctx: &ttrpc::TtrpcContext,
+        req: onie_sai::LLDPNetworkConfigRequest,
+    ) -> ttrpc::Result<onie_sai::LLDPNetworkConfigResponse> {
+        let (tx, rx) = channel();
+        self.proc_tx
+            .send(ProcessRequest::LLDPNetworkConfig((req, tx)))
+            .map_err(map_tx_error)?;
+        let resp = rx.recv().map_err(map_rx_error)?;
+        let resp = resp.map_err(map_process_error)?;
+        Ok(resp)
+    }
 }
 
 fn map_tx_error<T: std::fmt::Debug>(e: T) -> ttrpc::error::Error {

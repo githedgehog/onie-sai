@@ -945,7 +945,7 @@ impl<'a> HostInterface<'a> {
                                     {
                                         // store network config for this interface by sending it to the processor thread
                                         if let Err(e) = processor_sender.send(
-                                            ProcessRequest::LLDPNetworkConfig((
+                                            ProcessRequest::LLDPNetworkConfigReceived((
                                                 hif_idx,
                                                 network_config.clone(),
                                             )),
