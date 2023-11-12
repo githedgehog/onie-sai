@@ -10,3 +10,5 @@
 /**/libsai.so*
 /.vscode
 /**/target
+/lib/*.so*
+/dl
