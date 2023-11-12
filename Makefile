@@ -42,6 +42,8 @@ BRCM_XGS_SAI_DEV_DEB = libsaibcm-dev_$(LIBSAIBCM_XGS_VERSION)_amd64.deb
 # --- END SNIPPET ---
 DOWNLOAD_DIR := $(MKFILE_DIR)/dl
 SAIBCM_DIR := $(MKFILE_DIR)/dl/saibcm
+LIBSAI_DEB_FILES := $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB)
+LIBSAI_FILES := $(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libsai.so.1.0
 
 .PHONY: help
 help: ## Display this help.
@@ -49,7 +51,7 @@ help: ## Display this help.
 
 all: init build ## Runs 'init' and 'build' targets
 
-init: download_libsai extract_libsai ## Ensures all dependencies for the project are in place
+init: download_libsai extract_libsai ## Ensures all dependencies for the project are in place, and downloads and extracts them if necessary
 
 build: onie-sai  ## Builds the project
 
@@ -57,15 +59,15 @@ all-clean: cargo-clean lib-clean download-clean ## Cleans the whole project dire
 
 clean: cargo-clean ## Cleans the project directory
 
-download_libsai: $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB)
+download_libsai: $(LIBSAI_DEB_FILES)
 
-$(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB) &:
+$(LIBSAI_DEB_FILES) &:
 	wget -O $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) $(LIBSAIBCM_XGS_URL_PREFIX)/$(BRCM_XGS_SAI_DEB)
 	wget -O $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB) $(LIBSAIBCM_XGS_URL_PREFIX)/$(BRCM_XGS_SAI_DEV_DEB)
 
-extract_libsai: $(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libsai.so.1.0
+extract_libsai: $(LIBSAI_FILES)
 
-$(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libsai.so.1.0 &:
+$(LIBSAI_FILES) &: $(LIBSAI_DEB_FILES)
 	mkdir -p $(SAIBCM_DIR) && cd $(SAIBCM_DIR) && \
 	ar x $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) && \
 	tar -xf data.tar.xz && \
@@ -74,11 +76,12 @@ $(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libs
 	tar -xf data.tar.xz && \
 	rm -f data.tar.xz control.tar.xz debian-binary && \
 	cp -Pav $(SAIBCM_DIR)/usr/lib/* $(MKFILE_DIR)/lib/ && \
-	chmod -v +x $(MKFILE_DIR)/lib/*.so*
+	chmod -v +x $(MKFILE_DIR)/lib/*.so* && \
+	touch $(MKFILE_DIR)/lib/*.so*
 
 onie-sai: $(CARGO_TARGET_DIR)/release/onie-sai ## Builds 'onie-sai' for the release target
 
-$(CARGO_TARGET_DIR)/release/onie-sai: $(SRC_FILES) extract_libsai
+$(CARGO_TARGET_DIR)/release/onie-sai: $(SRC_FILES) $(LIBSAI_FILES)
 	LD_LIBRARY_PATH="$(MKFILE_DIR)/lib:$$LD_LIBRARY_PATH" \
 		cargo build --release --workspace
 
