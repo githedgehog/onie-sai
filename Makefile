@@ -7,15 +7,12 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 'sA/$$AA')
 
-CARGO_TARGET_DIR := $(MKFILE_DIR)/target
-
 # NOTE: this will change once we add the operator
 VERSION ?= $(shell git describe --tags --dirty --always)
+CARGO_TARGET_DIR := $(MKFILE_DIR)/target
+CARGO_TARGETS := $(CARGO_TARGET_DIR)/release/onie-sai $(CARGO_TARGET_DIR)/release/libxcvr_dell_s5200.so
 
-GIT_COMMIT = $(shell git rev-parse HEAD)
-GIT_DIRTY  = $(shell test -n "`git status --porcelain`" && echo "dirty" || echo "clean")
-BUILD_DATE = $(shell date -u -Iseconds)
-
+# helping Makefile to track if cargo build needs to run
 SRC_FILES := $(shell find $(MKFILE_DIR)/onie-sai -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/onie-sai-common -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/onie-sai-rpc -type f)
@@ -27,6 +24,15 @@ SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-sys -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-dell-s5200 -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvrctl -type f)
+
+# all things for packaging
+PACKAGE_ARTIFACTS_DIR := $(MKFILE_DIR)/artifacts
+ARCH := $(shell uname -m)
+PACKAGE_CORE_DIR := onie-sai-$(VERSION)-linux-$(ARCH)
+PACKAGE_CORE_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_CORE_DIR).tar.gz
+PACKAGE_XCVR_DELL_S5200_DIR := onie-sai-xcvr-dell-s5200-$(VERSION)-linux-$(ARCH)
+PACKAGE_XCVR_DELL_S5200_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_XCVR_DELL_S5200_DIR).tar.gz
+PACKAGE_FILES := $(PACKAGE_CORE_FILE) $(PACKAGE_XCVR_DELL_S5200_FILE)
 
 # This snippet has been sourced and adopted from the following file which is
 # licensed under Apache-2.0:
@@ -55,10 +61,6 @@ init: download_libsai extract_libsai ## Ensures all dependencies for the project
 
 build: onie-sai  ## Builds the project
 
-all-clean: cargo-clean lib-clean download-clean ## Cleans the whole project directory, and deletes downloaded dependencies
-
-clean: cargo-clean ## Cleans the project directory
-
 download_libsai: $(LIBSAI_DEB_FILES)
 
 $(LIBSAI_DEB_FILES) &:
@@ -79,11 +81,46 @@ $(LIBSAI_FILES) &: $(LIBSAI_DEB_FILES)
 	chmod -v +x $(MKFILE_DIR)/lib/*.so* && \
 	touch $(MKFILE_DIR)/lib/*.so*
 
-onie-sai: $(CARGO_TARGET_DIR)/release/onie-sai ## Builds 'onie-sai' for the release target
+onie-sai: $(CARGO_TARGETS) ## Builds 'onie-sai' for the release target
 
-$(CARGO_TARGET_DIR)/release/onie-sai: $(SRC_FILES) $(LIBSAI_FILES)
+$(CARGO_TARGETS) &: $(SRC_FILES) $(LIBSAI_FILES)
 	LD_LIBRARY_PATH="$(MKFILE_DIR)/lib:$$LD_LIBRARY_PATH" \
 		cargo build --release --workspace
+
+package: $(PACKAGE_FILES) ## Create release packages
+
+package_core: $(PACKAGE_CORE_FILE)
+
+$(PACKAGE_CORE_FILE): onie-sai
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	mkdir $(PACKAGE_CORE_DIR) && cd $(PACKAGE_CORE_DIR) && \
+	mkdir -vp usr/bin && \
+	cp -v $(CARGO_TARGET_DIR)/release/onie-sai usr/bin/ && \
+	ln -sv onie-sai usr/bin/onie-saictl && \
+	ln -sv onie-sai usr/bin/onie-said && \
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	tar -czvf $(PACKAGE_CORE_FILE) $(PACKAGE_CORE_DIR) && \
+	rm -rf $(PACKAGE_CORE_DIR)
+
+package_xcvr_dell_s5200: $(PACKAGE_XCVR_DELL_S5200_FILE)
+
+$(PACKAGE_XCVR_DELL_S5200_FILE): onie-sai
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	mkdir $(PACKAGE_XCVR_DELL_S5200_DIR) && cd $(PACKAGE_XCVR_DELL_S5200_DIR) && \
+	mkdir -vp usr/lib/platform && \
+	cp -v $(CARGO_TARGET_DIR)/release/libxcvr_dell_s5200.so usr/lib/platform/ && \
+	ln -sv libxcvr_dell_s5200.so usr/lib/platform/x86_64-dellemc_s5212f_c3538-r0.so && \
+	ln -sv libxcvr_dell_s5200.so usr/lib/platform/x86_64-dellemc_s5224f_c3538-r0.so && \
+	ln -sv libxcvr_dell_s5200.so usr/lib/platform/x86_64-dellemc_s5232f_c3538-r0.so && \
+	ln -sv libxcvr_dell_s5200.so usr/lib/platform/x86_64-dellemc_s5248f_c3538-r0.so && \
+	ln -sv libxcvr_dell_s5200.so usr/lib/platform/x86_64-dellemc_s5296f_c3538-r0.so && \
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	tar -czvf $(PACKAGE_XCVR_DELL_S5200_FILE) $(PACKAGE_XCVR_DELL_S5200_DIR) && \
+	rm -rf $(PACKAGE_XCVR_DELL_S5200_DIR)
+
+clean: cargo-clean ## Cleans the project directory
+
+all-clean: cargo-clean package-clean lib-clean download-clean ## Cleans the whole project directory, and deletes downloaded dependencies, and generated packages
 
 .PHONY: cargo-clean
 cargo-clean: ## Cleans the whole target/ directory
@@ -96,3 +133,7 @@ lib-clean: ## Cleans the lib/ directory
 .PHONY: download-clean
 download-clean: ## Cleans the dl/ directory
 	rm -rvf $(DOWNLOAD_DIR)/* || true
+
+.PHONY: package-clean
+package-clean: ## Cleans all generated packages
+	rm -rvf $(PACKAGE_FILES) || true

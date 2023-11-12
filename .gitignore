@@ -13,3 +13,6 @@
 /lib/*.so*
 /dl/**/*.deb
 /dl/**/saibcm
+/onie-sai-*-linux*.tar*
+/artifacts/**
+!/artifacts/.keepme
