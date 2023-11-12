@@ -53,17 +53,19 @@ init: download_libsai extract_libsai ## Ensures all dependencies for the project
 
 build: onie-sai  ## Builds the project
 
+all-clean: cargo-clean lib-clean download-clean ## Cleans the whole project directory, and deletes downloaded dependencies
+
 clean: cargo-clean ## Cleans the project directory
 
 download_libsai: $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB)
 
 $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB) &:
-	wget -P $(DOWNLOAD_DIR) -O $(BRCM_XGS_SAI_DEB) $(LIBSAIBCM_XGS_URL_PREFIX)/$(BRCM_XGS_SAI_DEB)
-	wget -P $(DOWNLOAD_DIR) -O $(BRCM_XGS_SAI_DEV_DEB) $(LIBSAIBCM_XGS_URL_PREFIX)/$(BRCM_XGS_SAI_DEV_DEB)
+	wget -O $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) $(LIBSAIBCM_XGS_URL_PREFIX)/$(BRCM_XGS_SAI_DEB)
+	wget -O $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB) $(LIBSAIBCM_XGS_URL_PREFIX)/$(BRCM_XGS_SAI_DEV_DEB)
 
 extract_libsai: $(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libsai.so.1.0
 
-$(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libsai.so.1.0 &: download_libsai
+$(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libsai.so.1.0 &:
 	mkdir -p $(SAIBCM_DIR) && cd $(SAIBCM_DIR) && \
 	ar x $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEB) && \
 	tar -xf data.tar.xz && \
@@ -71,8 +73,8 @@ $(MKFILE_DIR)/lib/libsai.so $(MKFILE_DIR)/lib/libsai.so.1 $(MKFILE_DIR)/lib/libs
 	ar x $(DOWNLOAD_DIR)/$(BRCM_XGS_SAI_DEV_DEB) && \
 	tar -xf data.tar.xz && \
 	rm -f data.tar.xz control.tar.xz debian-binary && \
-	tar -xf $(DOWNLOADDIR)/$(CANCUN_TARBALL) && \
-	cp -Pav $(SAIBCM_DIR)/usr/lib/* $(MKFILE_DIR)/lib/
+	cp -Pav $(SAIBCM_DIR)/usr/lib/* $(MKFILE_DIR)/lib/ && \
+	chmod -v +x $(MKFILE_DIR)/lib/*.so*
 
 onie-sai: $(CARGO_TARGET_DIR)/release/onie-sai ## Builds 'onie-sai' for the release target
 
@@ -83,3 +85,11 @@ $(CARGO_TARGET_DIR)/release/onie-sai: $(SRC_FILES) extract_libsai
 .PHONY: cargo-clean
 cargo-clean: ## Cleans the whole target/ directory
 	cargo clean || true
+
+.PHONY: lib-clean
+lib-clean: ## Cleans the lib/ directory
+	rm -rvf $(MKFILE_DIR)/lib/*.so* || true
+
+.PHONY: download-clean
+download-clean: ## Cleans the dl/ directory
+	rm -rvf $(DOWNLOAD_DIR)/* || true

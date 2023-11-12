@@ -11,4 +11,5 @@
 /.vscode
 /**/target
 /lib/*.so*
-/dl
+/dl/**/*.deb
+/dl/**/saibcm
