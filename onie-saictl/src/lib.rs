@@ -230,30 +230,23 @@ fn app() -> anyhow::Result<()> {
                     .context("request to onie-said failed")?;
                 log::info!("response from onie-said: {:?}", resp);
                 if let Some(network_config) = resp.network_config.into_option() {
-                    println!(
-                        "onie_lldp_{}_ip=\"{}\"",
-                        args.device.clone(),
-                        network_config.ip
-                    );
+                    // we need to replace the "-" in the device name with "_" because shells
+                    // don't like dashes in variable names
+                    let dev = args.device.replace("-", "_");
+                    println!("onie_lldp_{}_ip=\"{}\"", dev, network_config.ip);
                     for (i, route) in network_config.routes.iter().enumerate() {
                         println!(
                             "onie_lldp_{}_route_{}_gateway=\"{}\"",
-                            args.device.clone(),
-                            i,
-                            route.gateway
+                            dev, i, route.gateway
                         );
                         println!(
                             "onie_lldp_{}_route_{}_dests=\"{}\"",
-                            args.device.clone(),
+                            dev,
                             i,
                             route.destinations.join(" ")
                         );
                     }
-                    println!(
-                        "onie_lldp_{}_is_hh=\"{}\"",
-                        args.device.clone(),
-                        network_config.is_hh
-                    );
+                    println!("onie_lldp_{}_is_hh=\"{}\"", dev, network_config.is_hh);
                     break;
                 }
                 wait_secs -= 1;
