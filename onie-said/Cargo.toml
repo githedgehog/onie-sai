@@ -1,6 +1,6 @@
 [package]
 name = "onie-said"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,11 +15,11 @@ log = "0.4.20"
 env_logger = "0.10.0"
 ipnet = "2.8.0"
 macaddr = "1.0.1"
-sai = { version = "0.1.0", path = "../sai" }
-xcvr = { version = "0.1.0", path = "../xcvr" }
+sai = { version = "0.1.1", path = "../sai" }
+xcvr = { version = "0.1.1", path = "../xcvr" }
 ttrpc = "0.8.1"
-onie-sai-rpc = { version = "0.1.0", path = "../onie-sai-rpc" }
-onie-sai-common = { version = "0.1.0", path = "../onie-sai-common" }
+onie-sai-rpc = { version = "0.1.1", path = "../onie-sai-rpc" }
+onie-sai-common = { version = "0.1.1", path = "../onie-sai-common" }
 serde = { version = "1.0.190", features = ["derive"] }
 serde_json = "1.0.108"
 netlink-sys = "0.8.5"
