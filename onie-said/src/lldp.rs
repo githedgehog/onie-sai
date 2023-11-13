@@ -1,7 +1,6 @@
 use std::io::Cursor;
 use std::io::Read;
 use std::net::IpAddr;
-use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use etherparse::ReadError;
