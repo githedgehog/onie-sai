@@ -786,6 +786,8 @@ impl LLDPTLVs {
 
 #[cfg(test)]
 mod tests {
+    use std::net::Ipv4Addr;
+
     use ipnet::Ipv4Net;
 
     use super::*;
