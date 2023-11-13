@@ -1,13 +1,13 @@
 [package]
 name = "onie-sai"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-onie-said = { version = "0.1.0", path = "../onie-said" }
-onie-saictl = { version = "0.1.0", path = "../onie-saictl" }
-onie-sai-common = { version = "0.1.0", path = "../onie-sai-common" }
+onie-said = { version = "0.1.1", path = "../onie-said" }
+onie-saictl = { version = "0.1.1", path = "../onie-saictl" }
+onie-sai-common = { version = "0.1.1", path = "../onie-sai-common" }
 anyhow = "1.0.75"
 env_logger = "0.10.0"

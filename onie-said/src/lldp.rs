@@ -1,7 +1,6 @@
 use std::io::Cursor;
 use std::io::Read;
 use std::net::IpAddr;
-use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use etherparse::ReadError;
@@ -271,11 +270,11 @@ impl LLDPTLVSystemDescription {
         None
     }
 
-    pub fn get_hh_control_vip(&self) -> Option<IpAddr> {
+    pub fn get_hh_control_vip(&self) -> Option<IpNet> {
         if let Some(hh_kv_pairs) = &self.hh_kv_pairs {
             for (k, v) in hh_kv_pairs {
                 if k == "control_vip" {
-                    return IpAddr::from_str(v).ok();
+                    return IpNet::from_str(v).ok();
                 }
             }
         }
@@ -542,7 +541,7 @@ pub struct NetworkConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Route {
-    pub destinations: Vec<IpAddr>,
+    pub destinations: Vec<IpNet>,
     pub gateway: IpAddr,
 }
 
@@ -583,7 +582,7 @@ impl LLDPTLVMUDString {
         let mut found_control_vip = false;
         let mut my_ipnet = IpNet::default();
         let mut your_ipnet = IpNet::default();
-        let mut control_vip = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+        let mut control_vip = IpNet::default();
         for (k, v) in mud_url.query_pairs() {
             match k.as_ref() {
                 "my_ipnet" => {
@@ -595,7 +594,7 @@ impl LLDPTLVMUDString {
                     found_your_ipnet = true;
                 }
                 "control_vip" => {
-                    control_vip = IpAddr::from_str(v.as_ref()).ok()?;
+                    control_vip = IpNet::from_str(v.as_ref()).ok()?;
                     found_control_vip = true;
                 }
                 _ => continue,
@@ -722,7 +721,7 @@ impl LLDPTLVs {
     }
 
     pub fn get_hh_network_config(&self) -> Option<NetworkConfig> {
-        let mut control_vip: Option<IpAddr> = None;
+        let mut control_vip: Option<IpNet> = None;
         let mut my_ipnet: Option<IpNet> = None;
         let mut gateway: Option<IpAddr> = None;
         for tlv in self.0.iter() {
@@ -787,6 +786,8 @@ impl LLDPTLVs {
 
 #[cfg(test)]
 mod tests {
+    use std::net::Ipv4Addr;
+
     use ipnet::Ipv4Net;
 
     use super::*;
@@ -861,7 +862,7 @@ mod tests {
     #[test]
     fn test_mudurl_parsing() {
         // this reference one must work
-        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1/32".to_string() };
         let b = a.get_hh_network_config().unwrap();
         println!("{b:?}");
         assert_eq!(
@@ -870,38 +871,40 @@ mod tests {
                 ip: IpNet::V4(Ipv4Net::new(Ipv4Addr::new(192, 168, 101, 1), 31).unwrap()),
                 routes: vec![Route {
                     gateway: IpAddr::V4(Ipv4Addr::new(192, 168, 101, 0)),
-                    destinations: vec![IpAddr::V4(Ipv4Addr::new(192, 168, 42, 1))],
+                    destinations: vec![IpNet::V4(
+                        Ipv4Net::new(Ipv4Addr::new(192, 168, 42, 1), 32).unwrap()
+                    )],
                 }],
                 is_hh: true,
             }
         );
 
         // additional query fields should not hurt
-        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?haha=hehe&my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1&a=b".to_string() };
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?haha=hehe&my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1/32&a=b".to_string() };
         let b = a.get_hh_network_config();
         assert!(b.is_some());
 
         // additional path should not hurt
-        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/blah/blah/blah?haha=hehe&my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1&a=b".to_string() };
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/blah/blah/blah?haha=hehe&my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1/32&a=b".to_string() };
         let b = a.get_hh_network_config();
         assert!(b.is_some());
 
         // now let's try some negative cases
-        let a = LLDPTLVMUDString { mud_string: "http://localhost/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let a = LLDPTLVMUDString { mud_string: "http://localhost/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1/32".to_string() };
         let b = a.get_hh_network_config();
         assert!(b.is_none());
-        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?myyyy_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?myyyy_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1/32".to_string() };
         let b = a.get_hh_network_config();
         assert!(b.is_none());
         let a = LLDPTLVMUDString {
-            mud_string: "http://hedgehog/?control_vip=192.168.42.1".to_string(),
+            mud_string: "http://hedgehog/?control_vip=192.168.42.1/32".to_string(),
         };
         let b = a.get_hh_network_config();
         assert!(b.is_none());
-        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.1001.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1".to_string() };
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.1001.0/31&your_ipnet=192.168.101.1/31&control_vip=192.168.42.1/32".to_string() };
         let b = a.get_hh_network_config();
         assert!(b.is_none());
-        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101..1/31&control_vip=192.168.42.1".to_string() };
+        let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101..1/31&control_vip=192.168.42.1/32".to_string() };
         let b = a.get_hh_network_config();
         assert!(b.is_none());
         let a = LLDPTLVMUDString { mud_string: "http://hedgehog/?my_ipnet=192.168.101.0/31&your_ipnet=192.168.101.1/31&control_vip=300.168.42.1".to_string() };
@@ -960,7 +963,7 @@ mod tests {
     #[test]
     fn test_tlv_sys_descr() {
         let a =
-            "Hedgehog: [control_vip=192.168.42.1, a=b, c=d ,  e=f, blah, tra=la=la]".to_string();
+            "Hedgehog: [control_vip=192.168.42.1/32, a=b, c=d ,  e=f, blah, tra=la=la]".to_string();
         if a.starts_with("Hedgehog:") {
             // strip the Hedgehog: prefix, and remove all whitespaces around it
             let a = a.strip_prefix("Hedgehog:").unwrap().trim().to_string();

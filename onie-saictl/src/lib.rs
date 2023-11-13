@@ -118,6 +118,13 @@ pub fn main() -> onie_sai_common::App {
     onie_sai_common::App(app())
 }
 
+fn connect(addr: &str) -> anyhow::Result<OnieSaiClient> {
+    log::info!("connecting to onie-said at: {}...", &addr);
+    let c =
+        Client::connect(&addr).context(format!("failed to connect to onie-said at {}", &addr))?;
+    Ok(onie_sai_ttrpc::OnieSaiClient::new(c))
+}
+
 fn app() -> anyhow::Result<()> {
     // parse flags and initialize logger
     let cli = Cli::parse();
@@ -125,17 +132,9 @@ fn app() -> anyhow::Result<()> {
         .filter_level(LevelFilter::from(cli.log_level))
         .init();
 
-    // connect to onie-said
-    // if this fails, abort immediately
-    log::info!("connecting to onie-said at: {}...", &cli.address);
-    let c = Client::connect(&cli.address).context(format!(
-        "failed to connect to onie-said at {}",
-        &cli.address
-    ))?;
-    let osc = onie_sai_ttrpc::OnieSaiClient::new(c);
-
     match cli.command {
         Commands::Version => {
+            let osc = connect(&cli.address)?;
             let req = onie_sai::VersionRequest::new();
             log::info!("making request to onie-said: {:?}...", req);
             let resp = osc
@@ -147,6 +146,7 @@ fn app() -> anyhow::Result<()> {
             println!("SAI version: {}", resp.sai_version);
         }
         Commands::Ports => {
+            let osc = connect(&cli.address)?;
             let req = onie_sai::PortListRequest::new();
             log::info!("making request to onie-said: {:?}...", req);
             let resp = osc
@@ -155,6 +155,7 @@ fn app() -> anyhow::Result<()> {
             log::info!("response from onie-said: {:?}", resp);
         }
         Commands::Routes => {
+            let osc = connect(&cli.address)?;
             let req = onie_sai::RouteListRequest::new();
             log::info!("making request to onie-said: {:?}...", req);
             let resp = osc
@@ -163,6 +164,7 @@ fn app() -> anyhow::Result<()> {
             log::info!("response from onie-said: {:?}", resp);
         }
         Commands::AutoDiscovery(v) => {
+            let osc = connect(&cli.address)?;
             log::info!("auto discovery args: {:?}", v.enable);
             let req = onie_sai::AutoDiscoveryRequest {
                 enable: v.enable,
@@ -179,9 +181,11 @@ fn app() -> anyhow::Result<()> {
             );
         }
         Commands::Shell => {
+            let osc = connect(&cli.address)?;
             shell_command(osc)?;
         }
         Commands::Shutdown => {
+            let osc = connect(&cli.address)?;
             let req = onie_sai::ShutdownRequest::new();
             log::info!("making request to onie-said: {:?}...", req);
             let resp = osc
@@ -189,20 +193,43 @@ fn app() -> anyhow::Result<()> {
                 .context("request to onie-said failed")?;
             log::info!("response from onie-said: {:?}", resp);
         }
-        Commands::WaitOnInitialDiscovery => loop {
-            let req = onie_sai::IsInitialDiscoveryFinishedRequest::new();
-            log::info!("making request to onie-said: {:?}...", req);
-            let resp = osc
-                .is_initial_discovery_finished(default_ctx(), &req)
-                .context("request to onie-said failed")?;
-            log::info!("response from onie-said: {:?}", resp);
-            if resp.is_finished {
-                log::info!("initial discovery finished");
-                break;
+        Commands::WaitOnInitialDiscovery => {
+            // we'll give this command up to 60 seconds to connect to the ttrpc server
+            // because this is executed right after we start onie-said from init scripts
+            // we need to wait until the ttrpc server is up and running
+            let mut i = 0u32;
+            let osc = loop {
+                match connect(&cli.address) {
+                    Ok(osc) => break osc,
+                    Err(e) => {
+                        log::debug!("failed to connect to onie-said (connect count {i}): {e:?}");
+                    }
+                }
+                i += 1;
+                if i == 60 {
+                    return Err(anyhow::anyhow!("failed to connect to onie-said after 60 connection attempts with 1 second delay in between"));
+                }
+                thread::sleep(Duration::from_millis(1000));
+            };
+            // once we are connected, we can poll until the initial discovery is finished
+            // this is deterministic, so we know it will complete
+            // if it does not, then this is a bug in onie-said
+            loop {
+                let req = onie_sai::IsInitialDiscoveryFinishedRequest::new();
+                log::info!("making request to onie-said: {:?}...", req);
+                let resp = osc
+                    .is_initial_discovery_finished(default_ctx(), &req)
+                    .context("request to onie-said failed")?;
+                log::info!("response from onie-said: {:?}", resp);
+                if resp.is_finished {
+                    log::info!("initial discovery finished");
+                    break;
+                }
+                thread::sleep(Duration::from_millis(1000));
             }
-            thread::sleep(Duration::from_millis(1000));
-        },
+        }
         Commands::LLDP(args) => {
+            let osc = connect(&cli.address)?;
             let req = onie_sai::LLDPStatusRequest {
                 device: args.device,
                 ..Default::default()
@@ -218,6 +245,7 @@ fn app() -> anyhow::Result<()> {
             }
         }
         Commands::LLDPNetworkConfig(args) => {
+            let osc = connect(&cli.address)?;
             let mut wait_secs = args.wait_secs.unwrap_or(1);
             while wait_secs > 0 {
                 let req = onie_sai::LLDPNetworkConfigRequest {
@@ -230,30 +258,23 @@ fn app() -> anyhow::Result<()> {
                     .context("request to onie-said failed")?;
                 log::info!("response from onie-said: {:?}", resp);
                 if let Some(network_config) = resp.network_config.into_option() {
-                    println!(
-                        "onie_lldp_{}_ip=\"{}\"",
-                        args.device.clone(),
-                        network_config.ip
-                    );
+                    // we need to replace the "-" in the device name with "_" because shells
+                    // don't like dashes in variable names
+                    let dev = args.device.replace("-", "_");
+                    println!("onie_lldp_{}_ip=\"{}\"", dev, network_config.ip);
                     for (i, route) in network_config.routes.iter().enumerate() {
                         println!(
                             "onie_lldp_{}_route_{}_gateway=\"{}\"",
-                            args.device.clone(),
-                            i,
-                            route.gateway
+                            dev, i, route.gateway
                         );
                         println!(
                             "onie_lldp_{}_route_{}_dests=\"{}\"",
-                            args.device.clone(),
+                            dev,
                             i,
                             route.destinations.join(" ")
                         );
                     }
-                    println!(
-                        "onie_lldp_{}_is_hh=\"{}\"",
-                        args.device.clone(),
-                        network_config.is_hh
-                    );
+                    println!("onie_lldp_{}_is_hh=\"{}\"", dev, network_config.is_hh);
                     break;
                 }
                 wait_secs -= 1;
