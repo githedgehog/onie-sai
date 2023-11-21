@@ -12,4 +12,5 @@ members = [
     "onie-sai-common",
     "onie-said",
     "onie-saictl",
+    "onie-lldp",
 ]
