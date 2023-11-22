@@ -10,9 +10,10 @@ MKFILE_DIR := $(shell echo $(dir $(abspath $(lastword $(MAKEFILE_LIST)))) | sed 
 # NOTE: this will change once we add the operator
 VERSION ?= $(shell git describe --tags --dirty --always)
 CARGO_TARGET_DIR := $(MKFILE_DIR)/target
-CARGO_TARGETS := $(CARGO_TARGET_DIR)/release/onie-sai $(CARGO_TARGET_DIR)/release/libxcvr_dell_s5200.so
+CARGO_TARGETS := $(CARGO_TARGET_DIR)/release/onie-sai $(CARGO_TARGET_DIR)/release/onie-lldp $(CARGO_TARGET_DIR)/release/libxcvr_dell_s5200.so
 
 # helping Makefile to track if cargo build needs to run
+SRC_FILES := $(shell find $(MKFILE_DIR)/onie-lldp -type f)
 SRC_FILES := $(shell find $(MKFILE_DIR)/onie-sai -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/onie-sai-common -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/onie-sai-rpc -type f)
@@ -30,9 +31,11 @@ PACKAGE_ARTIFACTS_DIR := $(MKFILE_DIR)/artifacts
 ARCH := $(shell uname -m)
 PACKAGE_CORE_DIR := onie-sai-$(VERSION)-linux-$(ARCH)
 PACKAGE_CORE_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_CORE_DIR).tar.gz
+PACKAGE_LLDP_DIR := onie-lldp-$(VERSION)-linux-$(ARCH)
+PACKAGE_LLDP_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_LLDP_DIR).tar.gz
 PACKAGE_XCVR_DELL_S5200_DIR := onie-sai-xcvr-dell-s5200-$(VERSION)-linux-$(ARCH)
 PACKAGE_XCVR_DELL_S5200_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_XCVR_DELL_S5200_DIR).tar.gz
-PACKAGE_FILES := $(PACKAGE_CORE_FILE) $(PACKAGE_XCVR_DELL_S5200_FILE)
+PACKAGE_FILES := $(PACKAGE_CORE_FILE) $(PACKAGE_LLDP_FILE) $(PACKAGE_XCVR_DELL_S5200_FILE)
 
 # This snippet has been sourced and adopted from the following file which is
 # licensed under Apache-2.0:
@@ -59,7 +62,7 @@ all: init build ## Runs 'init' and 'build' targets
 
 init: download_libsai extract_libsai ## Ensures all dependencies for the project are in place, and downloads and extracts them if necessary
 
-build: onie-sai  ## Builds the project
+build: onie-sai onie-lldp  ## Builds the project
 
 download_libsai: $(LIBSAI_DEB_FILES)
 
@@ -83,6 +86,8 @@ $(LIBSAI_FILES) &: $(LIBSAI_DEB_FILES)
 
 onie-sai: $(CARGO_TARGETS) ## Builds 'onie-sai' for the release target
 
+onie-lldp: $(CARGO_TARGETS) ## Builds 'onie-lldp' for the release target
+
 $(CARGO_TARGETS) &: $(SRC_FILES) $(LIBSAI_FILES)
 	LD_LIBRARY_PATH="$(MKFILE_DIR)/lib:$$LD_LIBRARY_PATH" \
 		cargo build --release --workspace
@@ -101,6 +106,21 @@ $(PACKAGE_CORE_FILE): onie-sai
 	cd $(PACKAGE_ARTIFACTS_DIR) && \
 	tar -czvf $(PACKAGE_CORE_FILE) $(PACKAGE_CORE_DIR) && \
 	rm -rf $(PACKAGE_CORE_DIR)
+
+package_lldp: $(PACKAGE_LLDP_FILE)
+
+$(PACKAGE_LLDP_FILE): onie-lldp
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	mkdir $(PACKAGE_LLDP_DIR) && cd $(PACKAGE_LLDP_DIR) && \
+	mkdir -vp usr/bin && \
+	cp -v $(CARGO_TARGET_DIR)/release/onie-lldp usr/bin/ && \
+	ln -sv onie-lldp usr/bin/onie-saictl && \
+	ln -sv onie-lldp usr/bin/onie-said && \
+	ln -sv onie-lldp usr/bin/onie-lldpctl && \
+	ln -sv onie-lldp usr/bin/onie-lldpd && \
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	tar -czvf $(PACKAGE_LLDP_FILE) $(PACKAGE_LLDP_DIR) && \
+	rm -rf $(PACKAGE_LLDP_DIR)
 
 package_xcvr_dell_s5200: $(PACKAGE_XCVR_DELL_S5200_FILE)
 
