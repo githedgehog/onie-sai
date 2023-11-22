@@ -40,6 +40,7 @@ pub(crate) enum ProcessRequest {
         ),
     ),
     NetlinkLinkChanged((u32, bool)),
+    NetlinkLinkRemoved(u32),
     LLDPTLVsReceived((u32, LLDPTLVs)),
     LLDPNetworkConfigReceived((u32, NetworkConfig)),
     LLDPStatus(
@@ -130,6 +131,9 @@ impl Processor {
                 }
 
                 // internal events
+                ProcessRequest::NetlinkLinkRemoved(if_idx) => {
+                    p.process_netlink_link_removed(if_idx)
+                }
                 ProcessRequest::NetlinkLinkChanged((if_idx, is_up)) => {
                     p.process_netlink_link_changed(if_idx, is_up)
                 }
@@ -233,6 +237,27 @@ impl Processor {
         })
     }
 
+    fn process_netlink_link_removed(&mut self, if_idx: u32) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // and update the link status in there
+        let mut found = false;
+
+        for (i, hif) in self.hifs.iter_mut().enumerate() {
+            if hif.idx == if_idx {
+                found = true;
+                hif.stop_lldp_recv_thread();
+                self.hifs.remove(i);
+                log::info!("host interface {if_name} ({if_idx}) removed");
+                break;
+            }
+        }
+
+        if !found {
+            log::warn!("host interface {if_name} ({if_idx}) not found during netlink link remove event. We were never listening for LLDP packets for this interface");
+        }
+    }
+
     fn process_netlink_link_changed(&mut self, if_idx: u32, is_up: bool) {
         let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
         // find the host interface
@@ -243,7 +268,6 @@ impl Processor {
             if hif.idx == if_idx {
                 found = true;
                 if is_up {
-                    hif.stop_lldp_recv_thread();
                     hif.start_lldp_recv_thread(self.tx.clone());
                 } else {
                     hif.stop_lldp_recv_thread();
@@ -253,7 +277,18 @@ impl Processor {
         }
 
         if !found {
-            log::warn!("host interface {if_name} ({if_idx}) not found during netlink link changed event. LLDP receive thread was not started/stopped.");
+            log::warn!("host interface {if_name} ({if_idx}) not found during netlink link changed event. Creating new internal host interface. Did you add/remove network interfaces?");
+            let mut hif = HostInterface {
+                name: if_name,
+                idx: if_idx,
+                lldp_socket: None,
+                lldp_tlvs: None,
+                lldp_network_config: None,
+            };
+            if is_up {
+                hif.start_lldp_recv_thread(self.tx.clone());
+            }
+            self.hifs.push(hif);
         }
     }
 
@@ -323,7 +358,7 @@ impl HostInterface {
                     let hif_idx = self.idx;
                     let hif_name = self.name.clone();
                     thread::spawn(move || {
-                        log::debug!("Host Interface {hif_name}: LLDP receive thread started");
+                        log::info!("Host Interface {hif_name}: LLDP receive thread started");
                         loop {
                             // this blocks until we receive a new packet on the socket
                             match socket.recv_packet() {
@@ -384,7 +419,7 @@ impl HostInterface {
                                 }
                             }
                         }
-                        log::debug!("Host Interface {}: LLDP receive thread stopped", hif_name);
+                        log::info!("Host Interface {}: LLDP receive thread stopped", hif_name);
                     });
                 }
                 Err(e) => {

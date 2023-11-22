@@ -55,6 +55,12 @@ pub(crate) fn netlink_link_monitor(
                     NetlinkPayload::InnerMessage(RtnlMessage::SetLink(v)) => {
                         let _ = proc_tx.send(ProcessRequest::NetlinkLinkChanged(convert(v)));
                     }
+                    NetlinkPayload::InnerMessage(RtnlMessage::NewLink(v)) => {
+                        let _ = proc_tx.send(ProcessRequest::NetlinkLinkChanged(convert(v)));
+                    }
+                    NetlinkPayload::InnerMessage(RtnlMessage::DelLink(v)) => {
+                        let _ = proc_tx.send(ProcessRequest::NetlinkLinkRemoved(v.header.index));
+                    }
                     NetlinkPayload::Error(e) => {
                         log::error!(
                         "netlink link monitor: received error message from netlink socket: {e:?}"
