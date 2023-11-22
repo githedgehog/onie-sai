@@ -1,4 +1,4 @@
-mod netlink;
+pub(crate) mod netlink;
 
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
@@ -39,6 +39,7 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::IsInitialDiscoveryFinishedResponse, ProcessError>>,
         ),
     ),
+    NetlinkLinkChanged((u32, bool)),
     LLDPTLVsReceived((u32, LLDPTLVs)),
     LLDPNetworkConfigReceived((u32, NetworkConfig)),
     LLDPStatus(
@@ -129,6 +130,9 @@ impl Processor {
                 }
 
                 // internal events
+                ProcessRequest::NetlinkLinkChanged((if_idx, is_up)) => {
+                    p.process_netlink_link_changed(if_idx, is_up)
+                }
                 ProcessRequest::LLDPTLVsReceived((if_idx, tlvs)) => {
                     p.process_lldp_tlvs_received(if_idx, tlvs)
                 }
@@ -227,6 +231,30 @@ impl Processor {
             network_config: wrap_message_field(None),
             ..Default::default()
         })
+    }
+
+    fn process_netlink_link_changed(&mut self, if_idx: u32, is_up: bool) {
+        let if_name = netlink::get_interface_name(if_idx).unwrap_or("unknown".to_string());
+        // find the host interface
+        // and update the link status in there
+        let mut found = false;
+
+        for hif in self.hifs.iter_mut() {
+            if hif.idx == if_idx {
+                found = true;
+                if is_up {
+                    hif.stop_lldp_recv_thread();
+                    hif.start_lldp_recv_thread(self.tx.clone());
+                } else {
+                    hif.stop_lldp_recv_thread();
+                }
+                break;
+            }
+        }
+
+        if !found {
+            log::warn!("host interface {if_name} ({if_idx}) not found during netlink link changed event. LLDP receive thread was not started/stopped.");
+        }
     }
 
     fn process_lldp_tlvs_received(&mut self, if_idx: u32, lldp_tlvs: LLDPTLVs) {

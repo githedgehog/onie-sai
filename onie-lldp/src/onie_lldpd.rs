@@ -16,6 +16,7 @@ use log::LevelFilter;
 
 use macaddr::MacAddr6;
 
+use crate::onie_lldpd::processor::netlink;
 use crate::onie_lldpd::processor::Processor;
 
 use ctrlc;
@@ -169,6 +170,9 @@ fn app(cli: Cli) -> anyhow::Result<()> {
 
     // initialize the ttrpc server
     let rpc_server = rpc::start_rpc_server(proc.get_sender())?;
+
+    // initialize netlink link monitor
+    let _nl_monitor = netlink::netlink_link_monitor(proc.get_sender())?;
 
     // this blocks until processing is all done
     // process consumes the processor, so it will be dropped immediately after

@@ -1,12 +1,9 @@
-// use libc::RTMGRP_IPV4_IFADDR;
-// use libc::RTMGRP_IPV6_IFADDR;
+use libc::RTMGRP_LINK;
 use netlink_packet_core::constants::NLM_F_ACK;
 use netlink_packet_core::constants::NLM_F_REQUEST;
 use netlink_packet_core::NetlinkHeader;
 use netlink_packet_core::NetlinkMessage;
 use netlink_packet_core::NetlinkPayload;
-// use netlink_packet_route::rtnl::address::AddressMessage;
-// use netlink_packet_route::rtnl::nlas::address::Nla;
 use netlink_packet_route::LinkMessage;
 use netlink_packet_route::RtnlMessage;
 use netlink_packet_utils::DecodeError;
@@ -14,126 +11,77 @@ use netlink_sys::protocols::NETLINK_ROUTE;
 use netlink_sys::Socket;
 use netlink_sys::SocketAddr;
 use std::ffi::CStr;
-// use std::net::IpAddr;
-// use std::sync::mpsc::Sender;
-// use std::thread;
+use std::sync::mpsc::Sender;
+use std::thread;
 
-// use super::ProcessRequest;
+use super::ProcessRequest;
 
-// pub(crate) fn netlink_addr_monitor(
-//     proc_tx: Sender<ProcessRequest>,
-// ) -> Result<thread::JoinHandle<()>, std::io::Error> {
-//     let mut socket = Socket::new(NETLINK_ROUTE)?;
-//     let addr = SocketAddr::new(0, (RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR) as u32);
-//     socket.bind(&addr)?;
+pub(crate) fn netlink_link_monitor(
+    proc_tx: Sender<ProcessRequest>,
+) -> Result<thread::JoinHandle<()>, std::io::Error> {
+    let mut socket = Socket::new(NETLINK_ROUTE)?;
+    let addr = SocketAddr::new(0, RTMGRP_LINK as u32);
+    socket.bind(&addr)?;
 
-//     let mut buf = vec![0; 8192];
-//     let mut off = 0;
+    let mut buf = vec![0; 8192];
+    let mut off = 0;
 
-//     Ok(thread::spawn(move || {
-//         loop {
-//             let size = match socket.recv(&mut &mut buf[..], 0) {
-//                 Ok(v) => v,
-//                 Err(e) => {
-//                     log::error!(
-//                         "netlink addr monitor: failed to receive from netlink socket: {e:?}"
-//                     );
-//                     continue;
-//                 }
-//             };
+    Ok(thread::spawn(move || {
+        loop {
+            let size = match socket.recv(&mut &mut buf[..], 0) {
+                Ok(v) => v,
+                Err(e) => {
+                    log::error!(
+                        "netlink link monitor: failed to receive from netlink socket: {e:?}"
+                    );
+                    continue;
+                }
+            };
 
-//             // there is no guarantee that a single receive call gives us only one netlink message
-//             // so we need to loop and try to deserialize multiple messages
-//             loop {
-//                 let packet: NetlinkMessage<RtnlMessage> = match NetlinkMessage::deserialize(
-//                     &buf[off..],
-//                 ) {
-//                     Ok(v) => v,
-//                     Err(e) => {
-//                         log::error!("netlink addr monitor: received invalid netlink message, failed to deserialize: {e:?}");
-//                         break;
-//                     }
-//                 };
+            // there is no guarantee that a single receive call gives us only one netlink message
+            // so we need to loop and try to deserialize multiple messages
+            loop {
+                let packet: NetlinkMessage<RtnlMessage> = match NetlinkMessage::deserialize(
+                    &buf[off..],
+                ) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        log::error!("netlink link monitor: received invalid netlink message, failed to deserialize: {e:?}");
+                        break;
+                    }
+                };
 
-//                 match packet.payload {
-//                     NetlinkPayload::InnerMessage(RtnlMessage::NewAddress(v)) => {
-//                         match convert(v) {
-//                             Ok(v) => {
-//                                 let _ = proc_tx.send(ProcessRequest::NetlinkAddrAdded(v));
-//                             }
-//                             Err(e) => {
-//                                 log::error!("netlink addr monitor: failed to convert address message: {e:?}");
-//                             }
-//                         };
-//                     }
-//                     NetlinkPayload::InnerMessage(RtnlMessage::DelAddress(v)) => {
-//                         match convert(v) {
-//                             Ok(v) => {
-//                                 let _ = proc_tx.send(ProcessRequest::NetlinkAddrRemoved(v));
-//                             }
-//                             Err(e) => {
-//                                 log::error!("netlink addr monitor: failed to convert address message: {e:?}");
-//                             }
-//                         };
-//                     }
-//                     NetlinkPayload::Error(e) => {
-//                         log::error!(
-//                         "netlink addr monitor: received error message from netlink socket: {e:?}"
-//                     );
-//                     }
-//                     v => {
-//                         log::warn!("netlink addr monitor: received unexpected message from netlink socket: {v:?}");
-//                     }
-//                 }
+                match packet.payload {
+                    NetlinkPayload::InnerMessage(RtnlMessage::SetLink(v)) => {
+                        let _ = proc_tx.send(ProcessRequest::NetlinkLinkChanged(convert(v)));
+                    }
+                    NetlinkPayload::Error(e) => {
+                        log::error!(
+                        "netlink link monitor: received error message from netlink socket: {e:?}"
+                    );
+                    }
+                    v => {
+                        log::warn!("netlink link monitor: received unexpected message from netlink socket: {v:?}");
+                    }
+                }
 
-//                 off += packet.header.length as usize;
-//                 if off == size || packet.header.length == 0 {
-//                     off = 0;
-//                     break;
-//                 }
-//             }
-//         }
-//     }))
-// }
+                off += packet.header.length as usize;
+                if off == size || packet.header.length == 0 {
+                    off = 0;
+                    break;
+                }
+            }
+        }
+    }))
+}
 
-// #[derive(Debug)]
-// pub(crate) enum AddressMessageConversionError {
-//     InvalidFamily(i32),
-//     InvalidAddress(core::array::TryFromSliceError),
-//     NoNLAAddress,
-// }
-
-// fn convert(am: AddressMessage) -> Result<(u32, IpAddr), AddressMessageConversionError> {
-//     match am.header.family as i32 {
-//         libc::AF_INET => am
-//             .nlas
-//             .iter()
-//             .find_map(|nla| match nla {
-//                 Nla::Address(addr) => Some(addr),
-//                 _ => None,
-//             })
-//             .ok_or(AddressMessageConversionError::NoNLAAddress)
-//             .and_then(|addr| match <[u8; 4]>::try_from(addr.as_slice()) {
-//                 Ok(addr) => Ok(IpAddr::from(addr)),
-//                 Err(e) => Err(AddressMessageConversionError::InvalidAddress(e)),
-//             })
-//             .map(|addr| (am.header.index, addr)),
-//         libc::AF_INET6 => am
-//             .nlas
-//             .iter()
-//             .find_map(|nla| match nla {
-//                 Nla::Address(addr) => Some(addr),
-//                 _ => None,
-//             })
-//             .ok_or(AddressMessageConversionError::NoNLAAddress)
-//             .and_then(|addr| match <[u8; 16]>::try_from(addr.as_slice()) {
-//                 Ok(addr) => Ok(IpAddr::from(addr)),
-//                 Err(e) => Err(AddressMessageConversionError::InvalidAddress(e)),
-//             })
-//             .map(|addr| (am.header.index, addr)),
-//         family => Err(AddressMessageConversionError::InvalidFamily(family)),
-//     }
-// }
+fn convert(lm: LinkMessage) -> (u32, bool) {
+    if lm.header.flags & libc::IFF_UP as u32 != 0 {
+        (lm.header.index, true)
+    } else {
+        (lm.header.index, false)
+    }
+}
 
 pub(crate) fn get_interface_name(index: u32) -> Result<String, std::io::Error> {
     let mut buf = [0u8; libc::IFNAMSIZ];
