@@ -60,7 +60,7 @@
             uses: softprops/action-gh-release@v1
             if: startsWith(github.ref, 'refs/tags/')
             with:
-              files: onie-sai*.tar.*
+              files: onie-*.tar.*
           - name: Setup tmate session for debug
             if: ${{ failure() && github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
             uses: mxschmitt/action-tmate@v3
