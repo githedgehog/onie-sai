@@ -201,11 +201,13 @@ fn app() -> anyhow::Result<()> {
         };
 
         let inserted_port_type = if present {
-            Some(
-                platform_ctx
-                    .get_inserted_port_type(idx)
-                    .context("failed to get inserted port type")?,
-            )
+            match platform_ctx.get_inserted_port_type(idx) {
+                Ok(t) => Some(t),
+                Err(e) => {
+                    log::warn!("port {}: failed to get inserted port type: {}", idx, e);
+                    None
+                }
+            }
         } else {
             None
         };

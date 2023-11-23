@@ -75,7 +75,7 @@ impl Eeprom {
         Ok(())
     }
 
-    fn get_id(&self) -> Result<u8, xcvr_status_t> {
+    pub(crate) fn get_id(&self) -> Result<u8, xcvr_status_t> {
         let buffer = self.read_eeprom(0, 1)?;
         Ok(buffer[0])
     }

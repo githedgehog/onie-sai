@@ -183,7 +183,17 @@ pub extern "C" fn xcvr_get_inserted_port_type(
             return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
         }
     };
-    common::xcvr_get_inserted_port_type(num_physical_ports, index)
+    let get_inserted_port_type = match platform_bytes {
+        b"x86_64-dellemc_s5212f_c3538-r0\0" => common::xcvr_get_inserted_port_type,
+        b"x86_64-dellemc_s5224f_c3538-r0\0" => common::xcvr_get_inserted_port_type,
+        b"x86_64-dellemc_s5232f_c3538-r0\0" => common::xcvr_get_inserted_port_type,
+        b"x86_64-dellemc_s5248f_c3538-r0\0" => s5248::xcvr_get_inserted_port_type,
+        b"x86_64-dellemc_s5296f_c3538-r0\0" => common::xcvr_get_inserted_port_type,
+        _ => {
+            return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
+        }
+    };
+    get_inserted_port_type(num_physical_ports, index)
         .map(|v| {
             unsafe { *inserted_port_type = v };
             xcvr_sys::XCVR_STATUS_SUCCESS
