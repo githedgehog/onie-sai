@@ -171,6 +171,48 @@ impl From<DecodeError> for SetLinkError {
     }
 }
 
+pub(crate) fn get_link_status(index: u32) -> Result<bool, SetLinkError> {
+    let mut socket = Socket::new(NETLINK_ROUTE)?;
+    let sock_addr = socket.bind_auto()?;
+    let port_number = sock_addr.port_number();
+    socket.connect(&SocketAddr::new(0, 0))?;
+
+    // GET LINK
+    // build request
+    let mut hdr = NetlinkHeader::default();
+    hdr.flags = NLM_F_REQUEST;
+    hdr.port_number = port_number;
+    let mut lm = LinkMessage::default();
+    lm.header.index = index;
+    let mut req = NetlinkMessage::new(hdr, NetlinkPayload::from(RtnlMessage::GetLink(lm)));
+    req.finalize();
+
+    // serialize the request
+    let mut buf = vec![0u8; req.header.length as usize];
+    req.serialize(buf.as_mut_slice());
+
+    // send the request
+    let _ = socket.send(buf.as_slice(), 0)?;
+
+    // receive the response
+    let mut buf = vec![0u8; 8192];
+    let _ = socket.recv(&mut &mut buf[..], 0)?;
+
+    // deserialize the response
+    // we are expecting an NLMSG_ERROR message without an error (which equals an ACK)
+    let resp = <NetlinkMessage<RtnlMessage>>::deserialize(&buf.as_slice())?;
+    let current_lm = match resp.payload {
+        NetlinkPayload::InnerMessage(RtnlMessage::GetLink(v)) => v,
+        NetlinkPayload::InnerMessage(RtnlMessage::NewLink(v)) => v,
+        v => {
+            println!("{v:?}");
+            return Err(SetLinkError::UnexpectedNetlinkMessage(v.message_type()));
+        }
+    };
+
+    Ok(current_lm.header.flags & libc::IFF_UP as u32 != 0)
+}
+
 #[allow(dead_code)]
 pub(crate) fn set_link_status(index: u32, oper_status: bool) -> Result<(), SetLinkError> {
     let mut socket = Socket::new(NETLINK_ROUTE)?;

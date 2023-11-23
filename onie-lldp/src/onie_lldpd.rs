@@ -9,6 +9,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::thread;
+use std::time::Duration;
 
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
@@ -173,6 +174,21 @@ fn app(cli: Cli) -> anyhow::Result<()> {
 
     // initialize netlink link monitor
     let _nl_monitor = netlink::netlink_link_monitor(proc.get_sender())?;
+
+    // initialize auto discovery poll loop
+    let poll_proc_tx = proc.get_sender();
+    thread::spawn(move || loop {
+        // We are going to poll every second
+        // NOTE: this might be too aggressive, we need to look at this again
+        thread::sleep(Duration::from_secs(1));
+        if let Err(e) = poll_proc_tx.send(processor::ProcessRequest::LinkPoll) {
+            log::error!(
+                "failed to send link poll request: {:?}. Aborting link poll thread.",
+                e
+            );
+            return;
+        }
+    });
 
     // this blocks until processing is all done
     // process consumes the processor, so it will be dropped immediately after

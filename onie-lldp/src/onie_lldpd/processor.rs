@@ -39,6 +39,7 @@ pub(crate) enum ProcessRequest {
             Sender<Result<onie_sai::IsInitialDiscoveryFinishedResponse, ProcessError>>,
         ),
     ),
+    LinkPoll,
     NetlinkLinkChanged((u32, bool)),
     NetlinkLinkRemoved(u32),
     LLDPTLVsReceived((u32, LLDPTLVs)),
@@ -77,7 +78,11 @@ impl Processor {
                 lldp_tlvs: None,
                 lldp_network_config: None,
             };
-            hif.start_lldp_recv_thread(tx.clone());
+            if let Ok(is_up) = netlink::get_link_status(idx) {
+                if is_up {
+                    hif.start_lldp_recv_thread(tx.clone());
+                }
+            }
             hifs.push(hif);
         }
 
@@ -131,6 +136,9 @@ impl Processor {
                 }
 
                 // internal events
+                ProcessRequest::LinkPoll => {
+                    p.process_link_poll();
+                }
                 ProcessRequest::NetlinkLinkRemoved(if_idx) => {
                     p.process_netlink_link_removed(if_idx)
                 }
@@ -235,6 +243,30 @@ impl Processor {
             network_config: wrap_message_field(None),
             ..Default::default()
         })
+    }
+
+    fn process_link_poll(&mut self) {
+        log::debug!("Link Poll event received");
+        // this is all totally redundant, and should never be necessary
+        // however, this catches the case where we missed a netlink link event - for whatever reason
+        for hif in self.hifs.iter_mut() {
+            match netlink::get_link_status(hif.idx) {
+                Ok(is_up) => {
+                    if is_up {
+                        hif.start_lldp_recv_thread(self.tx.clone());
+                    } else {
+                        hif.stop_lldp_recv_thread();
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "failed to get link status for interface {} ({}): {e:?}",
+                        hif.name,
+                        hif.idx
+                    );
+                }
+            }
+        }
     }
 
     fn process_netlink_link_removed(&mut self, if_idx: u32) {
