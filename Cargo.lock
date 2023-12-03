@@ -686,6 +686,7 @@ dependencies = [
  "onie-sai-common",
  "onie-saictl",
  "onie-said",
+ "xcvrctl",
 ]
 
 [[package]]

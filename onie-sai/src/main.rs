@@ -1,6 +1,6 @@
 fn main() -> onie_sai_common::App {
     // match on the zeroth argument and then based on the match of the base path
-    // switch to either saictl or said like busybox does it for all their "applets"
+    // switch to either saictl, xcvrctl or said like busybox does it for all their "applets"
     if let Some(arg0) = std::env::args_os().next() {
         // get the basename of arg0
         if let Some(arg0_basename) = std::path::Path::new(&arg0).file_name() {
@@ -10,6 +10,7 @@ fn main() -> onie_sai_common::App {
                 match arg0_basename_str {
                     "onie-saictl" => return onie_saictl::main(),
                     "onie-said" => return onie_said::main(),
+                    "xcvrctl" => return xcvrctl::main(),
                     _ => return onie_sai_common::App(main_default()),
                 }
             }
@@ -29,6 +30,6 @@ fn main_default() -> anyhow::Result<()> {
         .and_then(|v| v.to_str())
         .unwrap_or("[none]");
     anyhow::bail!(
-        "unsupported app \"{arg0}\", supported apps are \"onie-saictl\" and \"onie-said\""
+        "unsupported app \"{arg0}\", supported apps are \"onie-saictl\", \"xcvrctl\" and \"onie-said\""
     )
 }
