@@ -211,7 +211,7 @@ impl<'a, 'b> Processor<'a, 'b> {
         let default_bridge = switch
             .get_default_bridge()
             .context("failed to get dfeault bridge")?;
-        log::info!(
+        log::debug!(
             "default bridge of switch {} is: {:?}",
             switch,
             default_bridge
@@ -237,7 +237,7 @@ impl<'a, 'b> Processor<'a, 'b> {
                 }
             }
 
-            log::info!("removing bridge port {}...", bridge_port);
+            log::debug!("removing bridge port {}...", bridge_port);
             bridge_port
                 .remove()
                 .context("failed to remove bridge port")?;
