@@ -95,8 +95,8 @@ impl Termination for App {
     }
 }
 
-fn main() -> App {
-    App(app())
+pub fn main() -> onie_sai_common::App {
+    onie_sai_common::App(app())
 }
 
 fn app() -> anyhow::Result<()> {

@@ -1362,5 +1362,6 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
+ "onie-sai-common",
  "xcvr",
 ]
