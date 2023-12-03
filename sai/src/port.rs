@@ -176,6 +176,108 @@ impl From<i32> for AutoNegConfigMode {
     }
 }
 
+/*
+typedef enum _sai_port_media_type_t
+{
+    /** Media not present */
+    SAI_PORT_MEDIA_TYPE_NOT_PRESENT,
+
+    /** Media type not known */
+    SAI_PORT_MEDIA_TYPE_UNKNOWN,
+
+    /** Media type fiber. Remote advertise medium information as fiber */
+    SAI_PORT_MEDIA_TYPE_FIBER,
+
+    /** Media type copper. Remote advertise medium information as copper */
+    SAI_PORT_MEDIA_TYPE_COPPER,
+
+    /** Media type Back plane. */
+    SAI_PORT_MEDIA_TYPE_BACKPLANE,
+} sai_port_media_type_t;
+*/
+pub enum MediaType {
+    NotPresent,
+    Unknown,
+    Fiber,
+    Copper,
+    Backplane,
+}
+
+impl From<MediaType> for i32 {
+    fn from(value: MediaType) -> Self {
+        match value {
+            MediaType::NotPresent => _sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_NOT_PRESENT as i32,
+            MediaType::Unknown => _sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_UNKNOWN as i32,
+            MediaType::Fiber => _sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_FIBER as i32,
+            MediaType::Copper => _sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_COPPER as i32,
+            MediaType::Backplane => _sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_BACKPLANE as i32,
+        }
+    }
+}
+
+impl From<i32> for MediaType {
+    fn from(value: i32) -> Self {
+        match value {
+            x if x == sai_sys::_sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_NOT_PRESENT as i32 => {
+                MediaType::NotPresent
+            }
+            x if x == sai_sys::_sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_UNKNOWN as i32 => {
+                MediaType::Unknown
+            }
+            x if x == sai_sys::_sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_FIBER as i32 => {
+                MediaType::Fiber
+            }
+            x if x == sai_sys::_sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_COPPER as i32 => {
+                MediaType::Copper
+            }
+            x if x == sai_sys::_sai_port_media_type_t_SAI_PORT_MEDIA_TYPE_BACKPLANE as i32 => {
+                MediaType::Backplane
+            }
+            _ => MediaType::Unknown,
+        }
+    }
+}
+
+/*
+typedef enum _sai_port_fec_mode_t
+{
+    /** No FEC */
+    SAI_PORT_FEC_MODE_NONE,
+
+    /** Enable RS-FEC - 25G, 50G, 100G ports. The specific RS-FEC mode will be automatically determined. */
+    SAI_PORT_FEC_MODE_RS,
+
+    /** Enable FC-FEC - 10G, 25G, 40G, 50G ports */
+    SAI_PORT_FEC_MODE_FC,
+} sai_port_fec_mode_t;
+*/
+pub enum FECMode {
+    None,
+    RS,
+    FC,
+}
+
+impl From<FECMode> for i32 {
+    fn from(value: FECMode) -> Self {
+        match value {
+            FECMode::None => _sai_port_fec_mode_t_SAI_PORT_FEC_MODE_NONE as i32,
+            FECMode::RS => _sai_port_fec_mode_t_SAI_PORT_FEC_MODE_RS as i32,
+            FECMode::FC => _sai_port_fec_mode_t_SAI_PORT_FEC_MODE_FC as i32,
+        }
+    }
+}
+
+impl From<i32> for FECMode {
+    fn from(value: i32) -> Self {
+        match value {
+            x if x == sai_sys::_sai_port_fec_mode_t_SAI_PORT_FEC_MODE_NONE as i32 => FECMode::None,
+            x if x == sai_sys::_sai_port_fec_mode_t_SAI_PORT_FEC_MODE_RS as i32 => FECMode::RS,
+            x if x == sai_sys::_sai_port_fec_mode_t_SAI_PORT_FEC_MODE_FC as i32 => FECMode::FC,
+            _ => FECMode::None,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct PortID {
     pub(crate) id: sai_object_id_t,
@@ -668,6 +770,67 @@ impl<'a> Port<'a> {
         }
     }
 
+    pub fn set_mtu(&self, mtu: u32) -> Result<(), Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
+            .set_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_MTU,
+            value: sai_attribute_value_t { u32_: mtu },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn set_media_type(&self, media_type: MediaType) -> Result<(), Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
+            .set_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_MEDIA_TYPE,
+            value: sai_attribute_value_t {
+                s32: media_type.into(),
+            },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn set_fec_mode(&self, fec_mode: FECMode) -> Result<(), Error> {
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let set_port_attribute = port_api
+            .set_port_attribute
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let attr = sai_attribute_t {
+            id: _sai_port_attr_t_SAI_PORT_ATTR_FEC_MODE,
+            value: sai_attribute_value_t {
+                s32: fec_mode.into(),
+            },
+        };
+
+        let st = unsafe { set_port_attribute(self.id, &attr) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            Err(Error::SAI(Status::from(st)))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn remove(self) -> Result<(), Error> {
         let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
         let remove_port = port_api.remove_port.ok_or(Error::APIFunctionUnavailable)?;
@@ -684,5 +847,23 @@ impl<'a> Port<'a> {
 impl ObjectID<PortID> for Port<'_> {
     fn to_id(&self) -> PortID {
         PortID { id: self.id }
+    }
+}
+
+#[derive(Clone)]
+pub struct PortSerdes<'a> {
+    pub(crate) id: sai_object_id_t,
+    pub(crate) sai: &'a SAI,
+}
+
+impl std::fmt::Debug for PortSerdes<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PortSerdes(oid:{:#x})", self.id)
+    }
+}
+
+impl std::fmt::Display for PortSerdes<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "oid:{:#x}", self.id)
     }
 }

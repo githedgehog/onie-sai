@@ -4,7 +4,7 @@ use crate::{
         table_entry::TableEntry, table_entry::TableEntryAttribute, trap::Trap, trap::TrapAttribute,
         trap_group::TrapGroup, HostIf, HostIfAttribute,
     },
-    port::Port,
+    port::{Port, PortSerdes},
     virtual_router::VirtualRouter,
     vlan::VLAN,
 };
@@ -365,6 +365,48 @@ impl<'a> Switch<'a> {
         Ok(VirtualRouter {
             id: unsafe { attr.value.oid },
             switch_id: self.id,
+            sai: self.sai,
+        })
+    }
+
+    pub fn create_port_serdes(
+        &self,
+        port_id: PortID,
+        preemphasis: Vec<i32>,
+    ) -> Result<PortSerdes, Error> {
+        // check that API is available/callable
+        let port_api = self.sai.port_api().ok_or(Error::APIUnavailable)?;
+        let create_port_serdes = port_api
+            .create_port_serdes
+            .ok_or(Error::APIFunctionUnavailable)?;
+
+        let mut preemphasis = preemphasis.clone();
+        let args: Vec<sai_attribute_t> = vec![
+            sai_attribute_t {
+                id: _sai_port_serdes_attr_t_SAI_PORT_SERDES_ATTR_PORT_ID,
+                value: sai_attribute_value_t {
+                    oid: port_id.into(),
+                },
+            },
+            sai_attribute_t {
+                id: _sai_port_serdes_attr_t_SAI_PORT_SERDES_ATTR_PREEMPHASIS,
+                value: sai_attribute_value_t {
+                    s32list: sai_s32_list_t {
+                        count: preemphasis.len() as u32,
+                        list: preemphasis.as_mut_ptr(),
+                    },
+                },
+            },
+        ];
+
+        let mut oid: sai_object_id_t = 0;
+        let st = unsafe { create_port_serdes(&mut oid, self.id, args.len() as u32, args.as_ptr()) };
+        if st != SAI_STATUS_SUCCESS as sai_status_t {
+            return Err(Error::SAI(Status::from(st)));
+        }
+
+        Ok(PortSerdes {
+            id: oid,
             sai: self.sai,
         })
     }
