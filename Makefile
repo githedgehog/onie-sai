@@ -102,6 +102,7 @@ $(PACKAGE_CORE_FILE): onie-sai
 	mkdir -vp usr/bin && \
 	cp -v $(CARGO_TARGET_DIR)/release/onie-sai usr/bin/ && \
 	ln -sv onie-sai usr/bin/onie-saictl && \
+	ln -sv onie-sai usr/bin/xcvrctl && \
 	ln -sv onie-sai usr/bin/onie-said && \
 	cd $(PACKAGE_ARTIFACTS_DIR) && \
 	tar -czvf $(PACKAGE_CORE_FILE) $(PACKAGE_CORE_DIR) && \
