@@ -853,6 +853,7 @@ impl ObjectID<PortID> for Port<'_> {
 #[derive(Clone)]
 pub struct PortSerdes<'a> {
     pub(crate) id: sai_object_id_t,
+    #[allow(dead_code)]
     pub(crate) sai: &'a SAI,
 }
 
