@@ -1349,6 +1349,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "xcvr-pddf"
+version = "0.1.3"
+dependencies = [
+ "memmap",
+ "serde",
+ "serde_json",
+ "xcvr-sys",
+]
+
+[[package]]
 name = "xcvr-sys"
 version = "0.1.3"
 dependencies = [
