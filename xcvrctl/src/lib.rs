@@ -53,7 +53,7 @@ enum PortCommands {
     /// Set low power mode on/off
     SetLowPowerMode {
         /// enable or disable lower power mode of transceiver
-        enable: bool,
+        enable: Option<bool>,
     },
 }
 
@@ -216,10 +216,20 @@ fn app() -> anyhow::Result<()> {
         Commands::Port { index, command } => match index {
             Some(index) => match command {
                 PortCommands::Get => get_port(&platform_ctx, index),
-                PortCommands::Reset => reset_port(platform_ctx, index)?,
-                PortCommands::SetLowPowerMode { enable } => {
-                    set_low_power_mode(platform_ctx, index, enable)?
+                PortCommands::Reset => {
+                    log::info!("port {}: resetting transceiver", index);
+                    reset_port(platform_ctx, index)?
                 }
+                PortCommands::SetLowPowerMode { enable } => match enable {
+                    Some(enable) => {
+                        log::info!("port {}: setting low power mode to {}", index, enable);
+                        set_low_power_mode(platform_ctx, index, enable)?;
+                    }
+                    None => {
+                        log::error!("port {}: no enable/disable specified", index);
+                        return Err(anyhow::anyhow!("port: no enable/disable specified"));
+                    }
+                },
             },
             None => {
                 log::error!("port: no port index specified");
