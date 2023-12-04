@@ -9,6 +9,7 @@ use std::io::BufReader;
 use std::path::Path;
 use std::process::ExitCode;
 use std::process::Termination;
+use std::rc::Rc;
 use std::sync::OnceLock;
 
 #[derive(Parser)]
@@ -99,6 +100,25 @@ pub fn main() -> onie_sai_common::App {
     onie_sai_common::App(app())
 }
 
+#[derive(Clone)]
+pub(crate) struct PlatformContextHolder<'a> {
+    obj: Rc<dyn xcvr::PlatformContext + 'a>,
+}
+
+impl<'a> PlatformContextHolder<'a> {
+    pub(crate) fn new<T: xcvr::PlatformContext + 'a>(object: T) -> Self {
+        Self {
+            obj: Rc::new(object),
+        }
+    }
+}
+
+impl std::fmt::Debug for PlatformContextHolder<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PlatformContextHolder")
+    }
+}
+
 fn app() -> anyhow::Result<()> {
     // parse flags and initialize logger
     let cli = Cli::parse();
@@ -150,58 +170,78 @@ fn app() -> anyhow::Result<()> {
     };
 
     // now we are either using the platform specific library or the fallback
-    let platform_ctx: Box<dyn xcvr::PlatformContext> = match platform_lib_ctx {
-        Some(l) => Box::new(l),
+    let platform_ctx: PlatformContextHolder = match platform_lib_ctx {
+        Some(l) => PlatformContextHolder::new(l),
         None => {
             log::warn!("platform library: using fallback implementation");
-            Box::new(xcvr::FallbackPlatformLibrary {})
+            PlatformContextHolder::new(xcvr::FallbackPlatformLibrary {})
         }
     };
 
+    list_ports(platform_ctx)?;
+    Ok(())
+}
+
+fn list_ports(platform_ctx: PlatformContextHolder) -> anyhow::Result<()> {
     let num_ports = platform_ctx
+        .obj
         .num_physical_ports()
         .context("failed to get number of physical ports")?;
 
     for idx in 0..num_ports {
-        let supported_port_types = platform_ctx
-            .get_supported_port_types(idx)
-            .context("failed to get supported port types")?;
-        let present = platform_ctx
-            .get_presence(idx)
-            .context("failed to get port presence")?;
+        let supported_port_types = match platform_ctx.obj.get_supported_port_types(idx) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("port {}: failed to get supported port types: {}", idx, e);
+                Vec::new()
+            }
+        };
+        let present = match platform_ctx.obj.get_presence(idx) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("port {}: failed to detect port presence: {}. Assuming port is present like in fallback implementation.", idx, e);
+                true
+            }
+        };
 
         let oper_status = if present {
-            Some(
-                platform_ctx
-                    .get_oper_status(idx)
-                    .context("failed to get port operational status")?,
-            )
+            match platform_ctx.obj.get_oper_status(idx) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("port {}: failed to get oper status: {}", idx, e);
+                    None
+                }
+            }
         } else {
             None
         };
 
         let reset_status = if present {
-            Some(
-                platform_ctx
-                    .get_reset_status(idx)
-                    .context("failed to get port reset status")?,
-            )
+            match platform_ctx.obj.get_reset_status(idx) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("port {}: failed to get reset status: {}", idx, e);
+                    None
+                }
+            }
         } else {
             None
         };
 
         let low_power_mode = if present {
-            Some(
-                platform_ctx
-                    .get_low_power_mode(idx)
-                    .context("failed to get port low power mode")?,
-            )
+            match platform_ctx.obj.get_low_power_mode(idx) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("port {}: failed to get low power mode: {}", idx, e);
+                    None
+                }
+            }
         } else {
             None
         };
 
         let inserted_port_type = if present {
-            match platform_ctx.get_inserted_port_type(idx) {
+            match platform_ctx.obj.get_inserted_port_type(idx) {
                 Ok(t) => Some(t),
                 Err(e) => {
                     log::warn!("port {}: failed to get inserted port type: {}", idx, e);
@@ -212,17 +252,17 @@ fn app() -> anyhow::Result<()> {
             None
         };
 
-        // simply log it
-        log::info!(
-            "port {}: present: {}, supported port types: {:?}, inserted port type: {:?}, oper status: {:?}, reset status: {:?}, low power mode: {:?}",
-            idx,
-            present,
-            supported_port_types,
-            inserted_port_type,
-            oper_status,
-            reset_status,
-            low_power_mode,
-        );
+        // simply print it to stdout
+        println!(
+        "port {}: present: {}, supported port types: {:?}, inserted port type: {:?}, oper status: {:?}, reset status: {:?}, low power mode: {:?}",
+        idx,
+        present,
+        supported_port_types,
+        inserted_port_type,
+        oper_status,
+        reset_status,
+        low_power_mode,
+    );
     }
     Ok(())
 }
