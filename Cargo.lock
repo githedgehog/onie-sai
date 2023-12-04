@@ -655,7 +655,7 @@ checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
 name = "onie-lldp"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -679,7 +679,7 @@ dependencies = [
 
 [[package]]
 name = "onie-sai"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "env_logger",
@@ -691,7 +691,7 @@ dependencies = [
 
 [[package]]
 name = "onie-sai-common"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "log",
@@ -699,7 +699,7 @@ dependencies = [
 
 [[package]]
 name = "onie-sai-rpc"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "protobuf 3.2.0",
  "ttrpc",
@@ -708,7 +708,7 @@ dependencies = [
 
 [[package]]
 name = "onie-saictl"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -721,7 +721,7 @@ dependencies = [
 
 [[package]]
 name = "onie-said"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -991,7 +991,7 @@ checksum = "1ad4cc8da4ef723ed60bced201181d83791ad433213d8c24efffda1eec85d741"
 
 [[package]]
 name = "sai"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "ipnet",
  "log",
@@ -1000,7 +1000,7 @@ dependencies = [
 
 [[package]]
 name = "sai-sys"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "bindgen",
  "ipnet",
@@ -1333,7 +1333,7 @@ checksum = "ed94fce61571a4006852b7389a063ab983c02eb1bb37b47f8272ce92d06d9538"
 
 [[package]]
 name = "xcvr"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "libloading 0.8.1",
  "thiserror",
@@ -1342,22 +1342,32 @@ dependencies = [
 
 [[package]]
 name = "xcvr-dell-s5200"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "memmap",
  "xcvr-sys",
 ]
 
 [[package]]
+name = "xcvr-pddf"
+version = "0.1.4"
+dependencies = [
+ "memmap",
+ "serde",
+ "serde_json",
+ "xcvr-sys",
+]
+
+[[package]]
 name = "xcvr-sys"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "bindgen",
 ]
 
 [[package]]
 name = "xcvrctl"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",

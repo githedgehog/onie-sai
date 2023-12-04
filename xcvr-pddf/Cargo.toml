@@ -1,5 +1,5 @@
 [package]
-name = "xcvr-dell-s5200"
+name = "xcvr-pddf"
 version = "0.1.4"
 edition = "2021"
 
@@ -13,3 +13,5 @@ xcvr-sys = { version = "0.1.4", path = "../xcvr-sys" }
 # log = "0.4.20"
 # env_logger = "0.10.0"
 memmap = "0.7.0"
+serde = { version = "1.0.190", features = ["derive"] }
+serde_json = "1.0.108"

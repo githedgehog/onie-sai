@@ -335,24 +335,62 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         port_config: Option<PhysicalPortConfig>,
     ) -> Result<PhysicalPort<'a, 'b>, PortError> {
         // get the transceiver state first
-        let xcvr_present = xcvr_api.obj.get_presence(physical_port_index as u16)?;
+        // NOTE: we are lenient here with xcvr state, and let nothing here fail.
+        // If the presence check fails, we assume the port is present.
+        let xcvr_present = match xcvr_api.obj.get_presence(physical_port_index as u16) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("Physical Port {}: transceiver presence check failed: {:?}. Assuming transceiver is present.", physical_port_index, e);
+                true
+            }
+        };
         let xcvr_oper_status = if xcvr_present {
-            Some(xcvr_api.obj.get_oper_status(physical_port_index as u16)?)
+            match xcvr_api.obj.get_oper_status(physical_port_index as u16) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Physical Port {}: transceiver oper status check failed: {:?}",
+                        physical_port_index,
+                        e
+                    );
+                    None
+                }
+            }
         } else {
             None
         };
         let xcvr_inserted_type = if xcvr_present {
-            Some(
-                xcvr_api
-                    .obj
-                    .get_inserted_port_type(physical_port_index as u16)?,
-            )
+            match xcvr_api
+                .obj
+                .get_inserted_port_type(physical_port_index as u16)
+            {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Physical Port {}: transceiver inserted port type check failed: {:?}",
+                        physical_port_index,
+                        e
+                    );
+                    None
+                }
+            }
         } else {
             None
         };
-        let xcvr_supported_types = xcvr_api
+        let xcvr_supported_types = match xcvr_api
             .obj
-            .get_supported_port_types(physical_port_index as u16)?;
+            .get_supported_port_types(physical_port_index as u16)
+        {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!(
+                    "Physical Port {}: transceiver supported port types check failed: {:?}",
+                    physical_port_index,
+                    e
+                );
+                vec![]
+            }
+        };
 
         // get the port attributes that we need for initialization
         // let oper_status = port.get_oper_status()?;
@@ -418,12 +456,12 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
         let xcvr_present = match self.xcvr_api.obj.get_presence(self.idx as u16) {
             Ok(v) => v,
             Err(e) => {
-                log::error!(
-                    "Physical Port {}: transceiver presence check failed: {:?}",
+                log::warn!(
+                    "Physical Port {}: transceiver presence check failed: {:?}. Assuming transceiver is present.",
                     self.idx,
                     e
                 );
-                return;
+                true
             }
         };
 
@@ -433,7 +471,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                     self.xcvr_oper_status = Some(v);
                 }
                 Err(e) => {
-                    log::error!(
+                    log::warn!(
                         "Physical Port {}: transceiver oper status check failed: {:?}",
                         self.idx,
                         e
@@ -445,7 +483,7 @@ impl<'a, 'b> PhysicalPort<'a, 'b> {
                     self.xcvr_inserted_type = Some(v);
                 }
                 Err(e) => {
-                    log::error!(
+                    log::warn!(
                         "Physical Port {}: transceiver inserted type check failed: {:?}",
                         self.idx,
                         e
