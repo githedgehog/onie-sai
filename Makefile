@@ -24,6 +24,7 @@ SRC_FILES += $(shell find $(MKFILE_DIR)/sai-sys -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-sys -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-dell-s5200 -type f)
+SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-pddf -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvrctl -type f)
 
 # all things for packaging
@@ -35,9 +36,11 @@ PACKAGE_LLDP_DIR := onie-lldp-$(VERSION)-linux-$(ARCH)
 PACKAGE_LLDP_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_LLDP_DIR).tar.gz
 PACKAGE_XCVR_DELL_S5200_DIR := onie-sai-xcvr-dell-s5200-$(VERSION)-linux-$(ARCH)
 PACKAGE_XCVR_DELL_S5200_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_XCVR_DELL_S5200_DIR).tar.gz
-PACKAGE_FILES := $(PACKAGE_CORE_FILE) $(PACKAGE_LLDP_FILE) $(PACKAGE_XCVR_DELL_S5200_FILE)
+PACKAGE_XCVR_PDDF_DIR := onie-sai-xcvr-pddf-$(VERSION)-linux-$(ARCH)
+PACKAGE_XCVR_PDDF_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_XCVR_PDDF_DIR).tar.gz
+PACKAGE_FILES := $(PACKAGE_CORE_FILE) $(PACKAGE_LLDP_FILE) $(PACKAGE_XCVR_DELL_S5200_FILE) $(PACKAGE_XCVR_PDDF_FILE)
 
-# This snippet has been sourced and adopted from the following file which is
+# This snippet has been sourced and adapted from the following file which is
 # licensed under Apache-2.0:
 # https://github.com/sonic-net/sonic-buildimage/blob/master/platform/broadcom/sai.mk
 #
@@ -138,6 +141,23 @@ $(PACKAGE_XCVR_DELL_S5200_FILE): onie-sai
 	cd $(PACKAGE_ARTIFACTS_DIR) && \
 	tar -czvf $(PACKAGE_XCVR_DELL_S5200_FILE) $(PACKAGE_XCVR_DELL_S5200_DIR) && \
 	rm -rf $(PACKAGE_XCVR_DELL_S5200_DIR)
+
+package_xcvr_pddf: $(PACKAGE_XCVR_PDDF_FILE)
+
+$(PACKAGE_XCVR_PDDF_FILE): onie-sai
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	mkdir $(PACKAGE_XCVR_PDDF_DIR) && cd $(PACKAGE_XCVR_PDDF_DIR) && \
+	mkdir -vp usr/lib/platform && \
+	cp -v $(CARGO_TARGET_DIR)/release/libxcvr_pddf.so usr/lib/platform/ && \
+	ln -sv libxcvr_pddf.so usr/lib/platform/x86_64-accton_as4630_54npe-r0.so && \
+	ln -sv libxcvr_pddf.so usr/lib/platform/x86_64-accton_as4630_54pe-r0.so && \
+	ln -sv libxcvr_pddf.so usr/lib/platform/x86_64-accton_as4630_54te-r0.so && \
+	ln -sv libxcvr_pddf.so usr/lib/platform/x86_64-accton_as4630_54npem-r0.so && \
+	ln -sv libxcvr_pddf.so usr/lib/platform/x86_64-accton_as7326_56x-r0.so && \
+	ln -sv libxcvr_pddf.so usr/lib/platform/x86_64-accton_as7726_32x-r0.so && \
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	tar -czvf $(PACKAGE_XCVR_PDDF_FILE) $(PACKAGE_XCVR_PDDF_DIR) && \
+	rm -rf $(PACKAGE_XCVR_PDDF_DIR)
 
 clean: cargo-clean ## Cleans the project directory
 

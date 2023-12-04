@@ -14,7 +14,18 @@ use xcvr_sys::xcvr_transceiver_status_t;
 
 static LIBRARY_NAME: &[u8; 10] = b"xcvr-pddf\0";
 
-static SUPPORTED_PLATFORMS: [&[u8; 10]; 1] = [b"pddf_xcvr\0"];
+/// List of *known* supported platforms (that we have tested this with).
+/// NOTE: there are potentially more platforms supported. Use the `xcvr_is_supported_platform()`
+/// function to check if a platform is supported. It checks for the existence of the configuration
+/// file which is technically all that is required and is what makes this portable.
+static SUPPORTED_PLATFORMS: [&[u8; 31]; 6] = [
+    b"x86_64-accton_as4630_54npe-r0\0\0",
+    b"x86_64-accton_as4630_54pe-r0\0\0\0",
+    b"x86_64-accton_as4630_54te-r0\0\0\0",
+    b"x86_64-accton_as4630_54npem-r0\0",
+    b"x86_64-accton_as7326_56x-r0\0\0\0\0",
+    b"x86_64-accton_as7726_32x-r0\0\0\0\0",
+];
 
 #[no_mangle]
 pub extern "C" fn xcvr_library_name() -> *const c_char {
@@ -29,6 +40,8 @@ pub extern "C" fn xcvr_is_supported_platform(platform: *const c_char) -> bool {
 
     let platform = unsafe { CStr::from_ptr(platform) }.to_string_lossy();
 
+    // NOTE: instead of checking the list of supported platforms, we simply check for the
+    // existence of the configuration file. This is ultimately more portable.
     // we simply test if the configuration file exists as a test
     Path::new(format!("/etc/platform/{}/pddf_xcvr_settings.json", platform).as_str()).exists()
 }
