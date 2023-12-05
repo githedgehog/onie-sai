@@ -8,11 +8,28 @@ use xcvr_sys::idx_t;
 use xcvr_sys::xcvr_port_type_t;
 use xcvr_sys::xcvr_status_t;
 
+/*
+
+    type xcvrSettings struct {
+        Idx                uint   `json:"idx"`
+        DisplayName        string `json:"display_name"`
+        HasTransceiver     bool   `json:"has_transceiver"`
+        EEPROMDir          string `json:"eeprom_dir,omitempty"`
+        CTRLDir            string `json:"ctrl_dir,omitempty"`
+        SupportedPortTypes []uint `json:"supported_port_types,omitempty"`
+    }
+
+*/
+
+/// serializes the xcvrSettings struct to json
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Port {
+    pub idx: idx_t,
     pub display_name: String,
-    pub eeprom_dir: String,
-    pub ctrl_dir: String,
+    pub has_transceiver: bool,
+    pub eeprom_dir: Option<String>,
+    pub ctrl_dir: Option<String>,
+    pub supported_port_types: Vec<xcvr_port_type_t>,
 }
 
 pub enum ReadSettingsError {
@@ -90,7 +107,11 @@ impl Eeprom {
 }
 
 pub fn get_inserted_port_type(port: &Port) -> Result<xcvr_port_type_t, xcvr_status_t> {
-    let eeprom = Eeprom::new(format!("{}/eeprom", port.eeprom_dir));
+    let eeprom_dir = match port.eeprom_dir {
+        Some(ref dir) => dir,
+        None => return Err(xcvr_sys::XCVR_STATUS_ERROR_GENERAL),
+    };
+    let eeprom = Eeprom::new(format!("{}/eeprom", eeprom_dir));
     let id = eeprom.get_id()?;
 
     match id {
@@ -105,7 +126,11 @@ pub fn get_inserted_port_type(port: &Port) -> Result<xcvr_port_type_t, xcvr_stat
 }
 
 pub fn get_presence(port: &Port) -> Result<bool, xcvr_status_t> {
-    let p_str = format!("{}/xcvr_present", port.ctrl_dir);
+    let ctrl_dir = match port.ctrl_dir {
+        Some(ref dir) => dir,
+        None => return Err(xcvr_sys::XCVR_STATUS_ERROR_GENERAL),
+    };
+    let p_str = format!("{}/xcvr_present", ctrl_dir);
     let p = Path::new(p_str.as_str());
     let mut f = OpenOptions::new()
         .read(true)
@@ -130,7 +155,11 @@ pub fn get_presence(port: &Port) -> Result<bool, xcvr_status_t> {
 }
 
 pub fn get_reset(port: &Port) -> Result<bool, xcvr_status_t> {
-    let p_str = format!("{}/xcvr_reset", port.ctrl_dir);
+    let ctrl_dir = match port.ctrl_dir {
+        Some(ref dir) => dir,
+        None => return Err(xcvr_sys::XCVR_STATUS_ERROR_GENERAL),
+    };
+    let p_str = format!("{}/xcvr_reset", ctrl_dir);
     let p = Path::new(p_str.as_str());
     let mut f = OpenOptions::new()
         .read(true)
@@ -155,7 +184,11 @@ pub fn get_reset(port: &Port) -> Result<bool, xcvr_status_t> {
 }
 
 pub fn set_reset(port: &Port, reset: bool) -> Result<(), xcvr_status_t> {
-    let p_str = format!("{}/xcvr_reset", port.ctrl_dir);
+    let ctrl_dir = match port.ctrl_dir {
+        Some(ref dir) => dir,
+        None => return Err(xcvr_sys::XCVR_STATUS_ERROR_GENERAL),
+    };
+    let p_str = format!("{}/xcvr_reset", ctrl_dir);
     let p = Path::new(p_str.as_str());
     let mut f = OpenOptions::new()
         .read(true)
@@ -175,7 +208,11 @@ pub fn set_reset(port: &Port, reset: bool) -> Result<(), xcvr_status_t> {
 }
 
 pub fn get_low_power_mode(port: &Port) -> Result<bool, xcvr_status_t> {
-    let p_str = format!("{}/xcvr_lpmode", port.ctrl_dir);
+    let ctrl_dir = match port.ctrl_dir {
+        Some(ref dir) => dir,
+        None => return Err(xcvr_sys::XCVR_STATUS_ERROR_GENERAL),
+    };
+    let p_str = format!("{}/xcvr_lpmode", ctrl_dir);
     let p = Path::new(p_str.as_str());
     let mut f = OpenOptions::new()
         .read(true)
@@ -200,7 +237,11 @@ pub fn get_low_power_mode(port: &Port) -> Result<bool, xcvr_status_t> {
 }
 
 pub fn set_low_power_mode(port: &Port, low_power_mode: bool) -> Result<(), xcvr_status_t> {
-    let p_str = format!("{}/xcvr_lpmode", port.ctrl_dir);
+    let ctrl_dir = match port.ctrl_dir {
+        Some(ref dir) => dir,
+        None => return Err(xcvr_sys::XCVR_STATUS_ERROR_GENERAL),
+    };
+    let p_str = format!("{}/xcvr_lpmode", ctrl_dir);
     let p = Path::new(p_str.as_str());
     let mut f = OpenOptions::new()
         .read(true)

@@ -18,13 +18,10 @@ static LIBRARY_NAME: &[u8; 10] = b"xcvr-pddf\0";
 /// NOTE: there are potentially more platforms supported. Use the `xcvr_is_supported_platform()`
 /// function to check if a platform is supported. It checks for the existence of the configuration
 /// file which is technically all that is required and is what makes this portable.
-static SUPPORTED_PLATFORMS: [&[u8; 31]; 6] = [
-    b"x86_64-accton_as4630_54npe-r0\0\0",
-    b"x86_64-accton_as4630_54pe-r0\0\0\0",
-    b"x86_64-accton_as4630_54te-r0\0\0\0",
-    b"x86_64-accton_as4630_54npem-r0\0",
-    b"x86_64-accton_as7326_56x-r0\0\0\0\0",
-    b"x86_64-accton_as7726_32x-r0\0\0\0\0",
+static SUPPORTED_PLATFORMS: [&[u8; 30]; 3] = [
+    b"x86_64-accton_as4630_54npe-r0\0",
+    b"x86_64-accton_as7326_56x-r0\0\0\0",
+    b"x86_64-accton_as7726_32x-r0\0\0\0",
 ];
 
 #[no_mangle]
@@ -96,6 +93,14 @@ pub extern "C" fn xcvr_get_presence(
         Ok(port) => port,
         Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
     };
+
+    // if this is a port which does not have a transceiver, then we'll just return true
+    if !port.has_transceiver {
+        unsafe { *is_present = true };
+        return xcvr_sys::XCVR_STATUS_SUCCESS;
+    }
+
+    // otherwise we'll go through the proper check of the PDDF kernel module
     let presence = match crate::common::get_presence(&port) {
         Ok(presence) => presence,
         Err(status) => return status,
@@ -107,7 +112,7 @@ pub extern "C" fn xcvr_get_presence(
 #[no_mangle]
 pub extern "C" fn xcvr_get_supported_port_types(
     platform: *const c_char,
-    _index: idx_t,
+    index: idx_t,
     supported_port_types: *mut xcvr_port_type_t,
 ) -> xcvr_status_t {
     if platform.is_null() {
@@ -116,9 +121,16 @@ pub extern "C" fn xcvr_get_supported_port_types(
     if supported_port_types.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
     }
+    let platform = unsafe { CStr::from_ptr(platform) }.to_string_lossy();
+    let port = match crate::common::get_port(platform.as_ref(), index) {
+        Ok(port) => port,
+        Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
+    };
 
-    // TODO: awkward, implement somehow
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    // we'll just OR them all together
+    let spt = port.supported_port_types.iter().fold(0, |acc, &v| acc | v);
+    unsafe { *supported_port_types = spt };
+    xcvr_sys::XCVR_STATUS_SUCCESS
 }
 
 #[no_mangle]
@@ -138,6 +150,16 @@ pub extern "C" fn xcvr_get_inserted_port_type(
         Ok(port) => port,
         Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
     };
+
+    // if this is a port which does not have a transceiver, then we'll just return
+    // the folded supported port types
+    if !port.has_transceiver {
+        let spt = port.supported_port_types.iter().fold(0, |acc, &v| acc | v);
+        unsafe { *inserted_port_type = spt };
+        return xcvr_sys::XCVR_STATUS_SUCCESS;
+    }
+
+    // otherwise we'll go through the proper check by reading it from the EEPROM of the transceiver
     let port_type = match crate::common::get_inserted_port_type(&port) {
         Ok(port_type) => port_type,
         Err(status) => return status,
@@ -163,6 +185,14 @@ pub extern "C" fn xcvr_get_oper_status(
         Ok(port) => port,
         Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
     };
+
+    // if this is a port which does not have a transceiver, then we'll just return true
+    if !port.has_transceiver {
+        unsafe { *oper_status = true };
+        return xcvr_sys::XCVR_STATUS_SUCCESS;
+    }
+
+    // otherwise we'll go through the proper check of the PDDF kernel module
     let reset = match crate::common::get_reset(&port) {
         Ok(reset) => reset,
         Err(status) => return status,
@@ -188,6 +218,14 @@ pub extern "C" fn xcvr_get_reset_status(
         Ok(port) => port,
         Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
     };
+
+    // if this is a port which does not have a transceiver, then we'll just return false
+    if !port.has_transceiver {
+        unsafe { *reset_status = false };
+        return xcvr_sys::XCVR_STATUS_SUCCESS;
+    }
+
+    // otherwise we'll go through the proper check of the PDDF kernel module
     let reset = match crate::common::get_reset(&port) {
         Ok(reset) => reset,
         Err(status) => return status,
@@ -206,6 +244,14 @@ pub extern "C" fn xcvr_reset(platform: *const c_char, index: idx_t) -> xcvr_stat
         Ok(port) => port,
         Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
     };
+
+    // if this is a port which does not have a transceiver, then we'll just return
+    // with an error here
+    if !port.has_transceiver {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+
+    // otherwise we'll go through the proper reset procedure
     if let Err(status) = crate::common::set_reset(&port, true) {
         return status;
     }
@@ -233,6 +279,14 @@ pub extern "C" fn xcvr_get_low_power_mode(
         Ok(port) => port,
         Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
     };
+
+    // if this is a port which does not have a transceiver, then we'll just return false
+    if !port.has_transceiver {
+        unsafe { *low_power_mode = false };
+        return xcvr_sys::XCVR_STATUS_SUCCESS;
+    }
+
+    // otherwise we'll go through the proper value from the PDDF kernel module
     let lp = match crate::common::get_low_power_mode(&port) {
         Ok(lp) => lp,
         Err(status) => return status,
@@ -255,6 +309,13 @@ pub extern "C" fn xcvr_set_low_power_mode(
         Ok(port) => port,
         Err(_) => return xcvr_sys::XCVR_STATUS_ERROR_GENERAL,
     };
+
+    // if this is a port which does not have a transceiver, then we'll just return
+    // with an error here
+    if !port.has_transceiver {
+        return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
+    }
+
     if let Err(status) = crate::common::set_low_power_mode(&port, low_power_mode) {
         return status;
     }
