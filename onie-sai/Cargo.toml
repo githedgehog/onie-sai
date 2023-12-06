@@ -11,4 +11,4 @@ onie-saictl = { version = "0.1.6", path = "../onie-saictl" }
 onie-sai-common = { version = "0.1.6", path = "../onie-sai-common" }
 xcvrctl = { version = "0.1.6", path = "../xcvrctl" }
 anyhow = "1.0.75"
-env_logger = "0.10.0"
+env_logger = "0.10.1"
