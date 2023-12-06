@@ -619,7 +619,7 @@ impl<'a, 'b> Processor<'a, 'b> {
         match SAI::api_version() {
             Err(e) => Err(ProcessError::SAIStatus(e)),
             Ok(v) => Ok(onie_sai::VersionResponse {
-                onie_said_version: "0.1.0".to_string(),
+                onie_said_version: env!("CARGO_PKG_VERSION").to_string(),
                 sai_version: v.to_string(),
                 ..Default::default()
             }),

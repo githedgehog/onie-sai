@@ -4,6 +4,7 @@ use std::io::Read;
 use std::io::Seek;
 use std::io::Write;
 use std::path::Path;
+use std::sync::OnceLock;
 use xcvr_sys::idx_t;
 use xcvr_sys::xcvr_port_type_t;
 use xcvr_sys::xcvr_status_t;
@@ -38,21 +39,34 @@ pub enum ReadSettingsError {
     IndexOutOfBounds,
 }
 
-pub fn get_ports(platform: &str) -> Result<Vec<Port>, ReadSettingsError> {
+// we are going to read the settings file just once and cache it
+// in memory. This is because we don't want to read the file all the time.
+static XCVR_SETTINGS: OnceLock<Vec<Port>> = OnceLock::new();
+
+fn xcvr_settings(platform: &str) -> Result<Vec<Port>, ReadSettingsError> {
+    // if already set, then we can return immediately
+    if let Some(settings) = XCVR_SETTINGS.get() {
+        return Ok(settings.clone());
+    }
+
+    // otherwise we are trying to read everything, and error before we are
+    // trying to initialize the OnceLock
     let path = format!("/etc/platform/{}/pddf_xcvr_settings.json", platform);
     let settings_path = Path::new(path.as_str());
     let settings_file = std::fs::File::open(settings_path).map_err(|e| ReadSettingsError::Io(e))?;
     let ports: Vec<Port> =
         serde_json::from_reader(settings_file).map_err(|e| ReadSettingsError::Json(e))?;
-    Ok(ports)
+
+    // now last but not least, initialize it, and clone the return
+    Ok(XCVR_SETTINGS.get_or_init(move || ports).clone())
+}
+
+pub fn get_ports(platform: &str) -> Result<Vec<Port>, ReadSettingsError> {
+    xcvr_settings(platform)
 }
 
 pub fn get_port(platform: &str, index: idx_t) -> Result<Port, ReadSettingsError> {
-    let path = format!("/etc/platform/{}/pddf_xcvr_settings.json", platform);
-    let settings_path = Path::new(path.as_str());
-    let settings_file = std::fs::File::open(settings_path).map_err(|e| ReadSettingsError::Io(e))?;
-    let ports: Vec<Port> =
-        serde_json::from_reader(settings_file).map_err(|e| ReadSettingsError::Json(e))?;
+    let ports = xcvr_settings(platform)?;
     if index >= ports.len() as idx_t {
         return Err(ReadSettingsError::IndexOutOfBounds);
     }
