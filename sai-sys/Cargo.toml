@@ -9,4 +9,4 @@ edition = "2021"
 bindgen = "0.68.1"
 
 [dependencies]
-ipnet = "2.8.0"
+ipnet = "2.9.0"

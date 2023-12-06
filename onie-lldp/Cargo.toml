@@ -15,7 +15,7 @@ onie-sai-common = { version = "0.1.6", path = "../onie-sai-common" }
 ttrpc = "0.8.1"
 onie-sai-rpc = { version = "0.1.6", path = "../onie-sai-rpc" }
 ctrlc = { version = "3.4.1", features = ["termination"] }
-ipnet = "2.8.0"
+ipnet = "2.9.0"
 macaddr = "1.0.1"
 etherparse = "0.13.0"
 url = "2.4.1"
