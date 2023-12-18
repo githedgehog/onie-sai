@@ -30,7 +30,7 @@
           - name: Create packages
             run: make package
           - name: Upload packages as build artifacts
-            uses: actions/upload-artifact@v3
+            uses: actions/upload-artifact@v4
             with:
               name: packages
               path: |
