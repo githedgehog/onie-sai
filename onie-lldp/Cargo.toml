@@ -10,7 +10,7 @@ anyhow = "1.0.75"
 thiserror = "1.0.49"
 clap = { version = "4.4.5", features = ["derive", "string"] }
 log = "0.4.20"
-env_logger = "0.10.0"
+env_logger = "0.10.2"
 onie-sai-common = { version = "0.1.6", path = "../onie-sai-common" }
 ttrpc = "0.8.1"
 onie-sai-rpc = { version = "0.1.6", path = "../onie-sai-rpc" }
