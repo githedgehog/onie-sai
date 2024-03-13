@@ -18,10 +18,11 @@ static LIBRARY_NAME: &[u8; 10] = b"xcvr-pddf\0";
 /// NOTE: there are potentially more platforms supported. Use the `xcvr_is_supported_platform()`
 /// function to check if a platform is supported. It checks for the existence of the configuration
 /// file which is technically all that is required and is what makes this portable.
-static SUPPORTED_PLATFORMS: [&[u8; 30]; 3] = [
+static SUPPORTED_PLATFORMS: [&[u8; 30]; 4] = [
     b"x86_64-accton_as4630_54npe-r0\0",
     b"x86_64-accton_as7326_56x-r0\0\0\0",
     b"x86_64-accton_as7726_32x-r0\0\0\0",
+    b"x86_64-accton_as7712_32x-r0\0\0\0",
 ];
 
 #[no_mangle]
