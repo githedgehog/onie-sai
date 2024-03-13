@@ -166,7 +166,7 @@ impl PhysicalPortConfig {
     // when the supported breakout mode type SAI property is not available
     // we will use this function to guess the available breakout modes
     // NOTE: on Broadcom SAI, this can only work if all possible breakouts
-    // have actually been defined as inactive ports in the config.bcm
+    // have actually been defined as inactive ports in the config.bcm (or through port flex)
     pub(crate) fn get_supported_breakout_mode_types(&self) -> Vec<BreakoutModeType> {
         match self.lanes.len() {
             1 => {
@@ -177,8 +177,8 @@ impl PhysicalPortConfig {
             }
             4 => {
                 vec![
-                    BreakoutModeType::FourLanes,
-                    BreakoutModeType::FourLanes,
+                    BreakoutModeType::OneLane,
+                    BreakoutModeType::TwoLanes,
                     BreakoutModeType::FourLanes,
                 ]
             }
