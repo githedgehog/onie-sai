@@ -23,6 +23,7 @@ SRC_FILES += $(shell find $(MKFILE_DIR)/sai -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/sai-sys -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-sys -type f)
+SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-cel-seastone2 -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-dell-s5200 -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvr-pddf -type f)
 SRC_FILES += $(shell find $(MKFILE_DIR)/xcvrctl -type f)
@@ -38,7 +39,9 @@ PACKAGE_XCVR_DELL_S5200_DIR := onie-sai-xcvr-dell-s5200-$(VERSION)-linux-$(ARCH)
 PACKAGE_XCVR_DELL_S5200_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_XCVR_DELL_S5200_DIR).tar.gz
 PACKAGE_XCVR_PDDF_DIR := onie-sai-xcvr-pddf-$(VERSION)-linux-$(ARCH)
 PACKAGE_XCVR_PDDF_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_XCVR_PDDF_DIR).tar.gz
-PACKAGE_FILES := $(PACKAGE_CORE_FILE) $(PACKAGE_LLDP_FILE) $(PACKAGE_XCVR_DELL_S5200_FILE) $(PACKAGE_XCVR_PDDF_FILE)
+PACKAGE_XCVR_CEL_SEASTONE2_DIR := onie-sai-xcvr-cel-seastone2-$(VERSION)-linux-$(ARCH)
+PACKAGE_XCVR_CEL_SEASTONE2_FILE := $(PACKAGE_ARTIFACTS_DIR)/$(PACKAGE_XCVR_CEL_SEASTONE2_DIR).tar.gz
+PACKAGE_FILES := $(PACKAGE_CORE_FILE) $(PACKAGE_LLDP_FILE) $(PACKAGE_XCVR_DELL_S5200_FILE) $(PACKAGE_XCVR_PDDF_FILE) $(PACKAGE_XCVR_CEL_SEASTONE2_FILE)
 
 # This snippet has been sourced and adapted from the following file which is
 # licensed under Apache-2.0:
@@ -158,6 +161,18 @@ $(PACKAGE_XCVR_PDDF_FILE): onie-sai
 	cd $(PACKAGE_ARTIFACTS_DIR) && \
 	tar -czvf $(PACKAGE_XCVR_PDDF_FILE) $(PACKAGE_XCVR_PDDF_DIR) && \
 	rm -rf $(PACKAGE_XCVR_PDDF_DIR)
+
+package_xcvr_cel_seastone2: $(PACKAGE_XCVR_CEL_SEASTONE2_FILE)
+
+$(PACKAGE_XCVR_CEL_SEASTONE2_FILE): onie-sai
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	mkdir $(PACKAGE_XCVR_CEL_SEASTONE2_DIR) && cd $(PACKAGE_XCVR_CEL_SEASTONE2_DIR) && \
+	mkdir -vp usr/lib/platform && \
+	cp -v $(CARGO_TARGET_DIR)/release/libxcvr_cel_seastone2.so usr/lib/platform/ && \
+	ln -sv libxcvr_cel_seastone2.so usr/lib/platform/x86_64-cel_seastone_2-r0.so && \
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	tar -czvf $(PACKAGE_XCVR_CEL_SEASTONE2_FILE) $(PACKAGE_XCVR_CEL_SEASTONE2_DIR) && \
+	rm -rf $(PACKAGE_XCVR_CEL_SEASTONE2_DIR)
 
 clean: cargo-clean ## Cleans the project directory
 
