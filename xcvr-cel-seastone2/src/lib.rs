@@ -7,6 +7,8 @@ use xcvr_sys::xcvr_status_t;
 use xcvr_sys::xcvr_transceiver_info_t;
 use xcvr_sys::xcvr_transceiver_status_t;
 
+mod common;
+
 static LIBRARY_NAME: &[u8; 19] = b"xcvr-cel-seastone2\0";
 
 static SUPPORTED_PLATFORMS: [&[u8; 25]; 1] = [b"x86_64-cel_seastone_2-r0\0"];
@@ -76,8 +78,12 @@ pub extern "C" fn xcvr_get_presence(
     if is_present.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
     }
-    // TODO: implement
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    common::get_presence(index)
+        .map(|v| {
+            unsafe { *is_present = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
@@ -123,8 +129,12 @@ pub extern "C" fn xcvr_get_inserted_port_type(
     if inserted_port_type.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
     }
-    // TODO: implement
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    common::get_inserted_port_type(index)
+        .map(|v| {
+            unsafe { *inserted_port_type = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
@@ -139,8 +149,13 @@ pub extern "C" fn xcvr_get_oper_status(
     if oper_status.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
     }
-    // TODO: implement
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    // this is the reverse of reset status
+    common::get_reset_status(index)
+        .map(|v| {
+            unsafe { *oper_status = !v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
@@ -155,8 +170,12 @@ pub extern "C" fn xcvr_get_reset_status(
     if reset_status.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
     }
-    // TODO: implement
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    common::get_reset_status(index)
+        .map(|v| {
+            unsafe { *reset_status = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
@@ -164,8 +183,10 @@ pub extern "C" fn xcvr_reset(platform: *const c_char, index: idx_t) -> xcvr_stat
     if platform.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
     }
-    // TODO: implement
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if let Err(err) = common::reset(index) {
+        return err;
+    }
+    xcvr_sys::XCVR_STATUS_SUCCESS
 }
 
 #[no_mangle]
@@ -180,8 +201,12 @@ pub extern "C" fn xcvr_get_low_power_mode(
     if low_power_mode.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_GENERAL;
     }
-    // TODO: implement
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    common::get_lpmode(index)
+        .map(|v| {
+            unsafe { *low_power_mode = v };
+            xcvr_sys::XCVR_STATUS_SUCCESS
+        })
+        .unwrap_or_else(|err| err)
 }
 
 #[no_mangle]
@@ -193,8 +218,10 @@ pub extern "C" fn xcvr_set_low_power_mode(
     if platform.is_null() {
         return xcvr_sys::XCVR_STATUS_ERROR_UNSUPPORTED_PLATFORM;
     }
-    // TODO: implement
-    xcvr_sys::XCVR_STATUS_ERROR_UNIMPLEMENTED
+    if let Err(err) = common::set_lpmode(index, low_power_mode) {
+        return err;
+    }
+    xcvr_sys::XCVR_STATUS_SUCCESS
 }
 
 #[no_mangle]
