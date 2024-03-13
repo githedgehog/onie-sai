@@ -1341,6 +1341,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "xcvr-cel-seastone2"
+version = "0.1.6"
+dependencies = [
+ "memmap",
+ "xcvr-sys",
+]
+
+[[package]]
 name = "xcvr-dell-s5200"
 version = "0.1.6"
 dependencies = [
