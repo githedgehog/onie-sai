@@ -1,11 +1,14 @@
 [package]
-name = "xcvr-sys"
+name = "xcvr-cel-silverstone"
 version = "0.1.8"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[build-dependencies]
-bindgen = "0.68.1"
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
+xcvr-sys = { version = "0.1.8", path = "../xcvr-sys" }
+# log = "0.4.20"
+# env_logger = "0.10.0"
