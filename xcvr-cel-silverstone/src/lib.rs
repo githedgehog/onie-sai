@@ -9,9 +9,9 @@ use xcvr_sys::xcvr_transceiver_status_t;
 
 mod common;
 
-static LIBRARY_NAME: &[u8; 19] = b"xcvr-cel-silverstone\0";
+static LIBRARY_NAME: &[u8; 21] = b"xcvr-cel-silverstone\0";
 
-static SUPPORTED_PLATFORMS: [&[u8; 25]; 1] = [b"x86_64-cel_silverstone-r0\0"];
+static SUPPORTED_PLATFORMS: [&[u8; 26]; 1] = [b"x86_64-cel_silverstone-r0\0"];
 
 #[no_mangle]
 pub extern "C" fn xcvr_library_name() -> *const c_char {
@@ -100,7 +100,8 @@ pub extern "C" fn xcvr_get_supported_port_types(
     }
     let v = match index {
         0..=31 => {
-            xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP28
+            xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFPDD
+                | xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP28
                 | xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP_PLUS
                 | xcvr_sys::_xcvr_port_type_t_XCVR_PORT_TYPE_QSFP
         }
