@@ -180,14 +180,14 @@ $(PACKAGE_XCVR_CEL_SEASTONE2_FILE): onie-sai
 package_xcvr_cel_silverstone: $(PACKAGE_XCVR_CEL_SILVERSTONE_FILE)
 
 $(PACKAGE_XCVR_CEL_SILVERSTONE_FILE): onie-sai
-        cd $(PACKAGE_ARTIFACTS_DIR) && \
-        mkdir $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR) && cd $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR) && \
-        mkdir -vp usr/lib/platform && \
-        cp -v $(CARGO_TARGET_DIR)/release/libxcvr_cel_silverstone.so usr/lib/platform/ && \
-        ln -sv libxcvr_cel_silverstone.so usr/lib/platform/x86_64-cel_silverstone-r0.so && \
-        cd $(PACKAGE_ARTIFACTS_DIR) && \
-        tar -czvf $(PACKAGE_XCVR_CEL_SILVERSTONE_FILE) $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR) && \
-        rm -rf $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR)
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	mkdir $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR) && cd $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR) && \
+	mkdir -vp usr/lib/platform && \
+	cp -v $(CARGO_TARGET_DIR)/release/libxcvr_cel_silverstone.so usr/lib/platform/ && \
+	ln -sv libxcvr_cel_silverstone.so usr/lib/platform/x86_64-cel_silverstone-r0.so && \
+	cd $(PACKAGE_ARTIFACTS_DIR) && \
+	tar -czvf $(PACKAGE_XCVR_CEL_SILVERSTONE_FILE) $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR) && \
+	rm -rf $(PACKAGE_XCVR_CEL_SILVERSTONE_DIR)
 
 clean: cargo-clean ## Cleans the project directory
 
