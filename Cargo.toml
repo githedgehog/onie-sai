@@ -6,6 +6,7 @@ members = [
     "xcvr-sys",
     "xcvr",
     "xcvr-cel-seastone2",
+    "xcvr-cel-silverstone",
     "xcvr-dell-s5200",
     "xcvr-pddf",
     "xcvrctl",
