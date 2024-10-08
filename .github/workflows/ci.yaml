@@ -7,8 +7,8 @@
           - main
         tags:
           - "*"
-      schedule:
-        - cron: "0 10 * * *" # ~2am PST
+      # schedule:
+      #   - cron: "0 10 * * *" # ~2am PST
       workflow_dispatch:
         inputs:
           debug_enabled:
