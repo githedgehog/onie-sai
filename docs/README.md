@@ -2,7 +2,7 @@
 
 We keep this folder to contain research and development notes.
 
-For example, here we have the following:
+For example, it is useful to extract the following from running SONiC instances:
 
 - `asic_state.json`: contains the ASIC_STATE redis dump from within a running SONiC instance. This can be achieved by running `redis-dump -d 1 -k "ASIC_STATE*" -y > asic_state.json` on the SONiC instance.
 - `dump-data-after-start`: contains a dump of the SAI state (as much as was dumpable without crashing) by using the `dump_startup_data()` function within the POC code.
