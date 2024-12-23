@@ -1,2 +1,0 @@
-m0 load 0 0x0 /root/saictl/bin/linkscan_led_fw.bin
-m0 load 0 0x3800 /root/saictl/bin/custom_led.bin
