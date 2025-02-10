@@ -10,4 +10,4 @@ protobuf = "3.2.0"
 ttrpc = "0.8.1"
 
 [build-dependencies]
-ttrpc-codegen = "0.4.2"
+ttrpc-codegen = "0.5.0"
