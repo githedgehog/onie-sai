@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 clap = { version = "4.4.5", features = ["derive", "string"] }
-log = "0.4.20"
+log = "0.4.25"
 env_logger = "0.10.0"
 ttrpc = "0.8.1"
 onie-sai-rpc = { version = "0.1.7", path = "../onie-sai-rpc" }
