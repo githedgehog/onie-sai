@@ -18,7 +18,7 @@ ctrlc = { version = "3.4.1", features = ["termination"] }
 ipnet = "2.8.0"
 macaddr = "1.0.1"
 etherparse = "0.13.0"
-url = "2.4.1"
+url = "2.5.4"
 libc = "0.2.149"
 netlink-sys = "0.8.5"
 netlink-packet-core = "0.7.0"
